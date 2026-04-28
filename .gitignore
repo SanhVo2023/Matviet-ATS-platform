@@ -1,0 +1,57 @@
+# --- Project-scoped MCP secrets ---
+# .mcp.json contains the Supabase Personal Access Token for this project.
+# Use .mcp.example.json as the shareable template; never commit the real one.
+.mcp.json
+
+# --- Environment variables ---
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.production.local
+.env.test.local
+
+# --- Word lock files (Word leaves these next to open documents) ---
+~$*
+
+# --- Node / Next.js ---
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# --- Logs ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# --- Test output ---
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# --- Editor / OS ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+# --- Supabase local ---
+supabase/.branches/
+supabase/.temp/
+
+# --- Claude Code per-machine settings ---
+.claude/
+
+# --- Misc ---
+*.pem
+.vercel
+.netlify/

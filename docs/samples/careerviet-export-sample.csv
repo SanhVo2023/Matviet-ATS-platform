@@ -1,0 +1,18 @@
+# PLACEHOLDER — replace with real CareerViet employer-export CSV before Group 8
+
+# To get the real file:
+# 1. Log in to CareerViet employer dashboard at https://careerviet.vn/en/employers/
+# 2. Open one of your active job posts
+# 3. Export applicants → CSV / Excel
+# 4. Save here as careerviet-export-sample.csv (replace this placeholder)
+
+# The CSV parser at src/lib/integrations/careerviet/csv-parser.ts will be coded
+# against the actual column structure. Without a real sample, the parser is a guess.
+
+# Expected columns (CareerViet's typical export, may vary):
+# Full Name, Email, Phone, Position, Applied Date, CV File URL, Years of Experience
+
+# Example placeholder row (DO NOT use for real parsing):
+"Full Name","Email","Phone","Position","Applied Date","CV File URL","Years of Experience"
+"Lê Văn C","lvc@example.com","0911223344","Sales Staff","2026-04-17","https://careerviet.vn/cv/xyz789","2"
+"Phạm Thị D","ptd@example.com","0922334455","Sales Staff","2026-04-18","https://careerviet.vn/cv/uvw012","5"
