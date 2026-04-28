@@ -3,11 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { requireRole } from "@/lib/auth";
-import { getJob, getJobAssignments } from "@/server/jobs/repository";
+import { getJob, getJobAssignments, listJobs } from "@/server/jobs/repository";
+import { listCandidates } from "@/server/candidates/repository";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { JobStatusBadge } from "@/components/primitives/StatusBadge";
+import { JobCandidatesPanel } from "@/components/features/candidates/JobCandidatesPanel";
 import { t } from "@/lib/i18n";
 import { formatDate, formatVND } from "@/lib/vi-format";
 import { SCORING_CRITERION_CODES } from "@/lib/constants";
@@ -33,7 +35,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   if (!job) notFound();
 
   // Fetch supporting data
-  const [assignments, deptResult] = await Promise.all([
+  const [assignments, deptResult, candidates, allJobs] = await Promise.all([
     getJobAssignments(id),
     job.department_id
       ? createAdminClient()
@@ -42,6 +44,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           .eq("id", job.department_id)
           .maybeSingle()
       : Promise.resolve({ data: null as null | { name: string } }),
+    listCandidates({ job_id: id }),
+    listJobs(),
   ]);
 
   const managerIds = assignments.map((a) => a.manager_user_id);
@@ -186,6 +190,20 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           ) : (
             <p className="text-sm text-slate-400">Chưa có trưởng phòng nào được gán.</p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.nav.candidates}</CardTitle>
+          <CardDescription>Ứng viên đang ứng tuyển vào vị trí này.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <JobCandidatesPanel
+            jobId={job.id}
+            jobs={allJobs.map((j) => ({ id: j.id, title: j.title, status: j.status }))}
+            candidates={candidates}
+          />
         </CardContent>
       </Card>
     </div>
