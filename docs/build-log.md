@@ -38,6 +38,13 @@ When a decision is significant enough to outlive a session, **promote to a numbe
 2026-04-28 | dep | Claude | Added sharp + tsx (dev) for brand derivatives generation; husky + lint-staged (dev) for pre-commit; @eslint/eslintrc + @eslint/js (dev) to migrate ESLint to flat config (.eslintrc.json deleted in favor of eslint.config.mjs using FlatCompat with eslint-config-next).
 2026-04-28 | decision | Claude | ESLint pre-commit hook DROPPED for now (pre-commit runs prettier only). Rationale: lint-staged was reverting commits because of ESLint 9 / next-config legacy interop friction. CI workflow runs `npm run lint` on every PR; that's sufficient at our scale.
 2026-04-28 | note | Claude | Group 1 PR pushed to feat/01-foundation. PR URL: https://github.com/SanhVo2023/Matviet-ATS-platform/pull/new/feat/01-foundation. Sanh to open + merge after review.
+2026-04-28 | dep | Claude | Group 2 deps: @tiptap/{react,starter-kit,pm} 3.22 (rich text editor), nuqs 2.8 (URL-synced filter state), @tailwindcss/typography (prose styling for Tiptap content + JD rendering on detail page).
+2026-04-28 | decision | Claude | Group 2 stacked on top of feat/01-foundation. PR will rebase to main once Group 1 merges (or GitHub will auto-update the diff). No new migrations in Group 2.
+2026-04-28 | decision | Claude | Job description + requirements stored as `{html: "..."}` jsonb (not raw text). Forward-compat with structured requirements (skills lists, criteria) when v2 form builder lands. Tiptap StarterKit schema sanitizes input — no arbitrary HTML.
+2026-04-28 | decision | Claude | jobs.weights stored as numbers 0-1 (not 0-100). Form sliders display 0-100 % and convert. WeightsEditor "Chuẩn hóa về 100%" button rescales sliders proportionally if user drifts off the budget.
+2026-04-28 | decision | Claude | Job assignment via `job_assignments` is "replace wholesale" on update (delete all + reinsert). Assignment set is small (≤10 rows per job) so simpler than diff. RLS allows because admin/HR owns the table.
+2026-04-28 | decision | Claude | listHiringManagers() uses the service-role admin client to traverse profiles + departments JOIN that auth.users RLS doesn't simplify. Caller (server action) MUST be admin/hr — enforced at the action layer with requireRole.
+2026-04-28 | surprise | Claude | Same supabase-js typing issue as G1 hits insert/update payloads (narrows to `never`). Workaround: type-annotate payload via TablesInsert<>/TablesUpdate<> then cast `as never` at the .insert/.update call. Compile-time correctness preserved by the explicit annotation; cast just disarms postgrest's inference quirk.
 ```
 
 ---
