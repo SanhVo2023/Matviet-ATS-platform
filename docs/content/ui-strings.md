@@ -71,6 +71,8 @@
 
 ## Candidate stages
 
+Keys match the `pipeline_stage` enum in `app/supabase/migrations/0001_extensions_and_enums.sql`.
+
 | Key | Vietnamese |
 |---|---|
 | `stage.new` | Mới |
@@ -78,17 +80,17 @@
 | `stage.screened` | Đã chấm |
 | `stage.interview_scheduled` | Đã xếp lịch PV |
 | `stage.interviewed` | Đã PV |
-| `stage.assessment_sent` | Đã gửi test |
-| `stage.assessment_done` | Đã làm test |
-| `stage.proposed` | Đề xuất |
-| `stage.salary_negotiation` | Đang deal lương |
+| `stage.test_sent` | Đã gửi test |
+| `stage.test_done` | Đã làm test |
+| `stage.recommended` | Đề xuất |
+| `stage.salary_deal` | Đang deal lương |
 | `stage.bod_review` | BOD đang duyệt |
-| `stage.group_review` | Tập đoàn đang duyệt |
+| `stage.tap_doan_review` | Tập đoàn đang duyệt |
 | `stage.offer_sent` | Đã gửi offer |
 | `stage.offer_accepted` | Đã nhận offer |
 | `stage.hired` | Đã tuyển |
 | `stage.rejected` | Từ chối |
-| `stage.withdrawn` | Rút hồ sơ |
+| `stage.withdrew` | Rút hồ sơ |
 
 ## CV sources
 
@@ -102,12 +104,15 @@
 
 ## Role families
 
+Keys match the `role_family` enum.
+
 | Key | Vietnamese |
 |---|---|
 | `roleFamily.sales` | Bán hàng |
-| `roleFamily.optical_tech` | Kỹ thuật quang học |
+| `roleFamily.optician` | Kỹ thuật viên quang học |
 | `roleFamily.office` | Văn phòng |
-| `roleFamily.management` | Cấp quản lý |
+| `roleFamily.manager` | Cấp quản lý |
+| `roleFamily.custom` | Tùy chỉnh |
 
 ## Interview types
 
@@ -119,12 +124,14 @@
 
 ## Recommendations (interview review)
 
+Keys match the `recommendation` enum.
+
 | Key | Vietnamese |
 |---|---|
-| `recommendation.strong_hire` | Rất nên tuyển |
-| `recommendation.hire` | Nên tuyển |
+| `recommendation.strong_yes` | Rất nên tuyển |
+| `recommendation.yes` | Nên tuyển |
 | `recommendation.maybe` | Cân nhắc |
-| `recommendation.no_hire` | Không nên tuyển |
+| `recommendation.no` | Không nên tuyển |
 
 ## AI scoring criteria (display labels)
 
@@ -139,13 +146,15 @@
 
 ## Approval steps (display labels)
 
+Keys match the `approval_step_kind` enum.
+
 | Key | Vietnamese |
 |---|---|
-| `approvalActor.hr_and_manager` | HR + Trưởng phòng đề xuất |
-| `approvalActor.hr_salary` | HR deal lương |
-| `approvalActor.bod` | BOD duyệt |
-| `approvalActor.group` | Quản lý Tập đoàn duyệt |
-| `approvalActor.offer` | Gửi offer |
+| `approvalStep.hr_recommend` | HR đề xuất |
+| `approvalStep.manager_recommend` | Trưởng phòng đề xuất |
+| `approvalStep.salary_deal` | HR deal lương |
+| `approvalStep.bod` | BOD duyệt |
+| `approvalStep.tap_doan` | Quản lý Tập đoàn duyệt |
 
 ## Empty states
 

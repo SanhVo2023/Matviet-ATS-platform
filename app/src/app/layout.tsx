@@ -3,7 +3,7 @@ import { Be_Vietnam_Pro, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "sonner";
-import { APP_DESCRIPTION, APP_NAME } from "@/lib/constants";
+import { t } from "@/lib/i18n";
 
 const beVietnamPro = Be_Vietnam_Pro({
   subsets: ["vietnamese", "latin"],
@@ -21,30 +21,26 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: `${APP_NAME} — ${APP_DESCRIPTION}`,
-    template: `%s · ${APP_NAME}`,
+    default: `${t.app.name} — ${t.app.description}`,
+    template: `%s · ${t.app.name}`,
   },
-  description: APP_DESCRIPTION,
-  applicationName: APP_NAME,
+  description: t.app.description,
+  applicationName: t.app.name,
   authors: [{ name: "Sanh Võ" }],
   openGraph: {
     type: "website",
     locale: "vi_VN",
-    siteName: APP_NAME,
-    title: APP_NAME,
-    description: APP_DESCRIPTION,
+    siteName: t.app.name,
+    title: t.app.name,
+    description: t.app.description,
   },
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body
-        className={`${beVietnamPro.variable} ${jetbrainsMono.variable} font-sans antialiased`}
-      >
+      <body className={`${beVietnamPro.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
         <Toaster position="top-right" richColors closeButton />
       </body>

@@ -54,7 +54,20 @@
 
 ## 3. Database schema
 
-All tables in `public` schema. UUID PKs via `gen_random_uuid()`. Every table has `created_at`/`updated_at` (trigger-maintained). See `supabase/migrations/0001_*.sql` for the canonical SQL.
+> **Canonical source: `app/supabase/migrations/0001_*.sql` through `0010_*.sql`.** Field-level details below describe design intent; treat any divergence between this section and the migration files as the migration files being authoritative. TypeScript types are generated from the live database via `mcp__supabase-matviet__generate_typescript_types` into `src/types/db.ts` — that file is the runtime source of truth for application code.
+>
+> **Key naming differences to remember (active in migrations, may differ from design-intent prose below):**
+> - `user_role`: `admin | hr | hiring_manager | bod | tap_doan` (5 values, not 3 — BOD and Tập đoàn need their own roles for management-flow approvals)
+> - `pipeline_stage`: 16 values including `test_sent`, `test_done`, `recommended`, `salary_deal`, `tap_doan_review`, `withdrew` (not `assessment_*`/`proposed`/`salary_negotiation`/`group_review`/`withdrawn`)
+> - `role_family`: `sales | optician | office | manager | custom`
+> - `recommendation`: `strong_yes | yes | maybe | no`
+> - `email_status`: `queued | pending_approval | sent | delivered | failed | received`
+> - `approval_step_kind`: `hr_recommend | manager_recommend | salary_deal | bod | tap_doan`
+> - Tables: `interview_attendees`, `interview_evaluations`, `email_messages`, `audit_log`, `cv_files` (CV blobs in a separate table joined via `candidates.cv_file_id`), `stage_history`, `referrals`, `assessment_submissions`, `inbox_attachments` — alongside `profiles`, `departments`, `jobs`, `job_assignments`, `weight_templates`, `candidates`, `ai_screenings`, `assessments`, `approvals`, `email_templates`
+> - `notifications`, `scoring_queue`, `scheduled_emails` are **not yet in migrations** — to be added in Group 4 (scoring queue) and Group 6 (notifications + scheduled emails) as additive migrations
+> - Storage buckets: `cvs | assessments | submissions | email-attachments | assets` (5 buckets, not 3)
+
+All tables in `public` schema. UUID PKs via `gen_random_uuid()`. Every table has `created_at`/`updated_at` (trigger-maintained). See `app/supabase/migrations/000N_*.sql` for the canonical SQL.
 
 ### 3.1 Enums
 
