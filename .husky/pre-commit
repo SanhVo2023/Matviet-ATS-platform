@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+# Pre-commit hook — runs lint-staged inside app/ where the JS toolchain lives.
+# Skip if no JS/TS files staged (e.g. when only docs change).
+
+set -e
+
+STAGED_JS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^app/.*\.(ts|tsx|js|jsx|css|md)$' || true)
+
+if [ -n "$STAGED_JS" ]; then
+  cd app
+  npx lint-staged
+fi
