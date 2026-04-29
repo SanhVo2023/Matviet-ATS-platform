@@ -1,6 +1,9 @@
 /**
  * Strongly-typed runtime env access.
- * - Public vars (NEXT_PUBLIC_*) are inlined by Next.js into the client bundle.
+ * - Public vars (NEXT_PUBLIC_*) MUST use direct `process.env.NAME` access so
+ *   Next.js can statically inline them into the client bundle — computed
+ *   access like `process.env[key]` is left as-is and reads `undefined` in
+ *   the browser. Don't refactor publicEnv to use a helper.
  * - Private vars throw at first read on the server if missing — fail fast.
  */
 
@@ -12,13 +15,21 @@ const required = (key: string): string => {
 
 const optional = (key: string): string | undefined => process.env[key] || undefined;
 
+const requirePublic = (value: string | undefined, name: string): string => {
+  if (!value) throw new Error(`Missing required env var: ${name}`);
+  return value;
+};
+
 /** Public env — safe to access from anywhere. */
 export const publicEnv = {
   appName: process.env.NEXT_PUBLIC_APP_NAME ?? "Mắt Việt HR",
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-  supabaseUrl: required("NEXT_PUBLIC_SUPABASE_URL"),
-  supabaseAnonKey: required("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-  sentryDsn: optional("NEXT_PUBLIC_SENTRY_DSN"),
+  supabaseUrl: requirePublic(process.env.NEXT_PUBLIC_SUPABASE_URL, "NEXT_PUBLIC_SUPABASE_URL"),
+  supabaseAnonKey: requirePublic(
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  ),
+  sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN || undefined,
 };
 
 /**
