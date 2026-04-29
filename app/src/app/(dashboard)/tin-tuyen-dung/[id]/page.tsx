@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { Pencil, Kanban } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { getJob, getJobAssignments, listJobs } from "@/server/jobs/repository";
 import { listCandidates } from "@/server/candidates/repository";
@@ -72,6 +72,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/tin-tuyen-dung/${job.id}/pipeline`}>
+              <Kanban className="h-4 w-4" aria-hidden /> {t.pipeline.viewToggle.kanban}
+            </Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href={`/tin-tuyen-dung/${job.id}/sua`}>
               <Pencil className="h-4 w-4" aria-hidden /> {t.action.edit}
