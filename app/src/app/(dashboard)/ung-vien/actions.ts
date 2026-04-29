@@ -47,7 +47,7 @@ export async function uploadCandidateAction(
     return { ok: false, error: "Vui lòng chọn file CV." };
   }
   if (!isAcceptedCvMime(file.type)) {
-    return { ok: false, error: "Loại file không hỗ trợ. Chỉ chấp nhận PDF hoặc DOCX." };
+    return { ok: false, error: "Loại file không hỗ trợ. Chỉ chấp nhận PDF." };
   }
   if (file.size > CV_MAX_BYTES) {
     return { ok: false, error: "File quá lớn. Tối đa 10 MB." };

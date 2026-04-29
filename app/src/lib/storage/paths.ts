@@ -40,12 +40,12 @@ export function cvStoragePath(candidateId: string, originalName: string): string
   return `${candidateId}/${slugifyFilename(originalName)}`;
 }
 
-/** Whitelist of MIME types accepted by the cvs bucket (mirrors storage.buckets allowed_mime_types). */
-export const CV_ACCEPTED_MIMES = [
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-  "application/msword", // .doc (legacy; rare but tolerated)
-] as const;
+/**
+ * Whitelist of MIME types accepted by the cvs bucket.
+ * v1: PDF only — DOCX deferred until the LibreOffice worker on Fly.io is live.
+ * Re-add `.docx` and `application/msword` once `LIBREOFFICE_WORKER_URL` is set.
+ */
+export const CV_ACCEPTED_MIMES = ["application/pdf"] as const;
 
 /** Mirror of the bucket file_size_limit (10 MB). Validated server-side. */
 export const CV_MAX_BYTES = 10 * 1024 * 1024;

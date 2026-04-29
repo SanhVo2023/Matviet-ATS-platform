@@ -198,7 +198,7 @@ export const t = {
     validation: "Vui lòng kiểm tra lại thông tin nhập.",
     weights_sum: "Tổng trọng số phải bằng 100%.",
     fileTooLarge: "File quá lớn. Tối đa 10 MB.",
-    fileType: "Loại file không hỗ trợ. Vui lòng dùng PDF hoặc DOCX.",
+    fileType: "Loại file không hỗ trợ. Vui lòng dùng PDF.",
     email_send: "Không gửi được email. {{reason}}",
     ai_quota: "AI tạm dừng — tiếp tục sau {{reset_time}}.",
     ai_failed: "Không chấm điểm được CV. Vui lòng review thủ công.",
