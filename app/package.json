@@ -17,7 +17,8 @@
     "test:e2e": "playwright test",
     "db:types": "supabase gen types typescript --project-id xeyqbapegqeibeqrwnkm --schema public > src/types/db.ts",
     "brand:generate": "tsx scripts/generate-brand-derivatives.ts",
-    "docs:hr-prefill": "node scripts/build-hr-prefill-docx.mjs"
+    "docs:hr-prefill": "node scripts/build-hr-prefill-docx.mjs",
+    "docs:bod-update": "node scripts/build-bod-update-slides.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -88,6 +89,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "postcss": "^8.4.49",
+    "pptxgenjs": "^4.0.1",
     "prettier": "^3.4.2",
     "prettier-plugin-tailwindcss": "^0.6.9",
     "sharp": "^0.34.5",
