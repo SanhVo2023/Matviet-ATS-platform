@@ -1,0 +1,89 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { Plus, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScheduleInterviewDialog } from "./ScheduleInterviewDialog";
+import { t } from "@/lib/i18n";
+import { formatDateTime } from "@/lib/vi-format";
+import type { InterviewRow } from "@/server/interviews/repository";
+
+interface InterviewerOption {
+  id: string;
+  full_name: string | null;
+  role: string;
+}
+
+interface Props {
+  candidateId: string;
+  candidateName: string;
+  interviews: InterviewRow[];
+  interviewers: InterviewerOption[];
+  /** When false (e.g. read-only role), hide the schedule button. */
+  canSchedule?: boolean;
+}
+
+export function InterviewsTab({
+  candidateId,
+  candidateName,
+  interviews,
+  interviewers,
+  canSchedule = true,
+}: Props) {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">
+          {interviews.length === 0
+            ? "Chưa có lịch phỏng vấn nào."
+            : `${interviews.length} ${t.nav.interviews.toLowerCase()}`}
+        </p>
+        {canSchedule ? (
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden /> Đặt lịch phỏng vấn
+          </Button>
+        ) : null}
+      </div>
+
+      {interviews.length > 0 ? (
+        <ul className="divide-y divide-slate-100 rounded-md border border-slate-200 bg-white">
+          {interviews.map((iv) => (
+            <li key={iv.id}>
+              <Link
+                href={`/phong-van/${iv.id}`}
+                className="flex items-start justify-between gap-3 px-3 py-2.5 hover:bg-slate-50"
+              >
+                <div className="flex items-start gap-3">
+                  <Calendar className="mt-1 h-4 w-4 text-slate-400" aria-hidden />
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">
+                      {formatDateTime(iv.scheduled_at)}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {iv.duration_min} phút · {t.interviewType[iv.type]}
+                      {iv.location_or_link ? ` · ${iv.location_or_link}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                  {t.interviewStatus[iv.status]}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <ScheduleInterviewDialog
+        open={open}
+        onOpenChange={setOpen}
+        candidateId={candidateId}
+        candidateName={candidateName}
+        interviewers={interviewers}
+      />
+    </div>
+  );
+}
