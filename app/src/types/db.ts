@@ -1260,7 +1260,51 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      funnel_stats: {
+        Row: {
+          candidate_count: number | null;
+          job_id: string | null;
+          month_bucket: string | null;
+          role_family: Database["public"]["Enums"]["role_family"] | null;
+          stage: Database["public"]["Enums"]["pipeline_stage"] | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "candidates_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      time_to_hire_stats: {
+        Row: {
+          candidate_id: string | null;
+          days_to_hire: number | null;
+          hired_at: string | null;
+          job_id: string | null;
+          month_bucket: string | null;
+          role_family: Database["public"]["Enums"]["role_family"] | null;
+          started_at: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "candidates_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stage_history_candidate_id_fkey";
+            columns: ["candidate_id"];
+            isOneToOne: false;
+            referencedRelation: "candidates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
       current_dept: { Args: never; Returns: string };
@@ -1295,6 +1339,13 @@ export type Database = {
       reaggregate_job_scores: {
         Args: { _job_id: string; _new_weights: Json };
         Returns: number;
+      };
+      report_score_distribution: {
+        Args: { _from?: string; _job_id?: string; _to?: string };
+        Returns: {
+          bucket_lower: number;
+          candidate_count: number;
+        }[];
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };

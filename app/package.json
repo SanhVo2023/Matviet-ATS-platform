@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:types": "supabase gen types typescript --project-id xeyqbapegqeibeqrwnkm --schema public > src/types/db.ts",
-    "brand:generate": "tsx scripts/generate-brand-derivatives.ts"
+    "brand:generate": "tsx scripts/generate-brand-derivatives.ts",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -43,6 +44,7 @@
     "@radix-ui/react-toggle-group": "^1.1.1",
     "@radix-ui/react-tooltip": "^1.1.6",
     "@react-email/components": "^0.0.32",
+    "@react-pdf/renderer": "^4.5.1",
     "@sentry/nextjs": "^8.46.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",
