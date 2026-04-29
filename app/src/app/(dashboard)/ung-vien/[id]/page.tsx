@@ -9,6 +9,7 @@ import {
   lookupProfileNames,
 } from "@/server/candidates/repository";
 import { getJob } from "@/server/jobs/repository";
+import { getLatestScreening, getQueueStatus } from "@/server/scoring/repository";
 import { CandidateProfile } from "@/components/features/candidates/CandidateProfile";
 import { CandidateTabs } from "@/components/features/candidates/CandidateTabs";
 import { CandidateTimeline } from "@/components/features/candidates/CandidateTimeline";
@@ -26,16 +27,18 @@ export async function generateMetadata({
 }
 
 export default async function CandidateDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["admin", "hr", "hiring_manager"]);
+  const profile = await requireRole(["admin", "hr", "hiring_manager"]);
   const { id } = await params;
 
   const candidate = await getCandidate(id);
   if (!candidate) notFound();
 
-  const [job, cvFile, history] = await Promise.all([
+  const [job, cvFile, history, latestScreening, queueStatus] = await Promise.all([
     getJob(candidate.job_id),
     candidate.cv_file_id ? getCvFile(candidate.cv_file_id) : Promise.resolve(null),
     getStageHistory(candidate.id),
+    getLatestScreening(candidate.id),
+    getQueueStatus(candidate.id),
   ]);
 
   const signedUrl = cvFile ? await signCvUrl(cvFile.storage_path) : null;
@@ -61,6 +64,8 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
         {/* Center column */}
         <div className="lg:col-span-6">
           <CandidateTabs
+            candidate={candidate}
+            job={job}
             cv={
               cvFile
                 ? {
@@ -70,6 +75,9 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
                   }
                 : undefined
             }
+            latestScreening={latestScreening}
+            queueStatus={queueStatus}
+            isAdmin={profile.role === "admin"}
           />
         </div>
 

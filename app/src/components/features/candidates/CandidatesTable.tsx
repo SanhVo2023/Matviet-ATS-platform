@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DataTable } from "@/components/primitives/DataTable";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { StageBadge } from "@/components/primitives/StatusBadge";
+import { ScoringStatusPill } from "@/components/features/scoring/ScoringStatusPill";
 import { t } from "@/lib/i18n";
 import { formatDate, initials } from "@/lib/vi-format";
 import type { CandidateRow } from "@/server/candidates/repository";
@@ -63,12 +64,16 @@ export function CandidatesTable({ candidates, jobsById, onCreate }: Props) {
       {
         accessorKey: "ai_score",
         header: () => <span>Điểm AI</span>,
-        cell: ({ row }) =>
-          row.original.ai_score == null ? (
-            <span className="text-slate-400">—</span>
-          ) : (
-            <span className="font-mono tabular-nums">{Math.round(row.original.ai_score)}</span>
-          ),
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            {row.original.ai_score == null ? (
+              <span className="text-slate-400">—</span>
+            ) : (
+              <span className="font-mono tabular-nums">{Math.round(row.original.ai_score)}</span>
+            )}
+            <ScoringStatusPill status={row.original.ai_screening_status} />
+          </div>
+        ),
       },
       {
         accessorKey: "current_stage",

@@ -17,6 +17,11 @@
 [functions."interview-reminder"]
   schedule = "*/15 * * * *"
 
+# Scoring queue drain — backstop for the upload-time fire-and-forget dispatch.
+# Netlify Function shim at netlify/functions/scoring-drain.ts fetches /api/scoring/drain.
+[functions."scoring-drain"]
+  schedule = "*/5 * * * *"
+
 [[redirects]]
   from = "/"
   to = "/tong-quan"

@@ -1,30 +1,51 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CvPreview } from "./CvPreview";
+import { ScoringTab } from "@/components/features/scoring/ScoringTab";
+import type { CandidateRow } from "@/server/candidates/repository";
+import type { JobRow } from "@/server/jobs/repository";
+import type { AiScreeningRow } from "@/server/scoring/repository";
 import { t } from "@/lib/i18n";
 
 interface Props {
+  candidate: CandidateRow;
+  job: JobRow | null;
   cv?: {
     signedUrl: string | null;
     mime: string;
     originalName: string;
   };
+  latestScreening: AiScreeningRow | null;
+  queueStatus: {
+    status: string;
+    attempts: number;
+    last_error: string | null;
+    enqueued_at: string;
+  } | null;
+  isAdmin?: boolean;
 }
 
 /**
  * Center-column tabs on the candidate detail page.
- * v1 (G3): CV preview + History (history is the right rail; this tab is just
- * a hint that the activity stream lives there). Other tabs are placeholders
- * filled by their respective groups (G4 AI, G5 interviews, G6 emails,
- * G7 tests, G8 approvals).
+ * G3: CV preview + History.
+ * G4: AI scoring tab live.
+ * G5+ tabs (interviews, tests, emails, approvals) remain stubs until shipped.
  */
-export function CandidateTabs({ cv }: Props) {
+export function CandidateTabs({
+  candidate,
+  job,
+  cv,
+  latestScreening,
+  queueStatus,
+  isAdmin,
+}: Props) {
+  // Default to AI tab if a screening exists OR is pending — that's the most useful view post-G4.
+  const defaultTab = latestScreening || candidate.ai_screening_status !== "pending" ? "ai" : "cv";
+
   return (
-    <Tabs defaultValue="cv" className="w-full">
+    <Tabs defaultValue={defaultTab} className="w-full">
       <TabsList className="overflow-x-auto">
         <TabsTrigger value="cv">CV</TabsTrigger>
-        <TabsTrigger value="ai" disabled>
-          Phân tích AI
-        </TabsTrigger>
+        <TabsTrigger value="ai">Phân tích AI</TabsTrigger>
         <TabsTrigger value="interviews" disabled>
           {t.nav.interviews}
         </TabsTrigger>
@@ -50,11 +71,15 @@ export function CandidateTabs({ cv }: Props) {
       </TabsContent>
 
       <TabsContent value="ai">
-        <Stub
-          title="Phân tích AI"
-          description="Sẽ ra mắt trong Group 4. Hệ thống tự động chấm điểm 6 tiêu chí + trích dẫn bằng chứng từ CV."
+        <ScoringTab
+          candidate={candidate}
+          job={job}
+          latestScreening={latestScreening}
+          queueStatus={queueStatus}
+          isAdmin={isAdmin}
         />
       </TabsContent>
+
       <TabsContent value="interviews">
         <Stub
           title={t.nav.interviews}

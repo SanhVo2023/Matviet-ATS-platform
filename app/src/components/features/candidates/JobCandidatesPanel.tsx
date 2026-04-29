@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StageBadge } from "@/components/primitives/StatusBadge";
+import { ScoringStatusPill } from "@/components/features/scoring/ScoringStatusPill";
 import { CandidateUploadDialog } from "./CandidateUploadDialog";
 import type { CandidateRow } from "@/server/candidates/repository";
 import { initials, formatRelative } from "@/lib/vi-format";
@@ -66,6 +67,7 @@ export function JobCandidatesPanel({ jobId, jobs, candidates, readOnly }: Props)
                     {Math.round(c.ai_score)}
                   </span>
                 ) : null}
+                <ScoringStatusPill status={c.ai_screening_status} />
                 <StageBadge stage={c.current_stage} />
               </div>
             </li>

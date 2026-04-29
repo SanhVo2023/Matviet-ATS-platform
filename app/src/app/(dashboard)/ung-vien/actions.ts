@@ -13,6 +13,8 @@ import {
 } from "@/server/candidates/service";
 import { getCandidate } from "@/server/candidates/repository";
 import { CV_MAX_BYTES, isAcceptedCvMime } from "@/lib/storage/paths";
+import { enqueueScoring } from "@/server/scoring/repository";
+import { triggerEdgeFunction } from "@/server/scoring/orchestration";
 
 export type ActionResult<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
 
@@ -66,6 +68,17 @@ export async function uploadCandidateAction(
       },
       profile.id,
     );
+
+    // Kick off async AI scoring. enqueueScoring is idempotent + cheap;
+    // triggerEdgeFunction is fire-and-forget so the user gets the response back fast.
+    try {
+      await enqueueScoring(id, profile.id);
+      triggerEdgeFunction(id);
+    } catch (scoreErr) {
+      // Don't fail the upload if scoring enqueue hiccups — the cron drain will pick it up.
+      console.warn("[upload] scoring enqueue failed (drain will retry):", scoreErr);
+    }
+
     revalidatePath("/ung-vien");
     revalidatePath("/tin-tuyen-dung");
     revalidatePath(`/tin-tuyen-dung/${parsed.data.job_id}`);
