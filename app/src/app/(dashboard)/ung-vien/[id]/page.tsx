@@ -10,6 +10,7 @@ import {
 } from "@/server/candidates/repository";
 import { getJob } from "@/server/jobs/repository";
 import { getLatestScreening, getQueueStatus } from "@/server/scoring/repository";
+import { getAssessmentForJob, listSubmissionsForCandidate } from "@/server/assessments/repository";
 import { CandidateProfile } from "@/components/features/candidates/CandidateProfile";
 import { CandidateTabs } from "@/components/features/candidates/CandidateTabs";
 import { CandidateTimeline } from "@/components/features/candidates/CandidateTimeline";
@@ -33,13 +34,17 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
   const candidate = await getCandidate(id);
   if (!candidate) notFound();
 
-  const [job, cvFile, history, latestScreening, queueStatus] = await Promise.all([
-    getJob(candidate.job_id),
-    candidate.cv_file_id ? getCvFile(candidate.cv_file_id) : Promise.resolve(null),
-    getStageHistory(candidate.id),
-    getLatestScreening(candidate.id),
-    getQueueStatus(candidate.id),
-  ]);
+  const [job, cvFile, history, latestScreening, queueStatus, assessment, submissions] =
+    await Promise.all([
+      getJob(candidate.job_id),
+      candidate.cv_file_id ? getCvFile(candidate.cv_file_id) : Promise.resolve(null),
+      getStageHistory(candidate.id),
+      getLatestScreening(candidate.id),
+      getQueueStatus(candidate.id),
+      getAssessmentForJob(candidate.job_id),
+      listSubmissionsForCandidate(candidate.id),
+    ]);
+  const latestSubmission = submissions[0] ?? null;
 
   const signedUrl = cvFile ? await signCvUrl(cvFile.storage_path) : null;
 
@@ -77,6 +82,9 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
             }
             latestScreening={latestScreening}
             queueStatus={queueStatus}
+            assessment={assessment}
+            latestSubmission={latestSubmission}
+            canSendAssessment={profile.role === "admin" || profile.role === "hr"}
             isAdmin={profile.role === "admin"}
           />
         </div>

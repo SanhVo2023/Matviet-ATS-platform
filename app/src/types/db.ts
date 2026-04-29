@@ -1,6 +1,3 @@
-// AUTO-GENERATED via mcp__supabase-matviet__generate_typescript_types
-// DO NOT EDIT — regenerate after every migration in the same PR.
-
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
@@ -123,6 +120,58 @@ export type Database = {
             columns: ["candidate_id"];
             isOneToOne: false;
             referencedRelation: "candidates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      assessment_invite_tokens: {
+        Row: {
+          assessment_id: string;
+          candidate_id: string;
+          created_at: string;
+          expires_at: string;
+          submission_id: string | null;
+          token: string;
+          used_at: string | null;
+        };
+        Insert: {
+          assessment_id: string;
+          candidate_id: string;
+          created_at?: string;
+          expires_at: string;
+          submission_id?: string | null;
+          token: string;
+          used_at?: string | null;
+        };
+        Update: {
+          assessment_id?: string;
+          candidate_id?: string;
+          created_at?: string;
+          expires_at?: string;
+          submission_id?: string | null;
+          token?: string;
+          used_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "assessment_invite_tokens_assessment_id_fkey";
+            columns: ["assessment_id"];
+            isOneToOne: false;
+            referencedRelation: "assessments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "assessment_invite_tokens_candidate_id_fkey";
+            columns: ["candidate_id"];
+            isOneToOne: false;
+            referencedRelation: "candidates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "assessment_invite_tokens_submission_id_fkey";
+            columns: ["submission_id"];
+            isOneToOne: false;
+            referencedRelation: "assessment_submissions";
             referencedColumns: ["id"];
           },
         ];
@@ -1235,6 +1284,12 @@ export type Database = {
           started_at: string | null;
           status: Database["public"]["Enums"]["scoring_job_status"];
           triggered_by: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "scoring_queue";
+          isOneToOne: true;
+          isSetofReturn: false;
         };
       };
       reaggregate_job_scores: {

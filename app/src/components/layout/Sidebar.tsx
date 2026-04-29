@@ -64,7 +64,7 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["admin", "hr", "hiring_manager", "bod", "tap_doan"],
   },
   { href: "/email", label: t.nav.emails, icon: Mail, roles: ["admin", "hr"] },
-  { href: "/bai-test", label: t.nav.tests, icon: ClipboardCheck, roles: ["admin", "hr"] },
+  { href: "/cai-dat/bai-test", label: t.nav.tests, icon: ClipboardCheck, roles: ["admin", "hr"] },
   {
     href: "/bao-cao",
     label: t.nav.reports,

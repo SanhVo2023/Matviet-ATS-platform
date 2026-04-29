@@ -55,3 +55,16 @@ export type CvMime = (typeof CV_ACCEPTED_MIMES)[number];
 export function isAcceptedCvMime(mime: string): mime is CvMime {
   return (CV_ACCEPTED_MIMES as readonly string[]).includes(mime);
 }
+
+/** Storage path for an assessment (test) file uploaded by HR. */
+export function assessmentTestStoragePath(assessmentId: string, originalName: string): string {
+  return `${assessmentId}/test-${slugifyFilename(originalName)}`;
+}
+
+/** Storage path for a candidate's answer file. */
+export function assessmentSubmissionStoragePath(
+  submissionId: string,
+  originalName: string,
+): string {
+  return `${submissionId}/answer-${slugifyFilename(originalName)}`;
+}

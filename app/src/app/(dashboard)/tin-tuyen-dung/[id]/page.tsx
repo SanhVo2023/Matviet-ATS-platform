@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { JobStatusBadge } from "@/components/primitives/StatusBadge";
 import { JobCandidatesPanel } from "@/components/features/candidates/JobCandidatesPanel";
+import { CsvImportTrigger } from "@/components/features/csv-import/CsvImportTrigger";
 import { t } from "@/lib/i18n";
 import { formatDate, formatVND } from "@/lib/vi-format";
 import { SCORING_CRITERION_CODES } from "@/lib/constants";
@@ -194,9 +195,12 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>{t.nav.candidates}</CardTitle>
-          <CardDescription>Ứng viên đang ứng tuyển vào vị trí này.</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle>{t.nav.candidates}</CardTitle>
+            <CardDescription>Ứng viên đang ứng tuyển vào vị trí này.</CardDescription>
+          </div>
+          <CsvImportTrigger jobId={job.id} jobTitle={job.title} />
         </CardHeader>
         <CardContent>
           <JobCandidatesPanel

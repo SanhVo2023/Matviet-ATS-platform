@@ -10,6 +10,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Stub `server-only` — vitest runs in plain Node, no client/server boundary
+      "server-only": path.resolve(__dirname, "./src/__test__/server-only-stub.ts"),
     },
   },
   test: {
