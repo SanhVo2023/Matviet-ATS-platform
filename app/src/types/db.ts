@@ -303,6 +303,9 @@ export type Database = {
         Row: {
           ai_breakdown: Json | null;
           ai_score: number | null;
+          ai_scored_at: string | null;
+          ai_screening_error: string | null;
+          ai_screening_status: Database["public"]["Enums"]["ai_screening_status"];
           created_at: string;
           created_by: string | null;
           current_stage: Database["public"]["Enums"]["pipeline_stage"];
@@ -327,6 +330,9 @@ export type Database = {
         Insert: {
           ai_breakdown?: Json | null;
           ai_score?: number | null;
+          ai_scored_at?: string | null;
+          ai_screening_error?: string | null;
+          ai_screening_status?: Database["public"]["Enums"]["ai_screening_status"];
           created_at?: string;
           created_by?: string | null;
           current_stage?: Database["public"]["Enums"]["pipeline_stage"];
@@ -351,6 +357,9 @@ export type Database = {
         Update: {
           ai_breakdown?: Json | null;
           ai_score?: number | null;
+          ai_scored_at?: string | null;
+          ai_screening_error?: string | null;
+          ai_screening_status?: Database["public"]["Enums"]["ai_screening_status"];
           created_at?: string;
           created_by?: string | null;
           current_stage?: Database["public"]["Enums"]["pipeline_stage"];
@@ -1074,6 +1083,60 @@ export type Database = {
           },
         ];
       };
+      scoring_queue: {
+        Row: {
+          attempts: number;
+          candidate_id: string;
+          completed_at: string | null;
+          enqueued_at: string;
+          id: string;
+          last_error: string | null;
+          next_retry_at: string | null;
+          started_at: string | null;
+          status: Database["public"]["Enums"]["scoring_job_status"];
+          triggered_by: string | null;
+        };
+        Insert: {
+          attempts?: number;
+          candidate_id: string;
+          completed_at?: string | null;
+          enqueued_at?: string;
+          id?: string;
+          last_error?: string | null;
+          next_retry_at?: string | null;
+          started_at?: string | null;
+          status?: Database["public"]["Enums"]["scoring_job_status"];
+          triggered_by?: string | null;
+        };
+        Update: {
+          attempts?: number;
+          candidate_id?: string;
+          completed_at?: string | null;
+          enqueued_at?: string;
+          id?: string;
+          last_error?: string | null;
+          next_retry_at?: string | null;
+          started_at?: string | null;
+          status?: Database["public"]["Enums"]["scoring_job_status"];
+          triggered_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "scoring_queue_candidate_id_fkey";
+            columns: ["candidate_id"];
+            isOneToOne: false;
+            referencedRelation: "candidates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "scoring_queue_triggered_by_fkey";
+            columns: ["triggered_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       stage_history: {
         Row: {
           actor_user_id: string | null;
@@ -1159,11 +1222,31 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean };
       is_hr: { Args: never; Returns: boolean };
       is_manager_for_job: { Args: { _job_id: string }; Returns: boolean };
+      pick_scoring_job: {
+        Args: never;
+        Returns: {
+          attempts: number;
+          candidate_id: string;
+          completed_at: string | null;
+          enqueued_at: string;
+          id: string;
+          last_error: string | null;
+          next_retry_at: string | null;
+          started_at: string | null;
+          status: Database["public"]["Enums"]["scoring_job_status"];
+          triggered_by: string | null;
+        };
+      };
+      reaggregate_job_scores: {
+        Args: { _job_id: string; _new_weights: Json };
+        Returns: number;
+      };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       unaccent: { Args: { "": string }; Returns: string };
     };
     Enums: {
+      ai_screening_status: "pending" | "success" | "failed";
       approval_status: "pending" | "approved" | "rejected";
       approval_step_kind: "hr_recommend" | "manager_recommend" | "salary_deal" | "bod" | "tap_doan";
       candidate_source: "manual_upload" | "email_inbox" | "csv_import" | "topcv_api" | "referral";
@@ -1193,6 +1276,7 @@ export type Database = {
         | "withdrew";
       recommendation: "strong_yes" | "yes" | "maybe" | "no";
       role_family: "sales" | "optician" | "office" | "manager" | "custom";
+      scoring_job_status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
       user_role: "admin" | "hr" | "hiring_manager" | "bod" | "tap_doan";
     };
     CompositeTypes: {
@@ -1319,6 +1403,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      ai_screening_status: ["pending", "success", "failed"],
       approval_status: ["pending", "approved", "rejected"],
       approval_step_kind: ["hr_recommend", "manager_recommend", "salary_deal", "bod", "tap_doan"],
       candidate_source: ["manual_upload", "email_inbox", "csv_import", "topcv_api", "referral"],
@@ -1349,6 +1434,7 @@ export const Constants = {
       ],
       recommendation: ["strong_yes", "yes", "maybe", "no"],
       role_family: ["sales", "optician", "office", "manager", "custom"],
+      scoring_job_status: ["queued", "running", "succeeded", "failed", "cancelled"],
       user_role: ["admin", "hr", "hiring_manager", "bod", "tap_doan"],
     },
   },

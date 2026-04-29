@@ -10,6 +10,7 @@ import {
   setJobStatus,
   archiveJob,
 } from "@/server/jobs/service";
+import { reaggregateScoresForJob } from "@/server/scoring/repository";
 import type { Database } from "@/types/db";
 
 type JobStatus = Database["public"]["Enums"]["job_status"];
@@ -54,8 +55,18 @@ export async function updateJobAction(
 
   try {
     await updateJobWithAssignments(id, parsed.data, intent === "publish");
+
+    // Re-aggregate ai_score for this job's candidates using the (possibly updated)
+    // weights — instant, pure SQL, no Gemini call. Cheap enough to run unconditionally.
+    try {
+      await reaggregateScoresForJob(id, parsed.data.weights);
+    } catch (rErr) {
+      console.warn("[updateJob] reaggregate failed (scores stale until next screening):", rErr);
+    }
+
     revalidatePath("/tin-tuyen-dung");
     revalidatePath(`/tin-tuyen-dung/${id}`);
+    revalidatePath("/ung-vien");
     revalidatePath("/");
     return { ok: true, data: { id } };
   } catch (err) {

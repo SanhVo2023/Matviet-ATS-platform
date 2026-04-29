@@ -41,7 +41,7 @@ export function FileDropZone({
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   const validate = (f: File): string | null => {
-    if (!accept.includes(f.type)) return "Loại file không hỗ trợ. Chỉ chấp nhận PDF hoặc DOCX.";
+    if (!accept.includes(f.type)) return "Loại file không hỗ trợ. Chỉ chấp nhận PDF.";
     if (f.size > maxBytes) return `File quá lớn. Tối đa ${Math.round(maxBytes / 1024 / 1024)} MB.`;
     if (f.size === 0) return "File trống.";
     return null;

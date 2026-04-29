@@ -1,0 +1,42 @@
+# Fly.io config for the Mắt Việt HR LibreOffice DOCX→PDF worker.
+# Sanh runs:
+#   1. fly launch --no-deploy --copy-config
+#   2. fly secrets set WORKER_SECRET=<openssl rand -hex 32>
+#   3. fly deploy
+# Then sets LIBREOFFICE_WORKER_URL + LIBREOFFICE_WORKER_SECRET as Supabase
+# Edge Function secrets so score-candidate can use it.
+
+app = "matviet-libreoffice"
+primary_region = "sin"  # Singapore — closest to Sydney Supabase
+kill_signal = "SIGINT"
+kill_timeout = 30
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0  # cold start ~3s; fine for our 50 CVs/month
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[mounts]
+  # No persistent storage needed — every request is stateless.

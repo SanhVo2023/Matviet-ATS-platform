@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Mail, Phone, MapPin, Briefcase, Calendar } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StageDropdown } from "./StageDropdown";
+import { ScoringStatusPill } from "@/components/features/scoring/ScoringStatusPill";
 import type { CandidateRow } from "@/server/candidates/repository";
 import { initials, formatRelative } from "@/lib/vi-format";
 import { t } from "@/lib/i18n";
@@ -21,6 +22,17 @@ export function CandidateProfile({ candidate, jobTitle, jobId }: Props) {
         </Avatar>
         <h1 className="text-lg font-semibold text-slate-900">{candidate.full_name}</h1>
         <p className="text-xs text-slate-500">Nguồn: {t.source[candidate.source]}</p>
+
+        <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+          {candidate.ai_score != null ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-slate-800">
+              {Math.round(candidate.ai_score)}
+              <span className="text-[10px] font-normal text-slate-500">điểm</span>
+            </span>
+          ) : null}
+          <ScoringStatusPill status={candidate.ai_screening_status} />
+        </div>
+
         <div className="mt-2">
           <StageDropdown candidateId={candidate.id} currentStage={candidate.current_stage} />
         </div>

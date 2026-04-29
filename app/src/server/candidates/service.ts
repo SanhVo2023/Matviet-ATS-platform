@@ -40,7 +40,7 @@ export async function uploadCandidateWithCv(
   uploadedBy: string,
 ): Promise<{ id: string; cv_file_id: string }> {
   if (!isAcceptedCvMime(file.mime)) {
-    throw new Error("Loại file không hỗ trợ. Chỉ chấp nhận PDF hoặc DOCX.");
+    throw new Error("Loại file không hỗ trợ. Chỉ chấp nhận PDF.");
   }
   if (file.size <= 0) throw new Error("File trống.");
   if (file.size > CV_MAX_BYTES) {

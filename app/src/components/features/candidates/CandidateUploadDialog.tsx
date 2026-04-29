@@ -102,7 +102,7 @@ export function CandidateUploadDialog({
                 value={file}
                 onChange={setFile}
                 disabled={submitting}
-                hint="PDF hoặc DOCX, tối đa 10 MB."
+                hint="PDF, tối đa 10 MB."
               />
             </div>
 
