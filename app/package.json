@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:types": "supabase gen types typescript --project-id xeyqbapegqeibeqrwnkm --schema public > src/types/db.ts",
-    "brand:generate": "tsx scripts/generate-brand-derivatives.ts"
+    "brand:generate": "tsx scripts/generate-brand-derivatives.ts",
+    "docs:hr-prefill": "node scripts/build-hr-prefill-docx.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -81,6 +82,7 @@
     "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2",
     "autoprefixer": "^10.4.20",
+    "docx": "^9.6.1",
     "eslint": "^9.17.0",
     "eslint-config-next": "15.1.3",
     "husky": "^9.1.7",
