@@ -22,6 +22,11 @@
 [functions."scoring-drain"]
   schedule = "*/5 * * * *"
 
+# Outbound email queue drain (G6) — sends queued email_messages via MS Graph.
+# Shim at netlify/functions/email-drain.ts fetches /api/emails/drain.
+[functions."email-drain"]
+  schedule = "*/5 * * * *"
+
 [[redirects]]
   from = "/"
   to = "/tong-quan"

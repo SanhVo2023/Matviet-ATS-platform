@@ -66,6 +66,18 @@ When a decision is significant enough to outlive a session, **promote to a numbe
 2026-04-29 | note | Claude | Group 4 ready to push. 16 routes (added /api/scoring/drain). Build: clean. Typecheck: clean. Lint: only pre-existing warnings. Per-CV cost projection: $0.002–0.005 at 2.5 Flash pricing — well under the $5/day soft alert at our 50 CVs/month.
 ```
 
+## 2026-05
+
+```
+2026-05-04 | dep | Sanh | MS Graph credentials delivered by IT for app registration on tuyendung@matkinh.com.vn. MS_TENANT_ID + MS_CLIENT_ID + MS_CLIENT_SECRET + MS_MAILBOX_ADDRESS=tuyendung@matkinh.com.vn written to app/.env.local (gitignored). G6 (email send) + G7 (calendar) UNBLOCKED. Action items before G6 starts: Sanh confirms admin consent granted in Azure for Mail.Send + Calendars.ReadWrite + OnlineMeetings.ReadWrite (application permission scope) on the tuyendung mailbox, and that the mailbox has an M365 license. Also rotate client secret post-launch since it transited chat — non-urgent but track it.
+2026-05-04 | dep | Claude | G6 deps installed: @microsoft/microsoft-graph-client 3.0, @azure/msal-node 5.1, isomorphic-fetch 3.0. No new Supabase/Postgres deps; reused @supabase/ssr + admin client.
+2026-05-04 | migration | Claude | Applied 0019_email_queue_retry_columns: retry_count int + next_retry_at timestamptz columns + (status, created_at) compound index for the cron drain. No advisor regressions (still the 8 pre-existing accepted WARNs).
+2026-05-04 | decision | Claude | G6 outbound retry policy: auth/permanent → mark failed immediately; throttle/transient → exponential backoff 1m / 5m / 15m for up to 3 attempts then mark failed. Manual "Thử lại" resets retry_count to 0. Drain batch=10 every 5 min via Netlify scheduled function.
+2026-05-04 | decision | Claude | Graph /sendMail returns 202 with no body so email_messages.graph_message_id stays null on outbound. Reply threading + conversation_id backfill deferred to G6.5 inbound poller. For v1 every send is a fresh thread (acceptable at <5 emails/day).
+2026-05-04 | decision | Claude | No React Email v3 component templates in v1. The 7 seeded templates are plain HTML strings in email_templates.body_html with {{var}} substitution via shared template-render.ts (pure, usable from server + client preview). Conversion to React Email components is a polish task — doesn't block the IT unblock.
+2026-05-04 | note | Claude | G6 PR feat/06-email-send: 1 migration (0019), 12 new files under src/lib/graph + src/server/email + src/app/(dashboard)/email + src/components/features/emails + 1 Netlify shim. 20 new tests (49 → 69). Build clean. Replaces G9's local renderTemplate with the shared one in templates.ts.
+```
+
 ---
 
 ## How to add an entry

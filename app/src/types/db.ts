@@ -556,7 +556,9 @@ export type Database = {
           in_reply_to: string | null;
           interview_id: string | null;
           job_id: string | null;
+          next_retry_at: string | null;
           received_at: string | null;
+          retry_count: number;
           scheduled_send_at: string | null;
           sent_at: string | null;
           status: Database["public"]["Enums"]["email_status"];
@@ -583,7 +585,9 @@ export type Database = {
           in_reply_to?: string | null;
           interview_id?: string | null;
           job_id?: string | null;
+          next_retry_at?: string | null;
           received_at?: string | null;
+          retry_count?: number;
           scheduled_send_at?: string | null;
           sent_at?: string | null;
           status?: Database["public"]["Enums"]["email_status"];
@@ -610,7 +614,9 @@ export type Database = {
           in_reply_to?: string | null;
           interview_id?: string | null;
           job_id?: string | null;
+          next_retry_at?: string | null;
           received_at?: string | null;
+          retry_count?: number;
           scheduled_send_at?: string | null;
           sent_at?: string | null;
           status?: Database["public"]["Enums"]["email_status"];

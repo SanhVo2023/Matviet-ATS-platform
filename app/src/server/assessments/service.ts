@@ -11,6 +11,7 @@ import {
   type GradeSubmissionInput,
 } from "@/lib/validation/assessment";
 import { assessmentTestStoragePath, assessmentSubmissionStoragePath } from "@/lib/storage/paths";
+import { renderFromTemplate } from "@/server/email/templates";
 import type { TablesInsert, TablesUpdate } from "@/types/db";
 
 type AssessmentInsert = TablesInsert<"assessments">;
@@ -172,21 +173,13 @@ export async function sendAssessment(
     .insert(tokenInsert as never);
   if (tokErr) throw tokErr;
 
-  // 2. Lookup job + HR template + actor name in parallel
-  const [jobRes, templateRes, hrRes] = await Promise.all([
+  // 2. Lookup job + HR profile in parallel; the template is rendered by the shared email module.
+  const [jobRes, hrRes] = await Promise.all([
     supabase.from("jobs").select("title").eq("id", candidate.job_id).maybeSingle(),
-    admin
-      .from("email_templates")
-      .select("subject_vi, body_html")
-      .eq("code", "assessment_send")
-      .maybeSingle(),
     admin.from("profiles").select("full_name").eq("id", actorId).maybeSingle(),
   ]);
   const jobTitle = (jobRes.data as { title: string } | null)?.title ?? "";
-  const tpl = templateRes.data as { subject_vi: string; body_html: string } | null;
   const hrName = (hrRes.data as { full_name: string | null } | null)?.full_name ?? "Phòng Nhân sự";
-
-  if (!tpl) throw new Error("Mẫu email assessment_send không có sẵn — chạy migration 0010");
 
   // Build absolute link the candidate clicks
   const signedLink = `${publicEnv.appUrl}/test/${token}`;
@@ -194,15 +187,15 @@ export async function sendAssessment(
     ? `${assessment.time_limit_min} phút`
     : "không giới hạn";
 
-  const vars: Record<string, string> = {
+  const rendered = await renderFromTemplate("assessment_send", {
     candidate_name: candidate.full_name,
     job_title: jobTitle,
     download_link: signedLink,
     time_limit: timeLimit,
     hr_name: hrName,
-  };
-  const subject = renderTemplate(tpl.subject_vi, vars);
-  const body = renderTemplate(tpl.body_html, vars);
+  });
+  const subject = rendered.subject;
+  const body = rendered.body_html;
 
   // 3. Insert placeholder submission row + 4. Insert queued email + 5. Update token
   // Use admin client for these to bypass RLS for cross-row consistency.
@@ -425,24 +418,4 @@ export async function gradeSubmission(
   }
 
   return { ok: true };
-}
-
-/**
- * Render simple `{{var_name}}` substitutions in an HTML/text template.
- * Bridge until G6 wires up React Email properly. Variables not present in
- * the map are left intact so HR can spot them in the queued email row.
- */
-function renderTemplate(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_m, key: string) =>
-    Object.prototype.hasOwnProperty.call(vars, key) ? escapeHtml(vars[key]!) : `{{${key}}}`,
-  );
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }

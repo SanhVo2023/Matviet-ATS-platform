@@ -86,6 +86,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
             latestSubmission={latestSubmission}
             canSendAssessment={profile.role === "admin" || profile.role === "hr"}
             isAdmin={profile.role === "admin"}
+            hrName={profile.full_name ?? "Phòng Nhân sự"}
           />
         </div>
 

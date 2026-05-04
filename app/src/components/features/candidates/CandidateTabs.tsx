@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CvPreview } from "./CvPreview";
 import { ScoringTab } from "@/components/features/scoring/ScoringTab";
 import { AssessmentsTab } from "@/components/features/assessments/AssessmentsTab";
+import { CandidateEmailsTab } from "@/components/features/emails/CandidateEmailsTab";
 import type { CandidateRow } from "@/server/candidates/repository";
 import type { JobRow } from "@/server/jobs/repository";
 import type { AiScreeningRow } from "@/server/scoring/repository";
@@ -27,6 +28,7 @@ interface Props {
   latestSubmission: AssessmentSubmissionRow | null;
   canSendAssessment: boolean;
   isAdmin?: boolean;
+  hrName: string;
 }
 
 /**
@@ -45,6 +47,7 @@ export function CandidateTabs({
   latestSubmission,
   canSendAssessment,
   isAdmin,
+  hrName,
 }: Props) {
   // Default to AI tab if a screening exists OR is pending — that's the most useful view post-G4.
   const defaultTab = latestScreening || candidate.ai_screening_status !== "pending" ? "ai" : "cv";
@@ -58,9 +61,7 @@ export function CandidateTabs({
           {t.nav.interviews}
         </TabsTrigger>
         <TabsTrigger value="tests">{t.nav.tests}</TabsTrigger>
-        <TabsTrigger value="emails" disabled>
-          {t.nav.emails}
-        </TabsTrigger>
+        <TabsTrigger value="emails">{t.nav.emails}</TabsTrigger>
         <TabsTrigger value="approvals" disabled>
           {t.nav.approvals}
         </TabsTrigger>
@@ -102,7 +103,15 @@ export function CandidateTabs({
         />
       </TabsContent>
       <TabsContent value="emails">
-        <Stub title={t.nav.emails} description="Group 6: lịch sử email với ứng viên." />
+        <CandidateEmailsTab
+          candidateId={candidate.id}
+          candidateName={candidate.full_name}
+          candidateEmail={candidate.email}
+          jobId={candidate.job_id}
+          jobTitle={job?.title ?? null}
+          hrName={hrName}
+          canCompose={canSendAssessment}
+        />
       </TabsContent>
       <TabsContent value="approvals">
         <Stub title={t.nav.approvals} description="Group 8: quy trình duyệt 3 hoặc 4 bước." />
