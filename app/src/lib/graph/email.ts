@@ -1,7 +1,6 @@
 import "server-only";
-import { GraphError } from "@microsoft/microsoft-graph-client";
 import { getMailboxAddress } from "./auth";
-import { getGraphClient } from "./client";
+import { graphPost, GraphHttpError } from "./client";
 
 export interface SendMailInput {
   to: string[];
@@ -44,22 +43,12 @@ function toRecipients(addresses: string[]) {
   return addresses.map((a) => ({ emailAddress: { address: a } }));
 }
 
-function buildMessage(input: Omit<SendMailInput, "replyToMessageId" | "saveToSentItems">) {
-  return {
-    subject: input.subject,
-    body: { contentType: "HTML" as const, content: input.bodyHtml },
-    toRecipients: toRecipients(input.to),
-    ccRecipients: input.cc?.length ? toRecipients(input.cc) : undefined,
-  };
-}
-
 export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
   const mailbox = getMailboxAddress();
-  const client = getGraphClient();
 
   try {
     if (input.replyToMessageId) {
-      await client.api(`/users/${mailbox}/messages/${input.replyToMessageId}/reply`).post({
+      await graphPost(`/users/${mailbox}/messages/${input.replyToMessageId}/reply`, {
         message: {
           body: { contentType: "HTML" as const, content: input.bodyHtml },
           toRecipients: toRecipients(input.to),
@@ -67,8 +56,13 @@ export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
         },
       });
     } else {
-      await client.api(`/users/${mailbox}/sendMail`).post({
-        message: buildMessage(input),
+      await graphPost(`/users/${mailbox}/sendMail`, {
+        message: {
+          subject: input.subject,
+          body: { contentType: "HTML" as const, content: input.bodyHtml },
+          toRecipients: toRecipients(input.to),
+          ccRecipients: input.cc?.length ? toRecipients(input.cc) : undefined,
+        },
         saveToSentItems: input.saveToSentItems ?? true,
       });
     }
@@ -79,7 +73,7 @@ export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
 }
 
 function classifyGraphError(err: unknown): SendMailError {
-  if (err instanceof GraphError) {
+  if (err instanceof GraphHttpError) {
     const status = err.statusCode;
     if (status === 401 || status === 403) {
       return new SendMailError("auth", `Graph auth/permission failed (${status}): ${err.message}`, {
@@ -88,14 +82,14 @@ function classifyGraphError(err: unknown): SendMailError {
       });
     }
     if (status === 429) {
-      const retryAfter = Number(err.headers?.get?.("Retry-After")) || 60;
+      const retryAfter = err.retryAfterSec ?? 60;
       return new SendMailError("throttle", `Graph rate-limited: retry after ${retryAfter}s`, {
         statusCode: 429,
         retryAfterSec: retryAfter,
         cause: err,
       });
     }
-    if (typeof status === "number" && status >= 500 && status < 600) {
+    if (status >= 500 && status < 600) {
       return new SendMailError("transient", `Graph 5xx: ${err.message}`, {
         statusCode: status,
         cause: err,

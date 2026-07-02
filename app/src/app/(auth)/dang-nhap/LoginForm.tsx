@@ -7,7 +7,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth-client";
 import { t } from "@/lib/i18n";
 
 export function LoginForm() {
@@ -28,8 +28,7 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: signInError } = await authClient.signIn.email({ email, password });
     if (signInError) {
       setError(t.error.invalidCredentials);
       setSubmitting(false);

@@ -103,6 +103,10 @@ export const users = sqliteTable(
     phone: text("phone"),
     departmentId: text("department_id"),
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    // --- better-auth admin plugin fields ---
+    banned: integer("banned", { mode: "boolean" }).notNull().default(false),
+    banReason: text("ban_reason"),
+    banExpires: integer("ban_expires", { mode: "timestamp" }),
   },
   (t) => [index("idx_users_role").on(t.role), index("idx_users_dept").on(t.departmentId)],
 );
@@ -118,6 +122,7 @@ export const sessions = sqliteTable(
     expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
+    impersonatedBy: text("impersonated_by"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },

@@ -423,6 +423,7 @@ CREATE TABLE `sessions` (
 	`expires_at` integer NOT NULL,
 	`ip_address` text,
 	`user_agent` text,
+	`impersonated_by` text,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
@@ -455,7 +456,10 @@ CREATE TABLE `users` (
 	`role` text DEFAULT 'hr' NOT NULL,
 	`phone` text,
 	`department_id` text,
-	`is_active` integer DEFAULT true NOT NULL
+	`is_active` integer DEFAULT true NOT NULL,
+	`banned` integer DEFAULT false NOT NULL,
+	`ban_reason` text,
+	`ban_expires` integer
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);--> statement-breakpoint

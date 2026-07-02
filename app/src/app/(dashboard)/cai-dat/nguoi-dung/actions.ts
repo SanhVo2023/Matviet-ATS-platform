@@ -2,34 +2,43 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { headers } from "next/headers";
+import { getAuth } from "@/lib/auth-server";
+import { getDb } from "@/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { requireRole } from "@/lib/auth";
-import { publicEnv } from "@/types/env";
 import type { Database } from "@/types/db";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 
-const InviteSchema = z.object({
+const CreateSchema = z.object({
   email: z.string().email("Email không hợp lệ"),
   full_name: z.string().min(2, "Họ tên quá ngắn"),
   role: z.enum(["admin", "hr", "hiring_manager", "bod", "tap_doan"]) as z.ZodType<UserRole>,
   department_id: z.string().uuid().nullable().optional(),
 });
 
-export type InviteResult = { ok: true; userId: string } | { ok: false; error: string };
+export type InviteResult =
+  | { ok: true; userId: string; tempPassword: string }
+  | { ok: false; error: string };
+
+/** Random 12-char temp password with mixed classes (shown to the admin exactly once). */
+function generateTempPassword(): string {
+  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%";
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+}
 
 /**
- * Admin-only: invite a new user via Supabase magic-link signup.
- * After the user confirms their email and sets a password, the
- * `handle_new_user` trigger creates a `profiles` row with their role.
- *
- * We pass `data: { full_name, role, department_id }` so the trigger picks them up.
+ * Admin-only: create a user account with a temporary password (better-auth admin
+ * plugin). The admin hands the password over in person / via chat; the user can
+ * change it with "Quên mật khẩu" (Graph email reset) any time.
  */
 export async function inviteUser(formData: FormData): Promise<InviteResult> {
-  // Server-side authorization: only admins can invite.
   await requireRole(["admin"]);
 
-  const parsed = InviteSchema.safeParse({
+  const parsed = CreateSchema.safeParse({
     email: formData.get("email"),
     full_name: formData.get("full_name"),
     role: formData.get("role"),
@@ -41,28 +50,39 @@ export async function inviteUser(formData: FormData): Promise<InviteResult> {
   }
 
   const { email, full_name, role, department_id } = parsed.data;
+  const tempPassword = generateTempPassword();
 
-  const admin = createAdminClient();
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${publicEnv.appUrl}/auth/callback?next=/`,
-    data: { full_name, role, department_id },
-  });
-
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-
-  // Best-effort: ensure the profile row reflects role + department even if
-  // the trigger fired before metadata propagation.
-  if (data.user) {
-    await admin.from("profiles").upsert({
-      id: data.user.id,
-      full_name,
-      role,
-      department_id: department_id || null,
+  const auth = await getAuth();
+  try {
+    const created = await auth.api.createUser({
+      headers: await headers(),
+      body: {
+        email,
+        password: tempPassword,
+        name: full_name,
+        role: role as "admin", // better-auth admin plugin types roles narrowly; ours are app-defined
+        data: { departmentId: department_id || null, isActive: true },
+      },
     });
-  }
 
+    revalidatePath("/cai-dat/nguoi-dung");
+    return { ok: true, userId: created.user.id, tempPassword };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Không tạo được tài khoản";
+    return { ok: false, error: message };
+  }
+}
+
+export type ToggleResult = { ok: true } | { ok: false; error: string };
+
+/** Admin-only: activate/deactivate an account (soft ban). */
+export async function setUserActive(userId: string, active: boolean): Promise<ToggleResult> {
+  const me = await requireRole(["admin"]);
+  if (me.id === userId && !active) {
+    return { ok: false, error: "Không thể tự vô hiệu tài khoản của chính mình" };
+  }
+  const db = await getDb();
+  await db.update(users).set({ isActive: active }).where(eq(users.id, userId));
   revalidatePath("/cai-dat/nguoi-dung");
-  return { ok: true, userId: data.user?.id ?? "" };
+  return { ok: true };
 }

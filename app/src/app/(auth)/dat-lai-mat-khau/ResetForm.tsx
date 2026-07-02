@@ -5,8 +5,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createClient } from "@/lib/supabase/client";
-import { publicEnv } from "@/types/env";
+import { authClient } from "@/lib/auth-client";
 import { t } from "@/lib/i18n";
 
 export function ResetForm() {
@@ -19,9 +18,9 @@ export function ResetForm() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const supabase = createClient();
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${publicEnv.appUrl}/auth/callback?next=/dat-lai-mat-khau/dat-lai`,
+    const { error: resetError } = await authClient.requestPasswordReset({
+      email,
+      redirectTo: "/dat-lai-mat-khau/moi",
     });
     setSubmitting(false);
     if (resetError) {
