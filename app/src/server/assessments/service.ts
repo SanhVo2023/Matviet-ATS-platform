@@ -1,7 +1,17 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { and, eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import {
+  assessments,
+  assessment_submissions,
+  assessment_invite_tokens,
+  candidates,
+  jobs,
+  users,
+  email_messages,
+} from "@/db/schema";
+import { putFile, deleteFile } from "@/lib/r2";
 import { publicEnv } from "@/types/env";
 import {
   ASSESSMENT_TOKEN_EXPIRY_MS,
@@ -12,16 +22,6 @@ import {
 } from "@/lib/validation/assessment";
 import { assessmentTestStoragePath, assessmentSubmissionStoragePath } from "@/lib/storage/paths";
 import { renderFromTemplate } from "@/server/email/templates";
-import type { TablesInsert, TablesUpdate } from "@/types/db";
-
-type AssessmentInsert = TablesInsert<"assessments">;
-type AssessmentUpdate = TablesUpdate<"assessments">;
-type SubmissionInsert = TablesInsert<"assessment_submissions">;
-type SubmissionUpdate = TablesUpdate<"assessment_submissions">;
-type TokenInsert = TablesInsert<"assessment_invite_tokens">;
-type TokenUpdate = TablesUpdate<"assessment_invite_tokens">;
-type EmailInsert = TablesInsert<"email_messages">;
-type CandidateUpdate = TablesUpdate<"candidates">;
 
 export interface UploadedAssessmentFile {
   buffer: ArrayBuffer;
@@ -34,8 +34,9 @@ export interface UploadedAssessmentFile {
  * Create or replace the active assessment for a job. Idempotent on (job_id):
  * any existing active assessment for the job is marked is_active=false first.
  *
- * Uploads the test file to the `assessments` bucket. On any DB failure the
- * uploaded object is deleted so storage doesn't accumulate orphans.
+ * Uploads the test file to R2 (key keeps the old `assessments` bucket path
+ * shape). On any DB failure the uploaded object is deleted so storage doesn't
+ * accumulate orphans.
  */
 export async function createAssessment(
   input: CreateAssessmentInput,
@@ -50,35 +51,30 @@ export async function createAssessment(
     throw new Error("File quá lớn. Tối đa 20 MB.");
   }
 
-  const supabase = await createClient();
-  const admin = createAdminClient();
+  const db = await getDb();
 
   // Deactivate any existing active assessment for this job (one-active-per-job)
-  const deactivate: AssessmentUpdate = { is_active: false };
-  await supabase
-    .from("assessments")
-    .update(deactivate as never)
-    .eq("job_id", input.job_id)
-    .eq("is_active", true);
+  await db
+    .update(assessments)
+    .set({ is_active: false })
+    .where(and(eq(assessments.job_id, input.job_id), eq(assessments.is_active, true)));
 
   const assessmentId = crypto.randomUUID();
   const storagePath = assessmentTestStoragePath(assessmentId, file.originalName);
 
-  // 1. Upload to Storage
-  const { error: uploadErr } = await admin.storage
-    .from("assessments")
-    .upload(storagePath, file.buffer, { contentType: file.mime, upsert: false });
-  if (uploadErr) throw new Error(`Không tải lên được đề bài: ${uploadErr.message}`);
+  // 1. Upload to R2
+  try {
+    await putFile(storagePath, file.buffer, file.mime);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Không tải lên được đề bài: ${msg}`);
+  }
 
-  const cleanup = async () =>
-    admin.storage
-      .from("assessments")
-      .remove([storagePath])
-      .catch(() => {});
+  const cleanup = async () => deleteFile(storagePath).catch(() => {});
 
   try {
     // 2. Insert assessments row
-    const insert: AssessmentInsert = {
+    await db.insert(assessments).values({
       id: assessmentId,
       job_id: input.job_id,
       test_storage_path: storagePath,
@@ -87,9 +83,7 @@ export async function createAssessment(
       time_limit_min: input.time_limit_min ?? null,
       is_active: true,
       created_by: actorId,
-    };
-    const { error: insErr } = await supabase.from("assessments").insert(insert as never);
-    if (insErr) throw insErr;
+    });
 
     return { id: assessmentId };
   } catch (err) {
@@ -118,40 +112,39 @@ export async function sendAssessment(
   assessmentId: string,
   actorId: string,
 ): Promise<{ token: string; signed_link: string; deadline_at: string }> {
-  const supabase = await createClient();
-  const admin = createAdminClient();
+  const db = await getDb();
 
   // Validate candidate + load minimum fields
-  const { data: candidateRow } = await supabase
-    .from("candidates")
-    .select("id, full_name, email, job_id, current_stage")
-    .eq("id", candidateId)
-    .maybeSingle();
-  if (!candidateRow) throw new Error("Không tìm thấy ứng viên");
-  const candidate = candidateRow as {
-    id: string;
-    full_name: string;
-    email: string | null;
-    job_id: string;
-    current_stage: string;
-  };
+  const candidate = await db
+    .select({
+      id: candidates.id,
+      full_name: candidates.full_name,
+      email: candidates.email,
+      job_id: candidates.job_id,
+      current_stage: candidates.current_stage,
+    })
+    .from(candidates)
+    .where(eq(candidates.id, candidateId))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+  if (!candidate) throw new Error("Không tìm thấy ứng viên");
   if (!candidate.email) {
     throw new Error("Ứng viên chưa có email — vui lòng cập nhật trước khi gửi bài test.");
   }
 
   // Validate assessment + share a job_id
-  const { data: assessmentRow } = await supabase
-    .from("assessments")
-    .select("id, job_id, is_active, time_limit_min")
-    .eq("id", assessmentId)
-    .maybeSingle();
-  if (!assessmentRow) throw new Error("Không tìm thấy bài test");
-  const assessment = assessmentRow as {
-    id: string;
-    job_id: string;
-    is_active: boolean;
-    time_limit_min: number | null;
-  };
+  const assessment = await db
+    .select({
+      id: assessments.id,
+      job_id: assessments.job_id,
+      is_active: assessments.is_active,
+      time_limit_min: assessments.time_limit_min,
+    })
+    .from(assessments)
+    .where(eq(assessments.id, assessmentId))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+  if (!assessment) throw new Error("Không tìm thấy bài test");
   if (assessment.job_id !== candidate.job_id) {
     throw new Error("Bài test không thuộc vị trí ứng tuyển này");
   }
@@ -162,24 +155,30 @@ export async function sendAssessment(
   // 1. Generate token + insert invite row
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + ASSESSMENT_TOKEN_EXPIRY_MS).toISOString();
-  const tokenInsert: TokenInsert = {
+  await db.insert(assessment_invite_tokens).values({
     token,
     candidate_id: candidate.id,
     assessment_id: assessment.id,
     expires_at: expiresAt,
-  };
-  const { error: tokErr } = await admin
-    .from("assessment_invite_tokens")
-    .insert(tokenInsert as never);
-  if (tokErr) throw tokErr;
+  });
 
-  // 2. Lookup job + HR profile in parallel; the template is rendered by the shared email module.
-  const [jobRes, hrRes] = await Promise.all([
-    supabase.from("jobs").select("title").eq("id", candidate.job_id).maybeSingle(),
-    admin.from("profiles").select("full_name").eq("id", actorId).maybeSingle(),
+  // 2. Lookup job + HR name; the template is rendered by the shared email module.
+  const [jobRow, hrRow] = await Promise.all([
+    db
+      .select({ title: jobs.title })
+      .from(jobs)
+      .where(eq(jobs.id, candidate.job_id))
+      .limit(1)
+      .then((r) => r[0] ?? null),
+    db
+      .select({ full_name: users.name })
+      .from(users)
+      .where(eq(users.id, actorId))
+      .limit(1)
+      .then((r) => r[0] ?? null),
   ]);
-  const jobTitle = (jobRes.data as { title: string } | null)?.title ?? "";
-  const hrName = (hrRes.data as { full_name: string | null } | null)?.full_name ?? "Phòng Nhân sự";
+  const jobTitle = jobRow?.title ?? "";
+  const hrName = hrRow?.full_name ?? "Phòng Nhân sự";
 
   // Build absolute link the candidate clicks
   const signedLink = `${publicEnv.appUrl}/test/${token}`;
@@ -197,61 +196,64 @@ export async function sendAssessment(
   const subject = rendered.subject;
   const body = rendered.body_html;
 
-  // 3. Insert placeholder submission row + 4. Insert queued email + 5. Update token
-  // Use admin client for these to bypass RLS for cross-row consistency.
+  // 3. Upsert placeholder submission row (unique on candidate_id + assessment_id)
   const submissionId = crypto.randomUUID();
-  const subInsert: SubmissionInsert = {
-    id: submissionId,
-    candidate_id: candidate.id,
-    assessment_id: assessment.id,
-    notes: null,
-  };
-  const { error: subErr } = await admin.from("assessment_submissions").upsert(subInsert as never, {
-    onConflict: "candidate_id,assessment_id",
-    ignoreDuplicates: false,
-  });
-  if (subErr) throw subErr;
+  await db
+    .insert(assessment_submissions)
+    .values({
+      id: submissionId,
+      candidate_id: candidate.id,
+      assessment_id: assessment.id,
+      notes: null,
+    })
+    .onConflictDoUpdate({
+      target: [assessment_submissions.candidate_id, assessment_submissions.assessment_id],
+      set: { id: submissionId, notes: null, updated_at: new Date().toISOString() },
+    });
 
-  const emailInsert: EmailInsert = {
-    candidate_id: candidate.id,
-    job_id: candidate.job_id,
-    direction: "outbound",
-    status: "queued",
-    template_code: "assessment_send",
-    to_emails: [candidate.email],
-    subject,
-    body_html: body,
-    created_by: actorId,
-  };
-  const { data: emailRow, error: emailErr } = await admin
-    .from("email_messages")
-    .insert(emailInsert as never)
-    .select("id")
-    .single();
-  if (emailErr) throw emailErr;
-  const emailId = (emailRow as { id: string }).id;
+  // 4. Insert queued email
+  const emailRow = await db
+    .insert(email_messages)
+    .values({
+      candidate_id: candidate.id,
+      job_id: candidate.job_id,
+      direction: "outbound",
+      status: "queued",
+      template_code: "assessment_send",
+      to_emails: [candidate.email],
+      subject,
+      body_html: body,
+      created_by: actorId,
+    })
+    .returning({ id: email_messages.id })
+    .then((r) => r[0]);
+  if (!emailRow) throw new Error("Không tạo được email");
+  const emailId = emailRow.id;
 
-  // Link the email to the submission row + the token to the submission
-  const subUpdate: SubmissionUpdate = { email_message_id: emailId };
-  await admin
-    .from("assessment_submissions")
-    .update(subUpdate as never)
-    .eq("id", submissionId);
+  // 5. Link the email to the submission row + the token to the submission
+  await db
+    .update(assessment_submissions)
+    .set({ email_message_id: emailId })
+    .where(eq(assessment_submissions.id, submissionId));
 
-  const tokUpdate: TokenUpdate = { submission_id: submissionId };
-  await admin
-    .from("assessment_invite_tokens")
-    .update(tokUpdate as never)
-    .eq("token", token);
+  await db
+    .update(assessment_invite_tokens)
+    .set({ submission_id: submissionId })
+    .where(eq(assessment_invite_tokens.token, token));
 
   // 6. Bump candidate stage if currently earlier than test_sent
-  const earlierStages = ["new", "screening", "screened", "interview_scheduled", "interviewed"];
-  if (earlierStages.includes(candidate.current_stage)) {
-    const candUpdate: CandidateUpdate = { current_stage: "test_sent" };
-    await supabase
-      .from("candidates")
-      .update(candUpdate as never)
-      .eq("id", candidate.id);
+  const earlierStages = [
+    "new",
+    "screening",
+    "screened",
+    "interview_scheduled",
+    "interviewed",
+  ] as const;
+  if ((earlierStages as readonly string[]).includes(candidate.current_stage)) {
+    await db
+      .update(candidates)
+      .set({ current_stage: "test_sent" })
+      .where(eq(candidates.id, candidate.id));
   }
 
   return { token, signed_link: signedLink, deadline_at: expiresAt };
@@ -259,8 +261,8 @@ export async function sendAssessment(
 
 /**
  * Public-path submission record — called by /api/test/submit with no auth.
- * Validates the token via admin client, uploads the answer file, updates
- * the submission row, marks the token used.
+ * Validates the token, uploads the answer file to R2, updates the submission
+ * row, marks the token used.
  */
 export async function recordSubmission(
   token: string,
@@ -274,22 +276,22 @@ export async function recordSubmission(
     throw new Error("File quá lớn. Tối đa 20 MB.");
   }
 
-  const admin = createAdminClient();
+  const db = await getDb();
 
   // Validate token
-  const { data: tokRow } = await admin
-    .from("assessment_invite_tokens")
-    .select("token, candidate_id, assessment_id, submission_id, expires_at, used_at")
-    .eq("token", token)
-    .maybeSingle();
-  const tk = tokRow as {
-    token: string;
-    candidate_id: string;
-    assessment_id: string;
-    submission_id: string | null;
-    expires_at: string;
-    used_at: string | null;
-  } | null;
+  const tk = await db
+    .select({
+      token: assessment_invite_tokens.token,
+      candidate_id: assessment_invite_tokens.candidate_id,
+      assessment_id: assessment_invite_tokens.assessment_id,
+      submission_id: assessment_invite_tokens.submission_id,
+      expires_at: assessment_invite_tokens.expires_at,
+      used_at: assessment_invite_tokens.used_at,
+    })
+    .from(assessment_invite_tokens)
+    .where(eq(assessment_invite_tokens.token, token))
+    .limit(1)
+    .then((r) => r[0] ?? null);
   if (!tk) throw new Error("Liên kết không hợp lệ");
   if (tk.used_at) throw new Error("Liên kết đã được sử dụng");
   if (new Date(tk.expires_at).getTime() < Date.now()) {
@@ -299,36 +301,34 @@ export async function recordSubmission(
     throw new Error("Liên kết chưa gắn với phiếu nộp — vui lòng liên hệ HR");
   }
 
-  // Upload to submissions bucket under <submission_id>/answer-<slug>.<ext>
+  // Upload to R2 under <submission_id>/answer-<slug>.<ext>
   const storagePath = assessmentSubmissionStoragePath(tk.submission_id, file.originalName);
-  const { error: upErr } = await admin.storage
-    .from("submissions")
-    .upload(storagePath, file.buffer, { contentType: file.mime, upsert: false });
-  if (upErr) throw new Error(`Không tải lên được: ${upErr.message}`);
-
-  // Update submission row + mark token used
-  const subUpdate: SubmissionUpdate = {
-    submission_storage_path: storagePath,
-    submitted_at: new Date().toISOString(),
-  };
-  const { error: subErr } = await admin
-    .from("assessment_submissions")
-    .update(subUpdate as never)
-    .eq("id", tk.submission_id);
-  if (subErr) {
-    // Roll back the storage object to avoid orphans
-    await admin.storage
-      .from("submissions")
-      .remove([storagePath])
-      .catch(() => {});
-    throw subErr;
+  try {
+    await putFile(storagePath, file.buffer, file.mime);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Không tải lên được: ${msg}`);
   }
 
-  const tokUpdate: TokenUpdate = { used_at: new Date().toISOString() };
-  await admin
-    .from("assessment_invite_tokens")
-    .update(tokUpdate as never)
-    .eq("token", token);
+  // Update submission row + mark token used
+  try {
+    await db
+      .update(assessment_submissions)
+      .set({
+        submission_storage_path: storagePath,
+        submitted_at: new Date().toISOString(),
+      })
+      .where(eq(assessment_submissions.id, tk.submission_id));
+  } catch (err) {
+    // Roll back the storage object to avoid orphans
+    await deleteFile(storagePath).catch(() => {});
+    throw err;
+  }
+
+  await db
+    .update(assessment_invite_tokens)
+    .set({ used_at: new Date().toISOString() })
+    .where(eq(assessment_invite_tokens.token, token));
 
   return { ok: true, submission_id: tk.submission_id };
 }
@@ -350,27 +350,26 @@ export async function uploadAnswerOnBehalf(
     throw new Error("File quá lớn. Tối đa 20 MB.");
   }
 
-  const admin = createAdminClient();
+  const db = await getDb();
   const storagePath = assessmentSubmissionStoragePath(submissionId, file.originalName);
-  const { error: upErr } = await admin.storage
-    .from("submissions")
-    .upload(storagePath, file.buffer, { contentType: file.mime, upsert: false });
-  if (upErr) throw new Error(`Không tải lên được: ${upErr.message}`);
+  try {
+    await putFile(storagePath, file.buffer, file.mime);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Không tải lên được: ${msg}`);
+  }
 
-  const subUpdate: SubmissionUpdate = {
-    submission_storage_path: storagePath,
-    submitted_at: new Date().toISOString(),
-  };
-  const { error: subErr } = await admin
-    .from("assessment_submissions")
-    .update(subUpdate as never)
-    .eq("id", submissionId);
-  if (subErr) {
-    await admin.storage
-      .from("submissions")
-      .remove([storagePath])
-      .catch(() => {});
-    throw subErr;
+  try {
+    await db
+      .update(assessment_submissions)
+      .set({
+        submission_storage_path: storagePath,
+        submitted_at: new Date().toISOString(),
+      })
+      .where(eq(assessment_submissions.id, submissionId));
+  } catch (err) {
+    await deleteFile(storagePath).catch(() => {});
+    throw err;
   }
   return { ok: true };
 }
@@ -379,42 +378,43 @@ export async function gradeSubmission(
   input: GradeSubmissionInput,
   actorId: string,
 ): Promise<{ ok: true }> {
-  const supabase = await createClient();
+  const db = await getDb();
 
-  const { data: subRow } = await supabase
-    .from("assessment_submissions")
-    .select("id, candidate_id, submitted_at")
-    .eq("id", input.submission_id)
-    .maybeSingle();
-  const sub = subRow as { id: string; candidate_id: string; submitted_at: string | null } | null;
+  const sub = await db
+    .select({
+      id: assessment_submissions.id,
+      candidate_id: assessment_submissions.candidate_id,
+      submitted_at: assessment_submissions.submitted_at,
+    })
+    .from(assessment_submissions)
+    .where(eq(assessment_submissions.id, input.submission_id))
+    .limit(1)
+    .then((r) => r[0] ?? null);
   if (!sub) throw new Error("Không tìm thấy bài làm");
   if (!sub.submitted_at) throw new Error("Ứng viên chưa nộp bài");
 
-  const update: SubmissionUpdate = {
-    score: input.score,
-    notes: input.notes?.trim() || null,
-    graded_by: actorId,
-    graded_at: new Date().toISOString(),
-  };
-  const { error } = await supabase
-    .from("assessment_submissions")
-    .update(update as never)
-    .eq("id", input.submission_id);
-  if (error) throw error;
+  await db
+    .update(assessment_submissions)
+    .set({
+      score: input.score,
+      notes: input.notes?.trim() || null,
+      graded_by: actorId,
+      graded_at: new Date().toISOString(),
+    })
+    .where(eq(assessment_submissions.id, input.submission_id));
 
   // Bump candidate stage if currently 'test_sent'
-  const { data: candRow } = await supabase
-    .from("candidates")
-    .select("current_stage")
-    .eq("id", sub.candidate_id)
-    .maybeSingle();
-  const stage = (candRow as { current_stage: string } | null)?.current_stage;
-  if (stage === "test_sent") {
-    const candUpdate: CandidateUpdate = { current_stage: "test_done" };
-    await supabase
-      .from("candidates")
-      .update(candUpdate as never)
-      .eq("id", sub.candidate_id);
+  const cand = await db
+    .select({ current_stage: candidates.current_stage })
+    .from(candidates)
+    .where(eq(candidates.id, sub.candidate_id))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+  if (cand?.current_stage === "test_sent") {
+    await db
+      .update(candidates)
+      .set({ current_stage: "test_done" })
+      .where(eq(candidates.id, sub.candidate_id));
   }
 
   return { ok: true };

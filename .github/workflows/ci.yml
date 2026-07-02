@@ -14,13 +14,10 @@ jobs:
       run:
         working-directory: app
     env:
-      # Build-time placeholders. Real values come from Netlify env in production
-      # and from .env.local in dev. The CI build only needs them to be present strings.
+      # Build-time placeholders. Real values live in Cloudflare Worker secrets
+      # (wrangler secret put) in production and .dev.vars in dev.
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXT_PUBLIC_APP_NAME: "Mắt Việt HR"
-      NEXT_PUBLIC_SUPABASE_URL: https://xeyqbapegqeibeqrwnkm.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
-      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
     steps:
       - uses: actions/checkout@v4
 
@@ -39,6 +36,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Test
+        run: npm run test
 
       - name: Build
         run: npm run build

@@ -2,8 +2,11 @@ import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 // Makes getCloudflareContext() (D1/R2 bindings from wrangler.jsonc + .dev.vars)
-// available inside `next dev`.
-initOpenNextCloudflareForDev();
+// available inside `next dev`. Guarded: during `next build` the miniflare/workerd
+// startup is unnecessary (and workerd crashes on Windows paths with diacritics).
+if (process.env.NODE_ENV === "development") {
+  initOpenNextCloudflareForDev();
+}
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

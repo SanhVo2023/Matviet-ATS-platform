@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Pencil, Kanban } from "lucide-react";
+import { eq, inArray } from "drizzle-orm";
 import { requireRole } from "@/lib/auth";
 import { getJob, getJobAssignments, listJobs } from "@/server/jobs/repository";
 import { listCandidates } from "@/server/candidates/repository";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getDb } from "@/db";
+import { departments, users } from "@/db/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { JobStatusBadge } from "@/components/primitives/StatusBadge";
@@ -36,23 +38,28 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
   if (!job) notFound();
 
   // Fetch supporting data
-  const [assignments, deptResult, candidates, allJobs] = await Promise.all([
+  const db = await getDb();
+  const [assignments, department, candidates, allJobs] = await Promise.all([
     getJobAssignments(id),
     job.department_id
-      ? createAdminClient()
-          .from("departments")
-          .select("name")
-          .eq("id", job.department_id)
-          .maybeSingle()
-      : Promise.resolve({ data: null as null | { name: string } }),
+      ? db
+          .select({ name: departments.name })
+          .from(departments)
+          .where(eq(departments.id, job.department_id))
+          .limit(1)
+          .then((r) => r[0] ?? null)
+      : Promise.resolve(null as null | { name: string }),
     listCandidates({ job_id: id }),
     listJobs(),
   ]);
 
   const managerIds = assignments.map((a) => a.manager_user_id);
   const managers = managerIds.length
-    ? await createAdminClient().from("profiles").select("id, full_name").in("id", managerIds)
-    : { data: [] as Array<{ id: string; full_name: string | null }> };
+    ? await db
+        .select({ id: users.id, full_name: users.name })
+        .from(users)
+        .where(inArray(users.id, managerIds))
+    : ([] as Array<{ id: string; full_name: string | null }>);
 
   const weights = (job.weights as Record<string, number>) ?? {};
   const description = job.description ?? "";
@@ -68,7 +75,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           </div>
           <p className="text-sm text-slate-500">
             {t.roleFamily[job.role_family]}
-            {deptResult.data?.name ? ` · ${deptResult.data.name}` : ""}
+            {department?.name ? ` · ${department.name}` : ""}
             {job.location ? ` · ${job.location}` : ""}
           </p>
         </div>
@@ -182,9 +189,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           <CardTitle>{t.jobForm.hiringManager}</CardTitle>
         </CardHeader>
         <CardContent>
-          {managers.data && managers.data.length > 0 ? (
+          {managers.length > 0 ? (
             <ul className="flex flex-wrap gap-2">
-              {managers.data.map((m) => (
+              {managers.map((m) => (
                 <li
                   key={m.id}
                   className="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-800"

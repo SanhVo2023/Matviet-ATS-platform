@@ -12,7 +12,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "matviet-hr",
-  "main": ".open-next/worker.js",
+  "main": "custom-worker.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {

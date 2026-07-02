@@ -88,26 +88,3 @@ export type Database = {
 export type Tables<T extends keyof TableMap> = TableMap[T]["Row"];
 export type TablesInsert<T extends keyof TableMap> = TableMap[T]["Insert"];
 export type TablesUpdate<T extends keyof TableMap> = TableMap[T]["Update"];
-
-export const Constants = {
-  public: {
-    Enums: {
-      ai_screening_status: s.AI_SCREENING_STATUSES,
-      approval_status: s.APPROVAL_STATUSES,
-      approval_step_kind: s.APPROVAL_STEP_KINDS,
-      candidate_source: s.CANDIDATE_SOURCES,
-      email_direction: s.EMAIL_DIRECTIONS,
-      email_status: s.EMAIL_STATUSES,
-      flow_type: s.FLOW_TYPES,
-      interview_status: s.INTERVIEW_STATUSES,
-      interview_type: s.INTERVIEW_TYPES,
-      interviewer_role: s.INTERVIEWER_ROLES,
-      job_status: s.JOB_STATUSES,
-      pipeline_stage: s.PIPELINE_STAGES,
-      recommendation: s.RECOMMENDATIONS,
-      role_family: s.ROLE_FAMILIES,
-      scoring_job_status: s.SCORING_JOB_STATUSES,
-      user_role: s.USER_ROLES,
-    },
-  },
-} as const;

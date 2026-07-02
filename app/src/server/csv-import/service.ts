@@ -1,5 +1,8 @@
 import "server-only";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { candidates, cv_files, stage_history } from "@/db/schema";
+import { deleteFile, putFile } from "@/lib/r2";
 import {
   CV_FETCH_CONCURRENCY,
   CV_FETCH_TIMEOUT_MS,
@@ -16,7 +19,6 @@ import type { TablesInsert } from "@/types/db";
 export { parseCsv, ALL_FIELDS, normalizeHeader, type ParseResult } from "./parser";
 
 type CandidateInsert = TablesInsert<"candidates">;
-type CvFileInsert = TablesInsert<"cv_files">;
 
 // ──────────────────────────── Preview ────────────────────────────
 
@@ -55,8 +57,8 @@ export interface CommitResult {
  * Commit parsed rows: bulk-insert candidates, optionally fetch CVs from
  * cv_url, enqueue scoring per row.
  *
- * Uses admin client for bulk inserts (RLS-bypass for performance + uniformity).
- * The calling Server Action MUST guard with requireRole(['admin','hr']).
+ * The calling Server Action MUST guard with requireRole(['admin','hr']) —
+ * authorization lives at the action layer (single-principal D1, ADR 0011).
  *
  * Per-row failures don't abort the whole import — failed rows accumulate in
  * the result; HR sees the summary and can retry individual rows manually.
@@ -66,7 +68,7 @@ export async function commitImport(
   options: CommitImportOptions,
   actorId: string,
 ): Promise<CommitResult> {
-  const admin = createAdminClient();
+  const db = await getDb();
   const result: CommitResult = {
     inserted: 0,
     skipped_duplicates: 0,
@@ -117,28 +119,43 @@ export async function commitImport(
     return result;
   }
 
-  const { error: bulkErr } = await admin.from("candidates").insert(candidateInserts as never);
-  if (bulkErr) {
+  // D1 has no triggers — mirror the old log_stage_change INSERT trigger by
+  // writing the (null → 'new') stage_history row alongside each candidate.
+  const stageRowFor = (candidateId: string): TablesInsert<"stage_history"> => ({
+    candidate_id: candidateId,
+    from_stage: null,
+    to_stage: "new",
+    actor_user_id: actorId,
+  });
+
+  try {
+    await db.batch([
+      db.insert(candidates).values(candidateInserts),
+      db.insert(stage_history).values(candidateInserts.map((c) => stageRowFor(c.id))),
+    ]);
+    result.inserted = candidateInserts.length;
+    result.inserted_candidate_ids = candidateInserts.map((c) => c.id);
+  } catch {
     // Fall back to per-row inserts so partial failures don't block everything
     for (let i = 0; i < candidateInserts.length; i++) {
       const c = candidateInserts[i]!;
-      const { error } = await admin.from("candidates").insert(c as never);
       const original = toInsert[i]!;
-      if (error) {
+      try {
+        await db.batch([
+          db.insert(candidates).values(c),
+          db.insert(stage_history).values(stageRowFor(c.id)),
+        ]);
+        result.inserted += 1;
+        result.inserted_candidate_ids.push(c.id);
+      } catch (err) {
         result.failed += 1;
         result.errors.push({
           row_index: original.index,
           full_name: c.full_name,
-          error: error.message,
+          error: err instanceof Error ? err.message : String(err),
         });
-      } else {
-        result.inserted += 1;
-        result.inserted_candidate_ids.push(c.id);
       }
     }
-  } else {
-    result.inserted = candidateInserts.length;
-    result.inserted_candidate_ids = candidateInserts.map((c) => c.id);
   }
 
   // CV downloads — only for candidates with a cv_url AND fetch_cvs option
@@ -158,10 +175,14 @@ export async function commitImport(
         } catch (err) {
           // Don't fail the whole import — candidate stays with cv_file_id=null
           // and "Bổ sung CV sau" note. HR can manually attach later.
-          await admin
-            .from("candidates")
-            .update({ notes: `CV tự động tải lỗi: ${(err as Error).message}` } as never)
-            .eq("id", entry.candidateId);
+          try {
+            await db
+              .update(candidates)
+              .set({ notes: `CV tự động tải lỗi: ${(err as Error).message}` })
+              .where(eq(candidates.id, entry.candidateId));
+          } catch {
+            /* note update is best-effort */
+          }
         }
       }
     }
@@ -189,7 +210,7 @@ async function fetchAndAttachCv(
   cvUrl: string,
   uploadedBy: string,
 ): Promise<void> {
-  const admin = createAdminClient();
+  const db = await getDb();
 
   // Fetch with timeout
   const ctrl = new AbortController();
@@ -221,34 +242,33 @@ async function fetchAndAttachCv(
     : `${filenameGuess}.pdf`;
   const storagePath = cvStoragePath(candidateId, originalName);
 
-  const { error: upErr } = await admin.storage
-    .from("cvs")
-    .upload(storagePath, buffer, { contentType: mime, upsert: false });
-  if (upErr) throw new Error(`Lưu vào Storage thất bại: ${upErr.message}`);
-
-  const cvInsert: CvFileInsert = {
-    storage_path: storagePath,
-    mime,
-    size_bytes: buffer.byteLength,
-    original_name: originalName,
-    uploaded_by: uploadedBy,
-  };
-  const { data: cv, error: cvErr } = await admin
-    .from("cv_files")
-    .insert(cvInsert as never)
-    .select("id")
-    .single();
-  if (cvErr || !cv) {
-    await admin.storage
-      .from("cvs")
-      .remove([storagePath])
-      .catch(() => {});
-    throw cvErr ?? new Error("cv_files insert failed");
+  try {
+    await putFile(storagePath, buffer, mime);
+  } catch (err) {
+    throw new Error(`Lưu vào Storage thất bại: ${(err as Error).message}`);
   }
-  const cvFileId = (cv as { id: string }).id;
 
-  await admin
-    .from("candidates")
-    .update({ cv_file_id: cvFileId, notes: null } as never)
-    .eq("id", candidateId);
+  let cvFileId: string;
+  try {
+    const inserted = await db
+      .insert(cv_files)
+      .values({
+        storage_path: storagePath,
+        mime,
+        size_bytes: buffer.byteLength,
+        original_name: originalName,
+        uploaded_by: uploadedBy,
+      })
+      .returning({ id: cv_files.id });
+    if (!inserted[0]) throw new Error("cv_files insert failed");
+    cvFileId = inserted[0].id;
+  } catch (err) {
+    await deleteFile(storagePath).catch(() => {});
+    throw err;
+  }
+
+  await db
+    .update(candidates)
+    .set({ cv_file_id: cvFileId, notes: null })
+    .where(eq(candidates.id, candidateId));
 }

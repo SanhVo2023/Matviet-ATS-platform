@@ -1,21 +1,17 @@
 /**
  * /api/scoring/drain — cron-protected queue drain.
  *
- * Schedule: every 5 min via Netlify Cron (see netlify.toml). Selects up to
- * 10 queued + retry-due rows and dispatches them to the score-candidate
- * Edge Function. Backstop in case the upload-time fire-and-forget gets dropped.
+ * Schedule: every 5 min via Cloudflare Cron Trigger (custom-worker.ts calls
+ * this route in-process). Processes up to MAX_BATCH due rows sequentially —
+ * scoring runs in this Worker now (ADR 0009), so "drain" means "do the work",
+ * not "dispatch to an edge function".
  *
- * Auth: requires header `Authorization: Bearer ${CRON_SECRET}`. The secret
- * is set on Netlify; the Server Action path uses SCORING_INTERNAL_SECRET.
- * Two distinct secrets so a leaked CRON_SECRET can't directly invoke the
- * Edge Function (still has to go through the drain route).
+ * Auth: `Authorization: Bearer ${CRON_SECRET}`.
  */
 import { NextResponse } from "next/server";
-import { listDrainableQueueRows } from "@/server/scoring/repository";
-import { triggerEdgeFunction } from "@/server/scoring/orchestration";
+import { runScoringJob, type ScoringOutcome } from "@/server/scoring/worker";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
 
 const MAX_BATCH = 10;
 
@@ -29,14 +25,22 @@ export async function GET(req: Request): Promise<Response> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const rows = await listDrainableQueueRows(MAX_BATCH);
-  if (rows.length === 0) {
+  const outcomes: ScoringOutcome[] = [];
+  for (let i = 0; i < MAX_BATCH; i++) {
+    const outcome = await runScoringJob();
+    if (outcome.status === "idle") break;
+    outcomes.push(outcome);
+  }
+
+  if (outcomes.length === 0) {
     return NextResponse.json({ status: "idle", drained: 0 });
   }
-  for (const r of rows) {
-    triggerEdgeFunction(r.candidate_id);
-  }
-  return NextResponse.json({ status: "dispatched", drained: rows.length });
+  return NextResponse.json({
+    status: "drained",
+    drained: outcomes.length,
+    succeeded: outcomes.filter((o) => o.status === "succeeded").length,
+    failed: outcomes.filter((o) => o.status === "failed").length,
+  });
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

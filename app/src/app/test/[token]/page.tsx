@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { AlertTriangle, FileText } from "lucide-react";
-import { getActiveInviteToken, getAssessment, signTestUrl } from "@/server/assessments/repository";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { eq } from "drizzle-orm";
+import { getActiveInviteToken, getAssessment } from "@/server/assessments/repository";
+import { getDb } from "@/db";
+import { candidates, jobs } from "@/db/schema";
 import { TestSubmitForm } from "@/components/features/test-public/TestSubmitForm";
 import { t } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/vi-format";
@@ -50,17 +52,28 @@ export default async function PublicTestPage({ params }: { params: Promise<{ tok
     return <ThanksScreen alreadySubmitted />;
   }
 
-  // Look up candidate name + job title via admin client
-  const admin = createAdminClient();
-  const [{ data: candidateRow }, { data: jobRow }] = await Promise.all([
-    admin.from("candidates").select("full_name").eq("id", invite.candidate_id).maybeSingle(),
-    admin.from("jobs").select("title").eq("id", assessment.job_id).maybeSingle(),
+  // Look up candidate name + job title (public page — token is the authorization)
+  const db = await getDb();
+  const [candidateRow, jobRow] = await Promise.all([
+    db
+      .select({ full_name: candidates.full_name })
+      .from(candidates)
+      .where(eq(candidates.id, invite.candidate_id))
+      .limit(1)
+      .then((r) => r[0] ?? null),
+    db
+      .select({ title: jobs.title })
+      .from(jobs)
+      .where(eq(jobs.id, assessment.job_id))
+      .limit(1)
+      .then((r) => r[0] ?? null),
   ]);
-  const candidateName = (candidateRow as { full_name: string } | null)?.full_name ?? "Ứng viên";
-  const jobTitle = (jobRow as { title: string } | null)?.title ?? "—";
+  const candidateName = candidateRow?.full_name ?? "Ứng viên";
+  const jobTitle = jobRow?.title ?? "—";
 
+  // Token-scoped download route — no session, streams from R2
   const testUrl = assessment.test_storage_path
-    ? await signTestUrl(assessment.test_storage_path, 3600)
+    ? `/api/test/${encodeURIComponent(token)}/file`
     : null;
 
   return (

@@ -1,11 +1,18 @@
 import "server-only";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { eq, inArray } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
+import { getDb } from "@/db";
+import { candidates, stage_history, jobs, users } from "@/db/schema";
 import type { TablesInsert } from "@/types/db";
+import type { Stage } from "./types";
 
 type CandidateInsert = TablesInsert<"candidates">;
 type StageHistoryInsert = TablesInsert<"stage_history">;
 
 const DEMO_NOTE = "SEED_DEMO";
+
+/** db.batch statements per call — D1 caps batch sizes, keep chunks small. */
+const BATCH_CHUNK = 50;
 
 const VN_NAMES = [
   "Nguyễn Văn An",
@@ -41,7 +48,7 @@ const VN_NAMES = [
 ];
 
 const SOURCES = ["manual_upload", "csv_import", "topcv_api", "referral", "email_inbox"] as const;
-const STAGES_TIMELINE: Array<{ stage: string; daysAfter: number }> = [
+const STAGES_TIMELINE: Array<{ stage: Stage; daysAfter: number }> = [
   { stage: "new", daysAfter: 0 },
   { stage: "screening", daysAfter: 1 },
   { stage: "screened", daysAfter: 2 },
@@ -57,7 +64,7 @@ const STAGES_TIMELINE: Array<{ stage: string; daysAfter: number }> = [
 ];
 
 /** Distribution: 30 candidates spread across 3 jobs over 60 days. */
-const DISTRIBUTION = [
+const DISTRIBUTION: Array<{ count: number; finalStage: Stage }> = [
   { count: 10, finalStage: "hired" },
   { count: 8, finalStage: "offer_accepted" },
   { count: 6, finalStage: "interviewed" },
@@ -76,41 +83,44 @@ export interface SeedDemoResult {
  * candidate with `notes='SEED_DEMO'` exists already, returns { skipped: true }.
  *
  * IMPORTANT: dev-only. Do not run on production. There's no programmatic guard;
- * the npm script that calls this should not be wired into CI.
+ * only expose this via the admin-only in-app action.
  */
 export async function seedDemoData(): Promise<SeedDemoResult> {
-  const admin = createAdminClient();
+  const db = await getDb();
 
   // Idempotency check
-  const { data: existing } = await admin
-    .from("candidates")
-    .select("id")
-    .eq("notes", DEMO_NOTE)
+  const existing = await db
+    .select({ id: candidates.id })
+    .from(candidates)
+    .where(eq(candidates.notes, DEMO_NOTE))
     .limit(1);
-  if ((existing ?? []).length > 0) {
+  if (existing.length > 0) {
     return { candidates_created: 0, jobs_used: 0, skipped: true };
   }
 
   // Pick (or assume already-existing) demo jobs — first 3 open jobs
-  const { data: jobs } = await admin
-    .from("jobs")
-    .select("id, title, role_family")
-    .in("status", ["open", "draft"])
+  const jobList = await db
+    .select({ id: jobs.id, title: jobs.title, role_family: jobs.role_family })
+    .from(jobs)
+    .where(inArray(jobs.status, ["open", "draft"]))
     .limit(3);
-  const jobList = (jobs ?? []) as Array<{ id: string; title: string; role_family: string }>;
   if (jobList.length === 0) {
     throw new Error(
       "Không có vị trí (jobs) nào để seed dữ liệu — tạo ít nhất 1 tin tuyển dụng trước.",
     );
   }
 
-  // Pick first profile as actor
-  const { data: actor } = await admin.from("profiles").select("id").limit(1).maybeSingle();
-  const actorId = (actor as { id: string } | null)?.id ?? null;
+  // Pick first user as actor
+  const actorRows = await db.select({ id: users.id }).from(users).limit(1);
+  const actorId = actorRows[0]?.id ?? null;
 
   let nameIdx = 0;
   let candidateRows = 0;
   const now = Date.now();
+
+  // Unlike Postgres there is no stage_history trigger in D1 — the timeline is
+  // written explicitly here, so no trigger-row cleanup is needed.
+  const statements: BatchItem<"sqlite">[] = [];
 
   for (const dist of DISTRIBUTION) {
     for (let i = 0; i < dist.count; i++) {
@@ -129,7 +139,7 @@ export async function seedDemoData(): Promise<SeedDemoResult> {
           .slice(0, 9);
       const score = 40 + Math.floor(Math.random() * 50); // 40-89
 
-      const cand: CandidateInsert & { id: string } = {
+      const cand: CandidateInsert = {
         id: candidateId,
         job_id: job.id,
         full_name: fullName,
@@ -137,36 +147,28 @@ export async function seedDemoData(): Promise<SeedDemoResult> {
         phone,
         source: SOURCES[Math.floor(Math.random() * SOURCES.length)]!,
         notes: DEMO_NOTE,
-        current_stage: dist.finalStage as never,
+        current_stage: dist.finalStage,
         ai_score: score,
         ai_screening_status: "success",
         created_by: actorId,
         created_at: startedAt.toISOString(),
         ai_scored_at: new Date(startedAt.getTime() + 60 * 1000).toISOString(),
       };
-
-      const { error: candErr } = await admin.from("candidates").insert(cand as never);
-      if (candErr) throw candErr;
+      statements.push(db.insert(candidates).values(cand));
       candidateRows += 1;
 
-      // Build stage_history retroactively. The trigger fires on insert + update,
-      // so the candidate already has a "new" row. We need to backfill the rest
-      // of the timeline manually with the correct timestamps.
-      // Step 1: delete the trigger-inserted row so we have a clean slate
-      await admin.from("stage_history").delete().eq("candidate_id", candidateId);
-
-      // Step 2: insert the timeline up to the final stage
+      // Build the stage timeline up to the final stage
       const finalIdx = STAGES_TIMELINE.findIndex((s) => s.stage === dist.finalStage);
       const limit = finalIdx >= 0 ? finalIdx : STAGES_TIMELINE.length - 1;
 
       const historyRows: StageHistoryInsert[] = [];
-      let prev: string | null = null;
+      let prev: Stage | null = null;
       for (let s = 0; s <= limit; s++) {
         const step = STAGES_TIMELINE[s]!;
         historyRows.push({
           candidate_id: candidateId,
-          from_stage: prev as never,
-          to_stage: step.stage as never,
+          from_stage: prev,
+          to_stage: step.stage,
           actor_user_id: actorId,
           at: new Date(startedAt.getTime() + step.daysAfter * 24 * 60 * 60 * 1000).toISOString(),
         });
@@ -177,16 +179,22 @@ export async function seedDemoData(): Promise<SeedDemoResult> {
       if (dist.finalStage === "rejected") {
         historyRows.push({
           candidate_id: candidateId,
-          from_stage: prev as never,
-          to_stage: "rejected" as never,
+          from_stage: prev,
+          to_stage: "rejected",
           actor_user_id: actorId,
           at: new Date(startedAt.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         });
       }
 
-      const { error: histErr } = await admin.from("stage_history").insert(historyRows as never);
-      if (histErr) throw histErr;
+      statements.push(db.insert(stage_history).values(historyRows));
     }
+  }
+
+  // Chunked batches (≤50 statements each). Statement order is preserved, so
+  // each candidate insert always precedes its stage_history rows (FK-safe).
+  for (let i = 0; i < statements.length; i += BATCH_CHUNK) {
+    const chunk = statements.slice(i, i + BATCH_CHUNK);
+    await db.batch(chunk as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
   }
 
   return {
@@ -196,14 +204,12 @@ export async function seedDemoData(): Promise<SeedDemoResult> {
   };
 }
 
-/** Tear down all demo data. Used by the CLI script. */
+/** Tear down all demo data (stage_history cascades via FK). */
 export async function unseedDemoData(): Promise<{ deleted: number }> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("candidates")
-    .delete()
-    .eq("notes", DEMO_NOTE)
-    .select("id");
-  if (error) throw error;
-  return { deleted: ((data ?? []) as unknown[]).length };
+  const db = await getDb();
+  const deleted = await db
+    .delete(candidates)
+    .where(eq(candidates.notes, DEMO_NOTE))
+    .returning({ id: candidates.id });
+  return { deleted: deleted.length };
 }
