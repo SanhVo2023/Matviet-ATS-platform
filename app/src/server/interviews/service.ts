@@ -1,19 +1,34 @@
 import "server-only";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { getDb } from "@/db";
-import { interviews, interview_attendees, interview_evaluations, candidates } from "@/db/schema";
+import {
+  interviews,
+  interview_attendees,
+  interview_evaluations,
+  candidates,
+  jobs,
+  users,
+} from "@/db/schema";
 import type { ScheduleInterviewInput, SubmitEvaluationInput } from "@/lib/validation/interview";
+import {
+  createCalendarEvent,
+  cancelCalendarEvent,
+  type CalendarAttendee,
+} from "@/lib/graph/calendar";
+import { publicEnv } from "@/types/env";
 
 /**
- * Schedule a new interview.
+ * Schedule a new interview (G7-complete).
  *
  * Steps:
  *  1. Resolve job_id from the candidate.
  *  2. Insert interviews row.
  *  3. Insert interview_attendees rows (one per attendee_id).
  *  4. Bump candidate.current_stage to 'interview_scheduled' if it's an earlier stage.
- *
- * MS Graph integration deferred to G7 — graph_event_id and teams_link stay null.
+ *  5. Best-effort: create the Outlook event (Teams link for video interviews) and
+ *     persist graph_event_id + teams_link. Graph being down never blocks the
+ *     schedule — the interview simply has no Outlook invite (visible in UI as
+ *     a missing Teams/link chip) and HR can re-schedule to retry.
  */
 export async function scheduleInterview(
   input: ScheduleInterviewInput,
@@ -26,6 +41,8 @@ export async function scheduleInterview(
       id: candidates.id,
       job_id: candidates.job_id,
       current_stage: candidates.current_stage,
+      full_name: candidates.full_name,
+      email: candidates.email,
     })
     .from(candidates)
     .where(eq(candidates.id, input.candidate_id))
@@ -79,15 +96,91 @@ export async function scheduleInterview(
       .where(eq(candidates.id, candidate.id));
   }
 
+  // 4. Outlook event + Teams link (best-effort, G7)
+  try {
+    const job = await db
+      .select({ title: jobs.title })
+      .from(jobs)
+      .where(eq(jobs.id, candidate.job_id))
+      .get();
+
+    const interviewerRows = input.attendee_ids.length
+      ? await db
+          .select({ email: users.email, name: users.name })
+          .from(users)
+          .where(inArray(users.id, input.attendee_ids))
+      : [];
+
+    const attendees: CalendarAttendee[] = interviewerRows.map((u) => ({
+      email: u.email,
+      name: u.name,
+      type: "required",
+    }));
+    if (candidate.email) {
+      attendees.push({ email: candidate.email, name: candidate.full_name, type: "required" });
+    }
+
+    const typeLabel =
+      input.type === "video"
+        ? "Online (Teams)"
+        : input.type === "phone"
+          ? "Điện thoại"
+          : "Trực tiếp";
+    const event = await createCalendarEvent({
+      subject: `Phỏng vấn: ${candidate.full_name} — ${job?.title ?? "Mắt Việt"}`,
+      bodyHtml: `
+        <p><strong>Ứng viên:</strong> ${candidate.full_name}</p>
+        <p><strong>Vị trí:</strong> ${job?.title ?? "—"}</p>
+        <p><strong>Hình thức:</strong> ${typeLabel}</p>
+        ${input.location_or_link ? `<p><strong>Địa điểm/Link:</strong> ${input.location_or_link}</p>` : ""}
+        ${input.notes ? `<p><strong>Ghi chú:</strong> ${input.notes}</p>` : ""}
+        <p><a href="${publicEnv.appUrl}/phong-van/${interviewId}">Xem chi tiết trong Mắt Việt HR</a></p>`,
+      startIso: input.scheduled_at,
+      durationMin: input.duration_min,
+      attendees,
+      isOnline: input.type === "video",
+      location: input.type === "in_person" ? (input.location_or_link?.trim() ?? null) : null,
+    });
+
+    await db
+      .update(interviews)
+      .set({
+        graph_event_id: event.eventId,
+        teams_link: event.teamsJoinUrl,
+        // For video interviews with no manual link, surface the Teams link.
+        ...(input.type === "video" && !input.location_or_link?.trim() && event.teamsJoinUrl
+          ? { location_or_link: event.teamsJoinUrl }
+          : {}),
+      })
+      .where(eq(interviews.id, interviewId));
+  } catch (err) {
+    console.warn("[interviews] Outlook event creation failed (interview kept):", err);
+  }
+
   return { id: interviewId };
 }
 
 export async function cancelInterview(interviewId: string, reason?: string): Promise<void> {
   const db = await getDb();
+  const existing = await db
+    .select({ graph_event_id: interviews.graph_event_id })
+    .from(interviews)
+    .where(eq(interviews.id, interviewId))
+    .get();
+
   await db
     .update(interviews)
     .set({ status: "cancelled", notes: reason ?? null })
     .where(eq(interviews.id, interviewId));
+
+  // Best-effort Outlook cancellation — attendees get the standard notice.
+  if (existing?.graph_event_id) {
+    try {
+      await cancelCalendarEvent(existing.graph_event_id, reason);
+    } catch (err) {
+      console.warn("[interviews] Outlook event cancellation failed:", err);
+    }
+  }
 }
 
 /**
