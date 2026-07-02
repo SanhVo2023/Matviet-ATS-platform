@@ -1,4 +1,12 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+// Makes getCloudflareContext() (D1/R2 bindings from wrangler.jsonc + .dev.vars)
+// available inside `next dev`. Guarded: during `next build` the miniflare/workerd
+// startup is unnecessary (and workerd crashes on Windows paths with diacritics).
+if (process.env.NODE_ENV === "development") {
+  initOpenNextCloudflareForDev();
+}
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -8,10 +16,7 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "*.supabase.co" },
-      { protocol: "https", hostname: "matviet-hr.netlify.app" },
-    ],
+    remotePatterns: [{ protocol: "https", hostname: "hr.matviet.com.vn" }],
   },
   async headers() {
     return [

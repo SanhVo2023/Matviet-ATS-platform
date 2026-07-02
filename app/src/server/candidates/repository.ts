@@ -1,6 +1,7 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { and, desc, eq, inArray, like, or } from "drizzle-orm";
+import { getDb } from "@/db";
+import { candidates, cv_files, job_assignments, stage_history, users } from "@/db/schema";
 import type { Database, Tables } from "@/types/db";
 
 export type CandidateRow = Tables<"candidates">;
@@ -14,80 +15,87 @@ export interface CandidateListFilters {
   stage?: Stage | "all";
   source?: Source | "all";
   search?: string;
+  /** When set (hiring_manager callers), restrict to candidates on jobs this user is assigned to. */
+  for_manager_user_id?: string | null;
 }
 
 export async function listCandidates(filters: CandidateListFilters = {}): Promise<CandidateRow[]> {
-  const supabase = await createClient();
-  let q = supabase.from("candidates").select("*").eq("is_archived", false);
+  const db = await getDb();
+  const conds = [eq(candidates.is_archived, false)];
 
-  if (filters.job_id) q = q.eq("job_id", filters.job_id);
-  if (filters.stage && filters.stage !== "all") q = q.eq("current_stage", filters.stage);
-  if (filters.source && filters.source !== "all") q = q.eq("source", filters.source);
+  if (filters.job_id) conds.push(eq(candidates.job_id, filters.job_id));
+  if (filters.for_manager_user_id) {
+    conds.push(
+      inArray(
+        candidates.job_id,
+        db
+          .select({ job_id: job_assignments.job_id })
+          .from(job_assignments)
+          .where(eq(job_assignments.manager_user_id, filters.for_manager_user_id)),
+      ),
+    );
+  }
+  if (filters.stage && filters.stage !== "all")
+    conds.push(eq(candidates.current_stage, filters.stage));
+  if (filters.source && filters.source !== "all") conds.push(eq(candidates.source, filters.source));
   if (filters.search?.trim()) {
-    const s = filters.search.trim();
-    q = q.or(`full_name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`);
+    const s = `%${filters.search.trim()}%`;
+    const searchCond = or(
+      like(candidates.full_name, s),
+      like(candidates.email, s),
+      like(candidates.phone, s),
+    );
+    if (searchCond) conds.push(searchCond);
   }
 
-  const { data, error } = await q.order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as CandidateRow[];
+  return db
+    .select()
+    .from(candidates)
+    .where(and(...conds))
+    .orderBy(desc(candidates.created_at));
 }
 
 export async function getCandidate(id: string): Promise<CandidateRow | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("candidates").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  return data as CandidateRow | null;
+  const db = await getDb();
+  const rows = await db.select().from(candidates).where(eq(candidates.id, id)).limit(1);
+  return rows[0] ?? null;
 }
 
 export async function getCvFile(cvFileId: string): Promise<CvFileRow | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("cv_files")
-    .select("*")
-    .eq("id", cvFileId)
-    .maybeSingle();
-  if (error) throw error;
-  return data as CvFileRow | null;
+  const db = await getDb();
+  const rows = await db.select().from(cv_files).where(eq(cv_files.id, cvFileId)).limit(1);
+  return rows[0] ?? null;
 }
 
 export async function getStageHistory(candidateId: string): Promise<StageHistoryRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("stage_history")
-    .select("*")
-    .eq("candidate_id", candidateId)
-    .order("at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as StageHistoryRow[];
+  const db = await getDb();
+  return db
+    .select()
+    .from(stage_history)
+    .where(eq(stage_history.candidate_id, candidateId))
+    .orderBy(desc(stage_history.at));
 }
 
 /**
- * Generate a signed URL for a CV file (10-minute expiry). Used by the
- * CV preview component which fetches the bytes client-side.
+ * URL for a CV file, now served by the authed R2 streaming route
+ * (`/api/files/[...path]`) instead of a Supabase signed URL. Kept async
+ * (and keeps the legacy `expiresInSec` parameter) so callers don't change.
  */
-export async function signCvUrl(storagePath: string, expiresInSec = 600): Promise<string | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from("cvs")
-    .createSignedUrl(storagePath, expiresInSec);
-  if (error) return null;
-  return data.signedUrl;
+export async function signCvUrl(storagePath: string, _expiresInSec = 600): Promise<string | null> {
+  if (!storagePath) return null;
+  return "/api/files/" + storagePath.split("/").map(encodeURIComponent).join("/");
 }
 
 /**
- * Bulk lookup of profiles for stage history actor display. Uses admin client
- * because RLS on profiles only lets users see themselves; HR detail page
- * legitimately needs to render names of past actors.
+ * Bulk lookup of user display names for stage history actor display
+ * (old `profiles` table, now `users`).
  */
 export async function lookupProfileNames(ids: string[]): Promise<Record<string, string>> {
   if (ids.length === 0) return {};
-  const admin = createAdminClient();
-  const { data } = await admin.from("profiles").select("id, full_name").in("id", ids);
-  return Object.fromEntries(
-    ((data ?? []) as Array<{ id: string; full_name: string | null }>).map((p) => [
-      p.id,
-      p.full_name ?? "—",
-    ]),
-  );
+  const db = await getDb();
+  const rows = await db
+    .select({ id: users.id, full_name: users.name })
+    .from(users)
+    .where(inArray(users.id, ids));
+  return Object.fromEntries(rows.map((p) => [p.id, p.full_name ?? "—"]));
 }

@@ -239,3 +239,20 @@ Cost guardrails: $5/day soft alert, $25/day hard cap on Gemini.
 | Designer | TBD | (Sanh confirms before Group 1) |
 | TopCV vendor | TopCV support | hotro@topcv.vn |
 | BOD (mgmt approvals) | TBD | (Sanh confirms when first mgmt hire occurs) |
+
+---
+
+## Cloudflare pivot — Sanh's manual steps (added 2026-07-02, ADR 0009)
+
+Blocking DEPLOY only — development continues locally without these.
+
+| # | Task | Owner | Status |
+|---|---|---|---|
+| C1 | Create Cloudflare account (or reuse existing) + enable **Workers Paid** (~$5/mo) | Sanh | ☐ |
+| C2 | `npx wrangler login` on the dev machine (or API token with Workers+D1+R2 edit → CLOUDFLARE_API_TOKEN) | Sanh | ☐ |
+| C3 | `npx wrangler d1 create matviet-hr` → paste database_id into app/wrangler.jsonc | Sanh (1 cmd) | ☐ |
+| C4 | `npx wrangler r2 bucket create matviet-hr-files` | Sanh (1 cmd) | ☐ |
+| C5 | `npx wrangler d1 migrations apply matviet-hr --remote` | Sanh (1 cmd) | ☐ |
+| C6 | Secrets: `npx wrangler secret put` × GEMINI_API_KEY, MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MS_MAILBOX_ADDRESS, CRON_SECRET, BETTER_AUTH_SECRET | Sanh | ☐ |
+| C7 | DNS: add zone matviet.com.vn to Cloudflare **or** IT ticket: CNAME `hr` → workers.dev URL; then enable the custom-domain route in wrangler.jsonc | Sanh + IT | ☐ |
+| C8 | Decommission after cutover: pause Supabase project `xeyqbapegqeibeqrwnkm`, delete Netlify site, cancel Fly.io (worker never deployed; directory removed from repo) | Sanh | ☐ |

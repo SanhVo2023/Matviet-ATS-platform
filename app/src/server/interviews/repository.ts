@@ -1,6 +1,7 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { and, asc, eq, gte, inArray, type SQL } from "drizzle-orm";
+import { getDb } from "@/db";
+import { interviews, interview_attendees, interview_evaluations, users } from "@/db/schema";
 import type { Database, Tables } from "@/types/db";
 
 export type InterviewRow = Tables<"interviews">;
@@ -20,86 +21,80 @@ export interface InterviewListFilters {
 }
 
 export async function listInterviews(filters: InterviewListFilters = {}): Promise<InterviewRow[]> {
-  const supabase = await createClient();
-  let q = supabase.from("interviews").select("*");
-  if (filters.candidate_id) q = q.eq("candidate_id", filters.candidate_id);
-  if (filters.job_id) q = q.eq("job_id", filters.job_id);
-  if (filters.status) q = q.eq("status", filters.status);
-  if (filters.upcoming_only) q = q.gte("scheduled_at", new Date().toISOString());
+  const db = await getDb();
+  const conds: SQL[] = [];
+  if (filters.candidate_id) conds.push(eq(interviews.candidate_id, filters.candidate_id));
+  if (filters.job_id) conds.push(eq(interviews.job_id, filters.job_id));
+  if (filters.status) conds.push(eq(interviews.status, filters.status));
+  if (filters.upcoming_only) conds.push(gte(interviews.scheduled_at, new Date().toISOString()));
   if (filters.for_user_id) {
-    // Hop through interview_attendees. Easier than a join via the JS client:
-    // fetch interview_ids first.
-    const { data: rows, error } = await supabase
-      .from("interview_attendees")
-      .select("interview_id")
-      .eq("user_id", filters.for_user_id);
-    if (error) throw error;
-    const ids = (rows ?? []).map((r) => (r as { interview_id: string }).interview_id);
+    // Hop through interview_attendees: fetch interview_ids first.
+    const rows = await db
+      .select({ interview_id: interview_attendees.interview_id })
+      .from(interview_attendees)
+      .where(eq(interview_attendees.user_id, filters.for_user_id));
+    const ids = rows.map((r) => r.interview_id);
     if (ids.length === 0) return [];
-    q = q.in("id", ids);
+    conds.push(inArray(interviews.id, ids));
   }
-  const { data, error } = await q.order("scheduled_at", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as InterviewRow[];
+  return db
+    .select()
+    .from(interviews)
+    .where(conds.length > 0 ? and(...conds) : undefined)
+    .orderBy(asc(interviews.scheduled_at));
 }
 
 export async function getInterview(id: string): Promise<InterviewRow | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("interviews").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  return data as InterviewRow | null;
+  const db = await getDb();
+  const rows = await db.select().from(interviews).where(eq(interviews.id, id)).limit(1);
+  return rows[0] ?? null;
 }
 
 export async function listAttendees(interviewId: string): Promise<InterviewAttendeeRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("interview_attendees")
-    .select("*")
-    .eq("interview_id", interviewId);
-  if (error) throw error;
-  return (data ?? []) as InterviewAttendeeRow[];
+  const db = await getDb();
+  return db
+    .select()
+    .from(interview_attendees)
+    .where(eq(interview_attendees.interview_id, interviewId));
 }
 
 export async function getEvaluation(
   interviewId: string,
   evaluatorId: string,
 ): Promise<InterviewEvaluationRow | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("interview_evaluations")
-    .select("*")
-    .eq("interview_id", interviewId)
-    .eq("evaluator_user_id", evaluatorId)
-    .maybeSingle();
-  if (error) throw error;
-  return data as InterviewEvaluationRow | null;
+  const db = await getDb();
+  const rows = await db
+    .select()
+    .from(interview_evaluations)
+    .where(
+      and(
+        eq(interview_evaluations.interview_id, interviewId),
+        eq(interview_evaluations.evaluator_user_id, evaluatorId),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 export async function listEvaluations(interviewId: string): Promise<InterviewEvaluationRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("interview_evaluations")
-    .select("*")
-    .eq("interview_id", interviewId)
-    .order("created_at", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as InterviewEvaluationRow[];
+  const db = await getDb();
+  return db
+    .select()
+    .from(interview_evaluations)
+    .where(eq(interview_evaluations.interview_id, interviewId))
+    .orderBy(asc(interview_evaluations.created_at));
 }
 
 /**
- * List potential interviewers — admin / HR / hiring_manager profiles.
- * Uses admin client to bypass profiles RLS (which restricts to is_hr() or self).
- * Caller MUST be already-authorized HR/admin.
+ * List potential interviewers — active admin / HR / hiring_manager users.
+ * Authorization lives in the caller's requireRole guard (must be HR/admin).
  */
 export async function listInterviewers(): Promise<
   Array<{ id: string; full_name: string | null; role: string }>
 > {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("profiles")
-    .select("id, full_name, role")
-    .eq("is_active", true)
-    .in("role", ["admin", "hr", "hiring_manager"]);
-  if (error) throw error;
-  return (data ?? []) as Array<{ id: string; full_name: string | null; role: string }>;
+  const db = await getDb();
+  return db
+    .select({ id: users.id, full_name: users.name, role: users.role })
+    .from(users)
+    .where(and(eq(users.isActive, true), inArray(users.role, ["admin", "hr", "hiring_manager"])));
 }

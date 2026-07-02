@@ -9,9 +9,14 @@ export const metadata: Metadata = { title: t.nav.candidates };
 export const dynamic = "force-dynamic";
 
 export default async function CandidatesListPage() {
-  await requireRole(["admin", "hr", "hiring_manager"]);
+  const profile = await requireRole(["admin", "hr", "hiring_manager"]);
 
-  const [candidates, jobs] = await Promise.all([listCandidates(), listJobs()]);
+  // Hiring managers only see candidates on their assigned jobs (ADR 0011)
+  const managerScope = profile.role === "hiring_manager" ? profile.id : null;
+  const [candidates, jobs] = await Promise.all([
+    listCandidates({ for_manager_user_id: managerScope }),
+    listJobs(),
+  ]);
 
   return (
     <div className="mx-auto max-w-7xl p-6 lg:p-8">

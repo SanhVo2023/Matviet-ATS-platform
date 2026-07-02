@@ -1,6 +1,7 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { and, asc, desc, eq, like } from "drizzle-orm";
+import { getDb } from "@/db";
+import { departments, jobs, job_assignments, users } from "@/db/schema";
 import type { Database, Tables } from "@/types/db";
 
 export type JobRow = Tables<"jobs">;
@@ -13,32 +14,31 @@ export interface JobListFilters {
   search?: string;
 }
 
-/** Server-only: list jobs the current session can see (RLS-aware). */
+/** Server-only: list jobs visible to the current session (scoping via requireRole guards). */
 export async function listJobs(filters: JobListFilters = {}): Promise<JobRow[]> {
-  const supabase = await createClient();
-  let query = supabase.from("jobs").select("*").eq("is_archived", false);
+  const db = await getDb();
+  const conds = [eq(jobs.is_archived, false)];
 
-  if (filters.status && filters.status !== "all") query = query.eq("status", filters.status);
-  if (filters.department_id) query = query.eq("department_id", filters.department_id);
-  if (filters.search?.trim()) query = query.ilike("title", `%${filters.search.trim()}%`);
+  if (filters.status && filters.status !== "all") conds.push(eq(jobs.status, filters.status));
+  if (filters.department_id) conds.push(eq(jobs.department_id, filters.department_id));
+  if (filters.search?.trim()) conds.push(like(jobs.title, `%${filters.search.trim()}%`));
 
-  const { data, error } = await query.order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as JobRow[];
+  return db
+    .select()
+    .from(jobs)
+    .where(and(...conds))
+    .orderBy(desc(jobs.created_at));
 }
 
 export async function getJob(id: string): Promise<JobRow | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("jobs").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  return data as JobRow | null;
+  const db = await getDb();
+  const rows = await db.select().from(jobs).where(eq(jobs.id, id)).limit(1);
+  return rows[0] ?? null;
 }
 
 export async function getJobAssignments(jobId: string): Promise<JobAssignmentRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("job_assignments").select("*").eq("job_id", jobId);
-  if (error) throw error;
-  return (data ?? []) as JobAssignmentRow[];
+  const db = await getDb();
+  return db.select().from(job_assignments).where(eq(job_assignments.job_id, jobId));
 }
 
 export interface DepartmentLite {
@@ -47,10 +47,11 @@ export interface DepartmentLite {
 }
 
 export async function listDepartments(): Promise<DepartmentLite[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("departments").select("id, name").order("name");
-  if (error) throw error;
-  return (data ?? []) as DepartmentLite[];
+  const db = await getDb();
+  return db
+    .select({ id: departments.id, name: departments.name })
+    .from(departments)
+    .orderBy(asc(departments.name));
 }
 
 export interface ManagerProfile {
@@ -61,30 +62,27 @@ export interface ManagerProfile {
 }
 
 /**
- * List profiles eligible to be hiring managers. Uses the admin client because
- * `auth.users.email` joins live in `auth.*` which the anon RLS doesn't traverse.
+ * List users eligible to be hiring managers (old `profiles` shape, now `users`).
  * Caller MUST be admin/HR (enforced by the action that calls this).
  */
 export async function listHiringManagers(): Promise<ManagerProfile[]> {
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("profiles")
-    .select("id, full_name, department_id, departments:department_id(name)")
-    .eq("role", "hiring_manager")
-    .eq("is_active", true)
-    .order("full_name");
-  if (error) throw error;
-  return (
-    (data ?? []) as Array<{
-      id: string;
-      full_name: string | null;
-      department_id: string | null;
-      departments: { name: string } | null;
-    }>
-  ).map((row) => ({
+  const db = await getDb();
+  const rows = await db
+    .select({
+      id: users.id,
+      full_name: users.name,
+      department_id: users.departmentId,
+      department_name: departments.name,
+    })
+    .from(users)
+    .leftJoin(departments, eq(users.departmentId, departments.id))
+    .where(and(eq(users.role, "hiring_manager"), eq(users.isActive, true)))
+    .orderBy(asc(users.name));
+
+  return rows.map((row) => ({
     id: row.id,
     full_name: row.full_name,
     department_id: row.department_id,
-    department_name: row.departments?.name ?? null,
+    department_name: row.department_name ?? null,
   }));
 }

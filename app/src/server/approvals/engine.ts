@@ -1,13 +1,60 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import type { Database, TablesInsert, TablesUpdate } from "@/types/db";
+import { and, asc, eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { approvals, candidates, jobs, job_assignments } from "@/db/schema";
+import type { Database } from "@/types/db";
 import { APPROVAL_PRESETS, STAGE_FOR_PENDING_STEP, type FlowType } from "./presets";
 
-type ApprovalInsert = TablesInsert<"approvals">;
-type ApprovalUpdate = TablesUpdate<"approvals">;
-type CandidateUpdate = TablesUpdate<"candidates">;
 type StepKind = Database["public"]["Enums"]["approval_step_kind"];
+type UserRole = Database["public"]["Enums"]["user_role"];
+
+export interface ApprovalActor {
+  id: string;
+  role: UserRole;
+}
+
+/**
+ * Authorization matrix for deciding a step (ADR 0011 — enforcement lives HERE,
+ * not in the inbox UI; Server Actions are directly invocable RPC):
+ *   - admin / hr        → any step (HR drives the process)
+ *   - hiring_manager    → only manager_recommend, and only for candidates on
+ *                         jobs they're assigned to via job_assignments
+ *   - bod / tap_doan    → only their own step kind
+ */
+async function assertActorMayDecide(
+  actor: ApprovalActor,
+  stepKind: StepKind,
+  candidateJobId: string,
+): Promise<void> {
+  if (actor.role === "admin" || actor.role === "hr") return;
+
+  const allowedKind: Record<Exclude<UserRole, "admin" | "hr">, StepKind> = {
+    hiring_manager: "manager_recommend",
+    bod: "bod",
+    tap_doan: "tap_doan",
+  };
+  if (allowedKind[actor.role] !== stepKind) {
+    throw new Error("Bạn không có quyền duyệt bước này");
+  }
+
+  if (actor.role === "hiring_manager") {
+    const db = await getDb();
+    const assigned = await db
+      .select({ id: job_assignments.id })
+      .from(job_assignments)
+      .where(
+        and(
+          eq(job_assignments.job_id, candidateJobId),
+          eq(job_assignments.manager_user_id, actor.id),
+        ),
+      )
+      .limit(1)
+      .then((r) => r[0] ?? null);
+    if (!assigned) {
+      throw new Error("Bạn không phụ trách tin tuyển dụng của ứng viên này");
+    }
+  }
+}
 
 /**
  * Kick off the approval flow for a candidate. Reads job.flow_type to pick
@@ -20,66 +67,61 @@ type StepKind = Database["public"]["Enums"]["approval_step_kind"];
 export async function startApproval(
   candidateId: string,
 ): Promise<{ approval_ids: string[]; first_step_kind: StepKind }> {
-  const supabase = await createClient();
-  const admin = createAdminClient();
+  const db = await getDb();
 
   // Already started?
-  const { data: existing } = await supabase
-    .from("approvals")
-    .select("id")
-    .eq("candidate_id", candidateId)
-    .order("step_index");
-  if (existing && existing.length > 0) {
+  const existing = await db
+    .select({ id: approvals.id })
+    .from(approvals)
+    .where(eq(approvals.candidate_id, candidateId))
+    .orderBy(asc(approvals.step_index));
+  if (existing.length > 0) {
     return {
-      approval_ids: (existing as { id: string }[]).map((r) => r.id),
+      approval_ids: existing.map((r) => r.id),
       first_step_kind: APPROVAL_PRESETS["staff"][0]!, // placeholder; UI uses repository.listApprovalsForCandidate to render
     };
   }
 
   // Look up job to determine flow_type
-  const { data: cand, error: cErr } = await supabase
-    .from("candidates")
-    .select("id, job_id")
-    .eq("id", candidateId)
-    .maybeSingle();
-  if (cErr) throw cErr;
+  const cand = await db
+    .select({ id: candidates.id, job_id: candidates.job_id })
+    .from(candidates)
+    .where(eq(candidates.id, candidateId))
+    .limit(1)
+    .then((r) => r[0] ?? null);
   if (!cand) throw new Error("Không tìm thấy ứng viên");
 
-  const { data: job, error: jErr } = await supabase
-    .from("jobs")
-    .select("flow_type")
-    .eq("id", (cand as { job_id: string }).job_id)
-    .maybeSingle();
-  if (jErr) throw jErr;
+  const job = await db
+    .select({ flow_type: jobs.flow_type })
+    .from(jobs)
+    .where(eq(jobs.id, cand.job_id))
+    .limit(1)
+    .then((r) => r[0] ?? null);
   if (!job) throw new Error("Không tìm thấy tin tuyển dụng");
 
-  const flow = (job as { flow_type: FlowType }).flow_type;
+  const flow = job.flow_type as FlowType;
   const steps = APPROVAL_PRESETS[flow];
 
-  const rows: ApprovalInsert[] = steps.map((step, idx) => ({
+  const rows = steps.map((step, idx) => ({
     candidate_id: candidateId,
     step_index: idx,
     step_kind: step,
-    status: "pending",
+    status: "pending" as const,
   }));
 
-  const { data: ins, error: insErr } = await admin
-    .from("approvals")
-    .insert(rows as never)
-    .select("id");
-  if (insErr || !ins) throw insErr ?? new Error("Không tạo được quy trình duyệt");
+  const ins = await db.insert(approvals).values(rows).returning({ id: approvals.id });
+  if (ins.length === 0) throw new Error("Không tạo được quy trình duyệt");
 
   // Bump stage to whatever the first pending step implies
   const firstStep = steps[0]!;
   const targetStage = STAGE_FOR_PENDING_STEP[firstStep];
-  const candUpdate: CandidateUpdate = { current_stage: targetStage };
-  await supabase
-    .from("candidates")
-    .update(candUpdate as never)
-    .eq("id", candidateId);
+  await db
+    .update(candidates)
+    .set({ current_stage: targetStage })
+    .where(eq(candidates.id, candidateId));
 
   return {
-    approval_ids: (ins as { id: string }[]).map((r) => r.id),
+    approval_ids: ins.map((r) => r.id),
     first_step_kind: firstStep,
   };
 }
@@ -92,84 +134,93 @@ export async function startApproval(
 export async function decideApproval(
   approvalId: string,
   decision: "approved" | "rejected",
-  actorId: string,
+  actor: ApprovalActor,
   notes?: string,
 ): Promise<{ candidateId: string; finalized: boolean; nextStep: StepKind | null }> {
-  const supabase = await createClient();
-  const admin = createAdminClient();
+  const db = await getDb();
 
-  // Fetch the approval + sibling rows for this candidate
-  const { data: row, error: rErr } = await supabase
-    .from("approvals")
-    .select("*")
-    .eq("id", approvalId)
-    .maybeSingle();
-  if (rErr) throw rErr;
-  if (!row) throw new Error("Không tìm thấy bước duyệt");
-  const r = row as Tables_Approvals;
+  // Fetch the approval row
+  const r = await db
+    .select()
+    .from(approvals)
+    .where(eq(approvals.id, approvalId))
+    .limit(1)
+    .then((rows) => rows[0] ?? null);
+  if (!r) throw new Error("Không tìm thấy bước duyệt");
   if (r.status !== "pending") throw new Error("Bước này đã được xử lý");
 
-  // 1. Update this row to the decision
-  const update: ApprovalUpdate = {
-    status: decision,
-    actor_user_id: actorId,
-    decided_at: new Date().toISOString(),
-    notes: notes?.trim() || null,
-  };
-  const { error: uErr } = await admin
-    .from("approvals")
-    .update(update as never)
-    .eq("id", approvalId);
-  if (uErr) throw uErr;
+  // Authorization: role must match the step (and job assignment for managers)
+  const cand = await db
+    .select({ job_id: candidates.job_id })
+    .from(candidates)
+    .where(eq(candidates.id, r.candidate_id))
+    .limit(1)
+    .then((rows) => rows[0] ?? null);
+  if (!cand) throw new Error("Không tìm thấy ứng viên");
+  await assertActorMayDecide(actor, r.step_kind, cand.job_id);
+
+  // Sequencing: only the LOWEST pending step may be decided (no skipping ahead
+  // to an exec step while earlier steps are open)
+  const lowestPending = await db
+    .select({ step_index: approvals.step_index })
+    .from(approvals)
+    .where(and(eq(approvals.candidate_id, r.candidate_id), eq(approvals.status, "pending")))
+    .orderBy(asc(approvals.step_index))
+    .limit(1)
+    .then((rows) => rows[0] ?? null);
+  if (lowestPending && lowestPending.step_index !== r.step_index) {
+    throw new Error("Chưa đến lượt bước này — còn bước trước đang chờ duyệt");
+  }
+
+  // 1. Update this row to the decision (guarded on still-pending — atomic
+  //    protection against double-submit races)
+  const updated = await db
+    .update(approvals)
+    .set({
+      status: decision,
+      actor_user_id: actor.id,
+      decided_at: new Date().toISOString(),
+      notes: notes?.trim() || null,
+    })
+    .where(and(eq(approvals.id, approvalId), eq(approvals.status, "pending")))
+    .returning({ id: approvals.id });
+  if (updated.length === 0) throw new Error("Bước này đã được xử lý");
 
   // 2. Resolve next state of the candidate
   if (decision === "rejected") {
-    const cu: CandidateUpdate = { current_stage: "rejected" };
-    await supabase
-      .from("candidates")
-      .update(cu as never)
-      .eq("id", r.candidate_id);
+    await db
+      .update(candidates)
+      .set({ current_stage: "rejected" })
+      .where(eq(candidates.id, r.candidate_id));
     return { candidateId: r.candidate_id, finalized: true, nextStep: null };
   }
 
   // Approved — find next pending row by step_index
-  const { data: siblings } = await supabase
-    .from("approvals")
-    .select("step_kind, step_index, status")
-    .eq("candidate_id", r.candidate_id)
-    .order("step_index", { ascending: true });
-  const next = (siblings ?? [])
-    .map((s) => s as { step_kind: StepKind; step_index: number; status: string })
-    .find((s) => s.status === "pending");
+  const siblings = await db
+    .select({
+      step_kind: approvals.step_kind,
+      step_index: approvals.step_index,
+      status: approvals.status,
+    })
+    .from(approvals)
+    .where(eq(approvals.candidate_id, r.candidate_id))
+    .orderBy(asc(approvals.step_index));
+  const next = siblings.find((s) => s.status === "pending");
 
   if (!next) {
     // Fully approved — fire offer
-    const cu: CandidateUpdate = { current_stage: "offer_sent" };
-    await supabase
-      .from("candidates")
-      .update(cu as never)
-      .eq("id", r.candidate_id);
+    await db
+      .update(candidates)
+      .set({ current_stage: "offer_sent" })
+      .where(eq(candidates.id, r.candidate_id));
     return { candidateId: r.candidate_id, finalized: true, nextStep: null };
   }
 
   // Move stage to whatever the next pending step implies
   const targetStage = STAGE_FOR_PENDING_STEP[next.step_kind];
-  const cu: CandidateUpdate = { current_stage: targetStage };
-  await supabase
-    .from("candidates")
-    .update(cu as never)
-    .eq("id", r.candidate_id);
+  await db
+    .update(candidates)
+    .set({ current_stage: targetStage })
+    .where(eq(candidates.id, r.candidate_id));
   return { candidateId: r.candidate_id, finalized: false, nextStep: next.step_kind };
 }
-
-// Local alias to keep the engine self-contained without importing from repository
-type Tables_Approvals = {
-  id: string;
-  candidate_id: string;
-  step_index: number;
-  step_kind: StepKind;
-  status: "pending" | "approved" | "rejected";
-  actor_user_id: string | null;
-  decided_at: string | null;
-  notes: string | null;
-};

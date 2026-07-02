@@ -1,0 +1,49 @@
+/**
+ * Cloudflare Workers config — Mắt Việt HR (ADR 0009).
+ *
+ * Deploy pipeline: `npm run deploy` (opennextjs-cloudflare build && deploy).
+ * D1 database + R2 bucket are created once via:
+ *   npx wrangler d1 create matviet-hr        → paste database_id below
+ *   npx wrangler r2 bucket create matviet-hr-files
+ * Secrets (never in this file): npx wrangler secret put <NAME>
+ *   GEMINI_API_KEY, MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET,
+ *   MS_MAILBOX_ADDRESS, CRON_SECRET, BETTER_AUTH_SECRET
+ */
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "matviet-hr",
+  "main": "custom-worker.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "matviet-hr",
+      "database_id": "REPLACE_AFTER_wrangler_d1_create",
+      "migrations_dir": "migrations-d1"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "matviet-hr-files"
+    }
+  ],
+  "triggers": {
+    // Every 5 minutes: drain scoring queue + outbound email queue (UTC).
+    "crons": ["*/5 * * * *"]
+  },
+  "vars": {
+    "NEXT_PUBLIC_APP_URL": "https://hr.matviet.com.vn",
+    "NEXT_PUBLIC_APP_NAME": "Mắt Việt HR"
+  },
+  "observability": {
+    "enabled": true
+  }
+  // Custom domain — uncomment once the matviet.com.vn zone is on Cloudflare:
+  // "routes": [{ "pattern": "hr.matviet.com.vn", "custom_domain": true }]
+}

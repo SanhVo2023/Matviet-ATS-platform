@@ -17,15 +17,18 @@ interface Department {
 export function InviteForm({ departments }: { departments: Department[] }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
 
   const handleSubmit = (formData: FormData) => {
     setError(null);
+    setTempPassword(null);
     startTransition(async () => {
       const result = await inviteUser(formData);
       if (!result.ok) {
         setError(result.error);
         return;
       }
+      setTempPassword(result.tempPassword);
       toast.success(t.success.invited);
       // Reset by relying on the form's defaultValues + key reset
       const form = document.getElementById("invite-form") as HTMLFormElement | null;
@@ -95,9 +98,24 @@ export function InviteForm({ departments }: { departments: Department[] }) {
         </div>
       )}
 
+      {tempPassword && (
+        <div
+          role="status"
+          className="rounded-md border border-warning/30 bg-warning-bg/40 px-3 py-2 text-sm"
+        >
+          <p className="font-medium">Mật khẩu tạm (chỉ hiển thị một lần):</p>
+          <code className="mt-1 block select-all rounded bg-white px-2 py-1 font-mono text-base">
+            {tempPassword}
+          </code>
+          <p className="mt-1 text-xs text-slate-500">
+            Gửi cho thành viên qua kênh an toàn (Zalo/Teams trực tiếp), không gửi email thường.
+          </p>
+        </div>
+      )}
+
       <Button type="submit" disabled={pending}>
         {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-        {pending ? "Đang gửi..." : "Gửi lời mời"}
+        {pending ? "Đang tạo..." : "Tạo tài khoản"}
       </Button>
     </form>
   );

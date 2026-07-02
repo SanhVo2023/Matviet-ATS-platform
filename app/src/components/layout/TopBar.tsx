@@ -3,7 +3,7 @@
 import { Bell, Search, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth-client";
 import { t } from "@/lib/i18n";
 import { initials } from "@/lib/vi-format";
 import type { Database } from "@/types/db";
@@ -18,10 +18,9 @@ interface TopBarProps {
 
 export function TopBar({ fullName, email, role }: TopBarProps) {
   const router = useRouter();
-  const supabase = createClient();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await authClient.signOut();
     router.push("/dang-nhap");
     router.refresh();
   };

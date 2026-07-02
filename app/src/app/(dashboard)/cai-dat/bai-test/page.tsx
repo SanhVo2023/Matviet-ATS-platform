@@ -3,7 +3,9 @@ import Link from "next/link";
 import { ChevronRight, FileText } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { listJobs } from "@/server/jobs/repository";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { eq } from "drizzle-orm";
+import { getDb } from "@/db";
+import { assessments } from "@/db/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { t } from "@/lib/i18n";
 
@@ -19,15 +21,19 @@ export default async function BaiTestSettingsListPage() {
   const jobs = await listJobs();
 
   // Look up which jobs already have an active assessment
-  const admin = createAdminClient();
-  const { data: assessments } = await admin
-    .from("assessments")
-    .select("id, job_id, original_name")
-    .eq("is_active", true);
+  const db = await getDb();
+  const activeAssessments = await db
+    .select({
+      id: assessments.id,
+      job_id: assessments.job_id,
+      original_name: assessments.original_name,
+    })
+    .from(assessments)
+    .where(eq(assessments.is_active, true));
   const byJob = new Map<string, { id: string; original_name: string | null }>();
-  (
-    (assessments ?? []) as Array<{ id: string; job_id: string; original_name: string | null }>
-  ).forEach((a) => byJob.set(a.job_id, { id: a.id, original_name: a.original_name }));
+  activeAssessments.forEach((a) =>
+    byJob.set(a.job_id, { id: a.id, original_name: a.original_name }),
+  );
 
   return (
     <div className="mx-auto max-w-5xl p-6 lg:p-8">

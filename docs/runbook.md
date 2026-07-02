@@ -302,3 +302,47 @@ ORDER BY total DESC;
 - Review unused users; deactivate
 - Review unused jobs; close
 - Annual: rotate MS Graph client secret before 24mo expiry
+
+---
+
+# Cloudflare operations (post-pivot, ADR 0009 — supersedes Supabase/Netlify sections above)
+
+## Deploy
+```bash
+cd app && npm run deploy          # opennextjs build + wrangler deploy
+npx wrangler tail matviet-hr      # watch logs 5 min post-deploy
+```
+
+## Rollback a bad deploy
+```bash
+npx wrangler deployments list
+npx wrangler rollback             # reverts to previous deployment
+```
+
+## Restore data (replaces Supabase PITR)
+```bash
+npx wrangler d1 time-travel info matviet-hr                     # list restore points (30 days)
+npx wrangler d1 time-travel restore matviet-hr --timestamp="…"  # point-in-time restore
+```
+
+## Rotate a secret
+```bash
+npx wrangler secret put MS_CLIENT_SECRET   # paste new value at prompt; redeploy not required
+```
+
+## Cron health
+- Both queues drain every 5 min (`custom-worker.ts` scheduled → /api/scoring/drain + /api/emails/drain).
+- Check: Cloudflare dashboard → Workers → matviet-hr → Cron Events, or `wrangler tail` and look for `[cron */5 * * * *]` lines.
+- Manual drain: `curl -H "Authorization: Bearer $CRON_SECRET" https://hr.matviet.com.vn/api/scoring/drain`.
+
+## First admin on a fresh database
+```bash
+curl -X POST https://hr.matviet.com.vn/api/setup -H "Authorization: Bearer $CRON_SECRET" \
+  -H "content-type: application/json" -d '{"email":"…","password":"…","name":"…"}'
+# 409 once any user exists. Subsequent accounts: Cài đặt → Người dùng (admin UI).
+```
+
+## Database backup (manual, before risky changes)
+```bash
+npx wrangler d1 export matviet-hr --remote --output=backup-$(date +%F).sql
+```

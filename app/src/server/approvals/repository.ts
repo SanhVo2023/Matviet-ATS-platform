@@ -1,20 +1,19 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
+import { getDb } from "@/db";
+import { approvals, candidates, jobs, job_assignments } from "@/db/schema";
 import type { Database, Tables } from "@/types/db";
 
 export type ApprovalRow = Tables<"approvals">;
 export type ApprovalStatus = Database["public"]["Enums"]["approval_status"];
 
 export async function listApprovalsForCandidate(candidateId: string): Promise<ApprovalRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("approvals")
-    .select("*")
-    .eq("candidate_id", candidateId)
-    .order("step_index", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as ApprovalRow[];
+  const db = await getDb();
+  return db
+    .select()
+    .from(approvals)
+    .where(eq(approvals.candidate_id, candidateId))
+    .orderBy(asc(approvals.step_index));
 }
 
 export interface PendingApprovalRow extends ApprovalRow {
@@ -26,52 +25,51 @@ export interface PendingApprovalRow extends ApprovalRow {
  * Pending approvals visible to a given user — bounded by their role.
  * - admin / hr: every pending row in the system
  * - hiring_manager: pending rows of step_kind 'manager_recommend' on candidates
- *   whose job assigns to this user
+ *   whose job assigns to this user (via job_assignments)
  * - bod / tap_doan: pending rows where step_kind matches the role
  *
- * Uses admin client because cross-row joins (approvals → candidates → jobs →
- * profiles for full_name + job title) get awkward through RLS.
+ * Joins approvals → candidates → jobs to surface full_name + job title.
  */
 export async function listPendingApprovalsForUser(
   userId: string,
   role: Database["public"]["Enums"]["user_role"],
 ): Promise<PendingApprovalRow[]> {
-  const admin = createAdminClient();
+  const db = await getDb();
 
-  let q = admin
-    .from("approvals")
-    .select("*, candidate:candidates!inner(full_name, job:jobs!inner(title))")
-    .eq("status", "pending");
+  const conds: SQL[] = [eq(approvals.status, "pending")];
 
-  if (role === "bod") q = q.eq("step_kind", "bod");
-  else if (role === "tap_doan") q = q.eq("step_kind", "tap_doan");
+  if (role === "bod") conds.push(eq(approvals.step_kind, "bod"));
+  else if (role === "tap_doan") conds.push(eq(approvals.step_kind, "tap_doan"));
   else if (role === "hiring_manager") {
-    q = q.eq("step_kind", "manager_recommend");
+    conds.push(eq(approvals.step_kind, "manager_recommend"));
     // Further-narrow by job_assignments — fetch this user's assigned jobs first.
-    const { data: assigns } = await admin
-      .from("job_assignments")
-      .select("job_id")
-      .eq("manager_user_id", userId);
-    const jobIds = (assigns ?? []).map((r) => (r as { job_id: string }).job_id);
+    const assigns = await db
+      .select({ job_id: job_assignments.job_id })
+      .from(job_assignments)
+      .where(eq(job_assignments.manager_user_id, userId));
+    const jobIds = assigns.map((r) => r.job_id);
     if (jobIds.length === 0) return [];
-    // Filter via a sub-select on candidates.job_id
-    const { data: cands } = await admin.from("candidates").select("id").in("job_id", jobIds);
-    const candIds = (cands ?? []).map((r) => (r as { id: string }).id);
-    if (candIds.length === 0) return [];
-    q = q.in("candidate_id", candIds);
+    // Filter via the joined candidates.job_id (same semantics as the old
+    // candidate-id sub-select, without a 500-row IN list).
+    conds.push(inArray(candidates.job_id, jobIds));
   }
   // admin/hr fall through with no extra filter.
 
-  const { data, error } = await q.order("created_at", { ascending: true });
-  if (error) throw error;
+  const rows = await db
+    .select({
+      approval: approvals,
+      candidate_name: candidates.full_name,
+      job_title: jobs.title,
+    })
+    .from(approvals)
+    .innerJoin(candidates, eq(approvals.candidate_id, candidates.id))
+    .innerJoin(jobs, eq(candidates.job_id, jobs.id))
+    .where(and(...conds))
+    .orderBy(asc(approvals.created_at));
 
-  // Flatten the joined rows
-  type Joined = ApprovalRow & {
-    candidate?: { full_name: string | null; job?: { title: string | null } | null } | null;
-  };
-  return ((data ?? []) as unknown as Joined[]).map<PendingApprovalRow>((r) => ({
-    ...(r as ApprovalRow),
-    candidate_name: r.candidate?.full_name ?? null,
-    job_title: r.candidate?.job?.title ?? null,
+  return rows.map<PendingApprovalRow>((r) => ({
+    ...r.approval,
+    candidate_name: r.candidate_name ?? null,
+    job_title: r.job_title ?? null,
   }));
 }

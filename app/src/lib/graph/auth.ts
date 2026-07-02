@@ -1,8 +1,9 @@
 import "server-only";
-import { ConfidentialClientApplication, type Configuration } from "@azure/msal-node";
 
 /**
- * MSAL app-only (client credentials) flow.
+ * App-only (client credentials) token for Microsoft Graph — plain fetch, no MSAL.
+ * MSAL Node was dropped in the Cloudflare pivot (ADR 0009): the flow is a single
+ * POST to login.microsoftonline.com and Workers prefer zero Node-dependency code.
  *
  * Application permissions in Azure AD must be granted with admin consent:
  *   - Mail.Send       — outbound email via /users/{id}/sendMail
@@ -13,7 +14,6 @@ import { ConfidentialClientApplication, type Configuration } from "@azure/msal-n
  * sendMail silently fails on unlicensed shared mailboxes.
  */
 
-let cachedClient: ConfidentialClientApplication | null = null;
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
 const SCOPE = "https://graph.microsoft.com/.default";
@@ -26,41 +26,40 @@ function readEnv() {
   const mailbox = process.env.MS_MAILBOX_ADDRESS;
   if (!tenantId || !clientId || !clientSecret || !mailbox) {
     throw new Error(
-      "MS Graph not configured. Missing one of MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MS_MAILBOX_ADDRESS in .env.local.",
+      "MS Graph not configured. Missing one of MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MS_MAILBOX_ADDRESS.",
     );
   }
   return { tenantId, clientId, clientSecret, mailbox };
-}
-
-function getMsalClient(): ConfidentialClientApplication {
-  if (cachedClient) return cachedClient;
-  const { tenantId, clientId, clientSecret } = readEnv();
-  const config: Configuration = {
-    auth: {
-      clientId,
-      authority: `https://login.microsoftonline.com/${tenantId}`,
-      clientSecret,
-    },
-  };
-  cachedClient = new ConfidentialClientApplication(config);
-  return cachedClient;
 }
 
 export async function getAccessToken(): Promise<string> {
   if (cachedToken && Date.now() + REFRESH_MARGIN_MS < cachedToken.expiresAt) {
     return cachedToken.value;
   }
-  const result = await getMsalClient().acquireTokenByClientCredential({
-    scopes: [SCOPE],
+  const { tenantId, clientId, clientSecret } = readEnv();
+  const res = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: SCOPE,
+    }),
   });
-  if (!result?.accessToken) {
-    throw new Error("MSAL acquireTokenByClientCredential returned no access token");
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Graph token request failed (${res.status}): ${body.slice(0, 300)}`);
+  }
+  const json = (await res.json()) as { access_token?: string; expires_in?: number };
+  if (!json.access_token) {
+    throw new Error("Graph token response contained no access_token");
   }
   cachedToken = {
-    value: result.accessToken,
-    expiresAt: result.expiresOn?.getTime() ?? Date.now() + 30 * 60 * 1000,
+    value: json.access_token,
+    expiresAt: Date.now() + (json.expires_in ?? 1800) * 1000,
   };
-  return result.accessToken;
+  return json.access_token;
 }
 
 export function getMailboxAddress(): string {

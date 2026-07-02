@@ -1,6 +1,7 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { and, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
+import { getDb } from "@/db";
+import { candidates, jobs } from "@/db/schema";
 import type {
   FunnelStageDatum,
   FunnelSuperStage,
@@ -9,43 +10,113 @@ import type {
   ReportFilter,
   ReportPayload,
   ScoreBucket,
+  Source,
   SourceEffectivenessRow,
   Stage,
   StageConversionRow,
   TimeToHireGrouped,
-  TimeToHireRow,
 } from "./types";
 import { ALL_STAGES, ORDERED_STAGE_PAIRS, STAGE_TO_SUPER } from "./stage-groups";
-import type { Database } from "@/types/db";
 
-type CandidateSource = Database["public"]["Enums"]["candidate_source"];
+// ───────────────────────── Inlined view: funnel_stats ─────────────────────────
+//
+// The old Postgres view `funnel_stats` (migration 0018) does not exist in D1.
+// Equivalent SQLite query, inlined: per stage + month bucket, count of distinct
+// candidates that reached that stage (built on stage_history, so a candidate who
+// reached `hired` also counts at every prior stage they passed).
+//
+// Month bucket: strftime('%Y-%m-01', sh.at) — the SQLite stand-in for Postgres
+// date_trunc('month', …) — yields "YYYY-MM-01", which compares correctly against
+// both "YYYY-MM-01" floors and full ISO timestamps under lexicographic ordering.
 
-// ───────────────────────── Helpers ─────────────────────────
+interface FunnelRow {
+  stage: Stage;
+  month_bucket: string;
+  candidate_count: number;
+}
+
+async function queryFunnelRows(filter: ReportFilter): Promise<FunnelRow[]> {
+  const db = await getDb();
+
+  const conds: SQL[] = [
+    sql`c.is_archived = 0`,
+    sql`strftime('%Y-%m-01', sh.at) >= ${monthFloorDate(filter.from)}`,
+    sql`strftime('%Y-%m-01', sh.at) <= ${filter.to}`,
+  ];
+  if (filter.job_id) conds.push(sql`c.job_id = ${filter.job_id}`);
+  if (filter.role_family) conds.push(sql`j.role_family = ${filter.role_family}`);
+
+  return db.all<FunnelRow>(sql`
+    select
+      sh.to_stage as stage,
+      strftime('%Y-%m-01', sh.at) as month_bucket,
+      count(distinct sh.candidate_id) as candidate_count
+    from stage_history sh
+    join candidates c on c.id = sh.candidate_id
+    join jobs j on j.id = c.job_id
+    where ${sql.join(conds, sql` and `)}
+    group by sh.to_stage, strftime('%Y-%m-01', sh.at)
+  `);
+}
+
+// ───────────────────────── Inlined view: time_to_hire_stats ─────────────────────────
+//
+// For every candidate with a `to_stage='hired'` stage_history row, days between
+// their first stage_history entry and the hired entry. `julianday(a) - julianday(b)`
+// replaces Postgres `extract(epoch from …) / 86400` — both yield fractional days.
+
+interface TthRow {
+  source: Source;
+  role_family: TimeToHireGrouped["role_family"];
+  days_to_hire: number;
+}
+
+async function queryTimeToHireRows(
+  filter: Pick<ReportFilter, "from" | "to"> & Partial<ReportFilter>,
+): Promise<TthRow[]> {
+  const db = await getDb();
+
+  const conds: SQL[] = [
+    sql`c.is_archived = 0`,
+    sql`strftime('%Y-%m-01', h.hired_at) >= ${monthFloorDate(filter.from)}`,
+    sql`strftime('%Y-%m-01', h.hired_at) <= ${filter.to}`,
+  ];
+  if (filter.job_id) conds.push(sql`c.job_id = ${filter.job_id}`);
+  if (filter.role_family) conds.push(sql`j.role_family = ${filter.role_family}`);
+
+  return db.all<TthRow>(sql`
+    with started as (
+      select candidate_id, min(at) as started_at
+      from stage_history
+      group by candidate_id
+    ),
+    hired as (
+      select candidate_id, min(at) as hired_at
+      from stage_history
+      where to_stage = 'hired'
+      group by candidate_id
+    )
+    select
+      c.source as source,
+      j.role_family as role_family,
+      julianday(h.hired_at) - julianday(s.started_at) as days_to_hire
+    from hired h
+    join started s on s.candidate_id = h.candidate_id
+    join candidates c on c.id = h.candidate_id
+    join jobs j on j.id = c.job_id
+    where ${sql.join(conds, sql` and `)}
+  `);
+}
 
 // ───────────────────────── Funnel ─────────────────────────
 
 export async function getFunnelData(filter: ReportFilter): Promise<FunnelSuperStageDatum[]> {
-  const supabase = await createClient();
+  const rows = await queryFunnelRows(filter);
 
-  // Pull aggregated rows from funnel_stats; aggregate across job_id and month
-  // back to a single per-stage count so the chart is one bar per stage.
-  let q = supabase
-    .from("funnel_stats")
-    .select("stage, candidate_count, job_id, role_family, month_bucket");
-
-  if (filter.job_id) q = q.eq("job_id", filter.job_id);
-  if (filter.role_family) q = q.eq("role_family", filter.role_family);
-  q = q.gte("month_bucket", monthFloor(filter.from)).lte("month_bucket", filter.to);
-
-  const { data, error } = await q;
-  if (error) throw error;
-
-  type Row = { stage: Stage | null; candidate_count: number | null };
-  const rows = (data ?? []) as Row[];
-
+  // Aggregate across month buckets back to a single per-stage count so the
+  // chart is one bar per stage.
   const byStage = new Map<Stage, number>();
   for (const r of rows) {
-    if (!r.stage || r.candidate_count == null) continue;
     byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + r.candidate_count);
   }
 
@@ -79,19 +150,8 @@ export async function getFunnelData(filter: ReportFilter): Promise<FunnelSuperSt
 // ───────────────────────── Time-to-hire ─────────────────────────
 
 export async function getTimeToHire(filter: ReportFilter): Promise<TimeToHireGrouped[]> {
-  const supabase = await createClient();
+  const rows = await queryTimeToHireRows(filter);
 
-  let q = supabase
-    .from("time_to_hire_stats")
-    .select("candidate_id, job_id, role_family, month_bucket, days_to_hire");
-  if (filter.job_id) q = q.eq("job_id", filter.job_id);
-  if (filter.role_family) q = q.eq("role_family", filter.role_family);
-  q = q.gte("month_bucket", monthFloor(filter.from)).lte("month_bucket", filter.to);
-
-  const { data, error } = await q;
-  if (error) throw error;
-
-  const rows = (data ?? []) as Array<TimeToHireRow & { days_to_hire: number | string }>;
   const byFamily = new Map<string, number[]>();
   for (const r of rows) {
     const key = r.role_family ?? "unknown";
@@ -118,41 +178,44 @@ export async function getTimeToHire(filter: ReportFilter): Promise<TimeToHireGro
 export async function getSourceEffectiveness(
   filter: ReportFilter,
 ): Promise<SourceEffectivenessRow[]> {
-  const supabase = await createClient();
+  const db = await getDb();
 
   // Pull all candidate rows in scope; group client-side. At project scale
   // (≤ 500 per job, ≤ 1.5K per month) this is fine.
-  let q = supabase
-    .from("candidates")
-    .select("source, ai_score, current_stage, created_at")
-    .eq("is_archived", false);
-  if (filter.job_id) q = q.eq("job_id", filter.job_id);
-  if (filter.source) q = q.eq("source", filter.source);
-  q = q.gte("created_at", filter.from).lte("created_at", filter.to);
+  const conds = [
+    eq(candidates.is_archived, false),
+    gte(candidates.created_at, filter.from),
+    lte(candidates.created_at, filter.to),
+  ];
+  if (filter.job_id) conds.push(eq(candidates.job_id, filter.job_id));
+  if (filter.source) conds.push(eq(candidates.source, filter.source));
 
-  // Role family filter requires joining jobs — do it via .in on job_ids
+  // Role family filter requires joining jobs — do it via inArray on job ids
   if (filter.role_family) {
-    const { data: jobs } = await supabase
-      .from("jobs")
-      .select("id")
-      .eq("role_family", filter.role_family);
-    const jobIds = ((jobs ?? []) as Array<{ id: string }>).map((j) => j.id);
-    if (jobIds.length === 0) return [];
-    q = q.in("job_id", jobIds);
+    const jobRows = await db
+      .select({ id: jobs.id })
+      .from(jobs)
+      .where(eq(jobs.role_family, filter.role_family));
+    if (jobRows.length === 0) return [];
+    conds.push(
+      inArray(
+        candidates.job_id,
+        jobRows.map((j) => j.id),
+      ),
+    );
   }
 
-  const { data, error } = await q;
-  if (error) throw error;
-
-  type Row = {
-    source: CandidateSource;
-    ai_score: number | null;
-    current_stage: Stage;
-  };
-  const rows = (data ?? []) as Row[];
+  const rows = await db
+    .select({
+      source: candidates.source,
+      ai_score: candidates.ai_score,
+      current_stage: candidates.current_stage,
+    })
+    .from(candidates)
+    .where(and(...conds));
 
   const bySource = new Map<
-    CandidateSource,
+    Source,
     { in: number; hired: number; scoreSum: number; scoreCount: number }
   >();
   for (const r of rows) {
@@ -166,31 +229,15 @@ export async function getSourceEffectiveness(
     bySource.set(r.source, acc);
   }
 
-  // Pull avg time-to-hire per source via a separate query against time_to_hire_stats
-  // joined back to candidates.source. Cheap because the view is already filtered.
-  const tthBySource = new Map<CandidateSource, number[]>();
+  // Avg time-to-hire per source via the inlined time_to_hire_stats query —
+  // date range only (mirrors the old view read, which was not job/role scoped).
+  const tthBySource = new Map<Source, number[]>();
   if (rows.length > 0) {
-    const admin = createAdminClient();
-    const { data: tth } = await admin
-      .from("time_to_hire_stats")
-      .select("candidate_id, days_to_hire")
-      .gte("month_bucket", monthFloor(filter.from))
-      .lte("month_bucket", filter.to);
-    const tthRows = (tth ?? []) as Array<{ candidate_id: string; days_to_hire: number | string }>;
-    if (tthRows.length > 0) {
-      const ids = tthRows.map((r) => r.candidate_id);
-      const { data: tthCands } = await admin.from("candidates").select("id, source").in("id", ids);
-      const sourceById = new Map<string, CandidateSource>();
-      ((tthCands ?? []) as Array<{ id: string; source: CandidateSource }>).forEach((c) =>
-        sourceById.set(c.id, c.source),
-      );
-      for (const r of tthRows) {
-        const src = sourceById.get(r.candidate_id);
-        if (!src) continue;
-        const arr = tthBySource.get(src) ?? [];
-        arr.push(Number(r.days_to_hire));
-        tthBySource.set(src, arr);
-      }
+    const tthRows = await queryTimeToHireRows({ from: filter.from, to: filter.to });
+    for (const r of tthRows) {
+      const arr = tthBySource.get(r.source) ?? [];
+      arr.push(Number(r.days_to_hire));
+      tthBySource.set(r.source, arr);
     }
   }
 
@@ -211,47 +258,41 @@ export async function getSourceEffectiveness(
 
 // ───────────────────────── Score distribution ─────────────────────────
 
+// The old Postgres RPC `report_score_distribution` does not exist in D1 —
+// inlined here. `min(90, cast(ai_score / 10.0 as integer) * 10)` replaces
+// `least(90, floor(ai_score / 10) * 10)`: ai_score is non-negative, so CAST
+// truncation equals floor, and SQLite's two-argument min() is scalar LEAST.
 export async function getScoreDistribution(filter: ReportFilter): Promise<ScoreBucket[]> {
-  // The RPC function honours RLS (SECURITY INVOKER), but the SSR-typed
-  // supabase client mistypes its overloads here — we use the admin client
-  // and pre-filter by job_id ourselves where needed. RLS on the underlying
-  // candidates table still applies because the function is SECURITY INVOKER
-  // and we pass through the user's auth context… except admin bypasses RLS.
-  // For the score-distribution histogram (no PII, only counts), seeing all
-  // jobs doesn't leak anything beyond what HR/admin already see, and
-  // hiring_managers will get filtered via the application-level job_id
-  // requirement anyway.
-  const admin = createAdminClient();
-  const { data, error } = await admin.rpc("report_score_distribution", {
-    _job_id: filter.job_id ?? undefined,
-    _from: filter.from,
-    _to: filter.to,
-  } as never);
-  if (error) throw error;
-  return ((data ?? []) as Array<{ bucket_lower: number; candidate_count: number }>).map((r) => ({
-    bucket_lower: r.bucket_lower,
-    count: r.candidate_count,
-  }));
+  const db = await getDb();
+
+  const conds: SQL[] = [
+    sql`c.is_archived = 0`,
+    sql`c.ai_score is not null`,
+    sql`c.created_at >= ${filter.from}`,
+    sql`c.created_at <= ${filter.to}`,
+  ];
+  if (filter.job_id) conds.push(sql`c.job_id = ${filter.job_id}`);
+
+  const rows = await db.all<{ bucket_lower: number; candidate_count: number }>(sql`
+    select
+      min(90, cast(c.ai_score / 10.0 as integer) * 10) as bucket_lower,
+      count(*) as candidate_count
+    from candidates c
+    where ${sql.join(conds, sql` and `)}
+    group by min(90, cast(c.ai_score / 10.0 as integer) * 10)
+    order by 1
+  `);
+
+  return rows.map((r) => ({ bucket_lower: r.bucket_lower, count: r.candidate_count }));
 }
 
 // ───────────────────────── Stage conversion ─────────────────────────
 
 export async function getStageConversion(filter: ReportFilter): Promise<StageConversionRow[]> {
-  const supabase = await createClient();
-
-  let q = supabase
-    .from("funnel_stats")
-    .select("stage, candidate_count, role_family, job_id, month_bucket");
-  if (filter.job_id) q = q.eq("job_id", filter.job_id);
-  if (filter.role_family) q = q.eq("role_family", filter.role_family);
-  q = q.gte("month_bucket", monthFloor(filter.from)).lte("month_bucket", filter.to);
-
-  const { data, error } = await q;
-  if (error) throw error;
+  const rows = await queryFunnelRows(filter);
 
   const totals = new Map<Stage, number>();
-  for (const r of (data ?? []) as Array<{ stage: Stage | null; candidate_count: number | null }>) {
-    if (!r.stage || r.candidate_count == null) continue;
+  for (const r of rows) {
     totals.set(r.stage, (totals.get(r.stage) ?? 0) + r.candidate_count);
   }
 
@@ -271,27 +312,13 @@ export async function getStageConversion(filter: ReportFilter): Promise<StageCon
 // ───────────────────────── Hires per month ─────────────────────────
 
 export async function getHiresPerMonth(filter: ReportFilter): Promise<HiresPerMonthRow[]> {
-  const supabase = await createClient();
-
-  let q = supabase
-    .from("funnel_stats")
-    .select("month_bucket, candidate_count, stage, job_id, role_family")
-    .eq("stage", "hired");
-  if (filter.job_id) q = q.eq("job_id", filter.job_id);
-  if (filter.role_family) q = q.eq("role_family", filter.role_family);
-  q = q.gte("month_bucket", monthFloor(filter.from)).lte("month_bucket", filter.to);
-
-  const { data, error } = await q;
-  if (error) throw error;
+  const rows = await queryFunnelRows(filter);
 
   const byMonth = new Map<string, number>();
-  for (const r of (data ?? []) as Array<{
-    month_bucket: string | null;
-    candidate_count: number | null;
-  }>) {
-    if (!r.month_bucket || r.candidate_count == null) continue;
-    const key = String(r.month_bucket).slice(0, 10);
-    byMonth.set(key, (byMonth.get(key) ?? 0) + r.candidate_count);
+  for (const r of rows) {
+    if (r.stage !== "hired") continue;
+    // month_bucket is already "YYYY-MM-01"
+    byMonth.set(r.month_bucket, (byMonth.get(r.month_bucket) ?? 0) + r.candidate_count);
   }
 
   return Array.from(byMonth.entries())
@@ -357,6 +384,11 @@ function monthFloor(iso: string): string {
   d.setUTCDate(1);
   d.setUTCHours(0, 0, 0, 0);
   return d.toISOString();
+}
+
+/** First day of the month containing `iso`, as "YYYY-MM-01" (SQLite month bucket). */
+function monthFloorDate(iso: string): string {
+  return monthFloor(iso).slice(0, 10);
 }
 
 export const __testHelpers = { percentile, monthFloor, ALL_STAGES };

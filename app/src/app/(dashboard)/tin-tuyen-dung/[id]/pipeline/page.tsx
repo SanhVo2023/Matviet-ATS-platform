@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ListIcon } from "lucide-react";
 import { requireRole } from "@/lib/auth";
-import { getJob } from "@/server/jobs/repository";
+import { getJob, getJobAssignments } from "@/server/jobs/repository";
 import { listCandidates } from "@/server/candidates/repository";
 import { Button } from "@/components/ui/button";
 import { JobStatusBadge } from "@/components/primitives/StatusBadge";
@@ -23,11 +23,17 @@ export async function generateMetadata({
 }
 
 export default async function JobPipelinePage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["admin", "hr", "hiring_manager"]);
+  const profile = await requireRole(["admin", "hr", "hiring_manager"]);
   const { id } = await params;
 
   const job = await getJob(id);
   if (!job) notFound();
+
+  // Hiring managers only see pipelines for their assigned jobs (ADR 0011)
+  if (profile.role === "hiring_manager") {
+    const assignments = await getJobAssignments(id);
+    if (!assignments.some((a) => a.manager_user_id === profile.id)) notFound();
+  }
 
   const candidates = await listCandidates({ job_id: id });
 
