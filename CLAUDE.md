@@ -6,6 +6,60 @@ You are building an internal-HR ATS for Mắt Việt (Vietnamese optical retail 
 
 ---
 
+## Repository layout (important — app is NOT at repo root)
+
+The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.json`, `tsconfig.json`, `.env.local`, and the `supabase/` folder are under `app/`. Run every npm command from `app/`. Doc paths in this file like `src/server/...` mean `app/src/server/...`.
+
+```
+<repo root>/
+├── CLAUDE.md, README.md, docs/     ← docs live at ROOT
+├── .mcp.json                        ← Supabase MCP config (gitignored; template: .mcp.example.json)
+├── .husky/                          ← pre-commit: lint-staged (prettier) on app/** JS/TS files
+├── .github/workflows/ci.yml         ← CI: typecheck + lint + build (working-directory: app)
+├── libreoffice-worker/              ← Fly.io DOCX→PDF worker (scaffolded, NOT yet deployed)
+├── tests/fixtures/                  ← shared test fixtures (CSV samples)
+└── app/                             ← the Next.js project
+    ├── src/app/                     ← App Router; VIETNAMESE route slugs:
+    │   ├── (auth)/dang-nhap, dat-lai-mat-khau
+    │   ├── (dashboard)/tin-tuyen-dung (jobs), ung-vien (candidates),
+    │   │   email, bao-cao (reports), cai-dat (settings: bai-test, nguoi-dung)
+    │   ├── test/[token]             ← public (no-auth) assessment submission page
+    │   └── api/                     ← scoring/drain + emails/drain (cron via CRON_SECRET),
+    │                                  reports/export/{pdf,excel}, test/submit
+    ├── src/server/<module>/         ← server-only business logic (see Modules below)
+    ├── src/lib/                     ← supabase clients (client/server/admin), ai/gemini,
+    │                                  graph (MSAL + sendMail), validation (Zod), vi-format
+    ├── src/components/, src/types/db.ts (generated), src/__test__/
+    ├── supabase/migrations/         ← 0001–0019 mirrored SQL
+    ├── supabase/functions/score-candidate/  ← Deno edge function (code DUPLICATED from
+    │                                  src/lib/ai/gemini + src/server/scoring; Next side
+    │                                  is the single source of truth — sync on change)
+    └── netlify/                     ← scheduled-function shims that hit the /api drains
+```
+
+`@/` path alias → `app/src/` (configured in both `tsconfig.json` and `vitest.config.ts` — Vitest needs its own alias entry).
+
+## Build status (as of 2026-07-02)
+
+- **Merged to main:** Groups 1–4 (foundation, jobs CRUD, candidates + CV upload, AI scoring).
+- **On `feat/06-email-send` (current branch, stacked, unmerged):** Group 9 (assessments + CSV import) → Group 10 (reports) → Group 6 (MS Graph email send).
+- **On `feat/05-pipeline-kanban` (unmerged):** Group 5 kanban.
+- **Not started:** Group 7 (calendar), Group 8 code (branch `feat/08-interviews-approvals` has docs only), Group 11 (polish/launch).
+
+## Modules (`app/src/server/*`) — keep in sync after every PR
+
+| Module | What it does | README |
+|---|---|---|
+| `jobs` | Jobs CRUD repository + service | — |
+| `candidates` | Candidate CRUD, CV upload, stage transitions | — |
+| `scoring` | AI scoring pipeline: `enqueueScoring` → edge function `score-candidate` (Gemini 2-pass, decoupled weights, Fuse.js evidence validation) → cron drain `/api/scoring/drain`. Manual-slider fallback for failed scoring | yes |
+| `email` | Outbound queue → MS Graph `/sendMail`. Templates are plain HTML `{{var}}` strings in DB (`template-render.ts` shared server+client). Retry: auth/permanent→fail now; throttle/transient→1m/5m/15m ×3. Drain `/api/emails/drain` batch=10 every 5 min | yes |
+| `assessments` | Bài test send/receive/grade; 48h base64url tokens; public `/test/[token]` page | yes |
+| `csv-import` | TopCV/CareerViet CSV bulk import; two-phase preview→commit; accent-stripped header maps | yes |
+| `reports` | 6 charts + PDF/Excel export + demo seeder; all queries take a `ReportFilter` | yes |
+
+---
+
 ## Quick navigation
 
 | When you need... | Read |
@@ -23,7 +77,7 @@ You are building an internal-HR ATS for Mắt Việt (Vietnamese optical retail 
 | Vietnamese i18n source | `docs/content/ui-strings.md` |
 | What's been decided in chat that's not yet an ADR | `docs/build-log.md` |
 | Supabase database branch lifecycle | `docs/branch-log.md` |
-| Per-module internals | `src/server/<module>/README.md` |
+| Per-module internals | `app/src/server/<module>/README.md` |
 
 ---
 
@@ -160,7 +214,9 @@ Chrome / Edge / Firefox / Safari latest 2 versions. No IE. No old Android stock 
 
 ### Security baseline
 - Pre-commit (Husky): `gitleaks` + `eslint --fix` + `tsc --noEmit` + `prettier --check`
+  — **currently implemented:** lint-staged runs `prettier --write` only; gitleaks/eslint/tsc pre-commit are a Group 11 task
 - CI (GitHub Actions on PR): `tsc --noEmit`, `vitest run`, `playwright test --project=chromium`, `axe-core` on 5 critical pages
+  — **currently implemented:** typecheck + lint + build only (`.github/workflows/ci.yml`); vitest/playwright/axe in CI are a Group 11 task
 - CSP: strict per route; defined in `next.config.mjs` + `middleware.ts`
 - Auth session timeout: 8h inactivity; refresh token rotation enabled
 - Failed login rate limit: 5 attempts/15min per IP+email; 1h lockout
@@ -185,15 +241,30 @@ Chrome / Edge / Firefox / Safari latest 2 versions. No IE. No old Android stock 
 
 ## Commands
 
+All npm commands run from **`app/`**, not repo root.
+
 ```bash
+cd app
+
 # Dev
-npm run dev          # local Next.js
+npm run dev          # local Next.js (http://localhost:3000)
 npm run build        # production build
-npm run test         # Vitest
-npm run e2e          # Playwright
+npm run typecheck    # tsc --noEmit
+npm run lint         # next lint
+npm run format       # prettier --write src/**
+
+# Tests
+npm run test         # Vitest (run once)
+npm run test:watch   # Vitest watch mode
+npx vitest run src/server/email/sender.test.ts   # single test file
+npm run test:e2e     # Playwright
+
+# DB / data
+npm run db:types     # regen src/types/db.ts from Supabase (or use MCP generate_typescript_types)
+npm run seed:demo    # demo data for reports
 
 # Migrations (via MCP, mirrored locally)
-# Use mcp__supabase-matviet__apply_migration directly; commit SQL to supabase/migrations/
+# Use mcp__supabase-matviet__apply_migration directly; commit SQL to app/supabase/migrations/
 
 # PR
 gh pr create --fill
