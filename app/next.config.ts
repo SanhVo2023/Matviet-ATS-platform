@@ -1,4 +1,9 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+// Makes getCloudflareContext() (D1/R2 bindings from wrangler.jsonc + .dev.vars)
+// available inside `next dev`.
+initOpenNextCloudflareForDev();
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -8,10 +13,7 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "*.supabase.co" },
-      { protocol: "https", hostname: "matviet-hr.netlify.app" },
-    ],
+    remotePatterns: [{ protocol: "https", hostname: "hr.matviet.com.vn" }],
   },
   async headers() {
     return [

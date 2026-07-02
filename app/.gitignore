@@ -58,3 +58,8 @@ next-env.d.ts
 # Supabase
 supabase/.branches
 supabase/.temp
+
+# Cloudflare
+.wrangler/
+.open-next/
+.dev.vars
