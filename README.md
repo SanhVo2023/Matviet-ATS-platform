@@ -1,126 +1,81 @@
 # Mắt Việt HR
 
-Internal AI-powered Applicant Tracking System (ATS) for Mắt Việt — Vietnamese optical retail chain. Vietnamese-only UI.
+Internal AI-powered HR platform for Mắt Việt — Vietnamese optical retail chain. Vietnamese-only UI. Today an Applicant Tracking System (ATS); architected to grow into an all-in employee management system (see `docs/decisions/0012-employee-management-foundation.md`).
 
-## Stack
+## Stack (Cloudflare-native since 2026-07, ADR 0009)
 
 - **Frontend:** Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui + Framer Motion
-- **Backend:** Supabase (Auth + Postgres + Storage + RLS) + Edge Functions
-- **AI:** Google Gemini 2.5 Flash (CV parsing + scoring)
-- **Email/Calendar:** Microsoft Graph API (Office 365)
-- **Hosting:** Netlify
-- **Worker (DOCX→PDF):** Fly.io with LibreOffice
+- **Runtime:** Cloudflare Workers via `@opennextjs/cloudflare`
+- **Database:** Cloudflare D1 (SQLite) + Drizzle ORM
+- **Files:** Cloudflare R2 (CVs, tests, submissions) streamed through authed routes
+- **Auth:** better-auth (email/password, admin-created accounts, 8h sessions)
+- **AI:** Google Gemini 2.5 Flash (CV parse + 2-pass scoring, in-process queue worker)
+- **Email/Calendar:** Microsoft Graph API (Office 365) — plain fetch, no SDK
+- **Cron:** Cloudflare Cron Triggers (scoring + email queue drains, every 5 min)
+- **Target domain:** `hr.matviet.com.vn`
 
 ## Project status
 
-**Currently in pre-build planning.** Build kicks off Group 1 (Foundation) once foundation prerequisites land.
+Feature groups 1–10 built (jobs, candidates + CV upload, AI scoring, kanban pipeline, email automation, Outlook/Teams interviews, reviews + approvals, assessments + CSV import, reports). Cloudflare pivot complete and verified locally. Remaining: Group 11 polish + production deploy (see `docs/infra-checklist.md` §Cloudflare).
 
-## Repository contents (post-Group 1)
+## Repository layout
 
 ```
-matviet-hr/
+<root>/
 ├── CLAUDE.md                 ← agent operating manual (read first)
-├── README.md                 ← this file
-├── .mcp.json                 ← project-scope Supabase MCP (gitignored — contains token)
-├── .mcp.example.json         ← MCP config template (committed)
-├── .gitignore
-├── .env.example              ← env-var template
-├── .env.local                ← real env vars (gitignored)
-├── package.json
-├── next.config.mjs
-├── tailwind.config.ts
-├── tsconfig.json
-├── netlify.toml
-├── docs/                     ← split documentation (PRD, architecture, decisions, content)
-├── public/                   ← static assets (brand, fonts, illustrations)
-├── src/
-│   ├── app/                  ← Next.js App Router pages + API routes
-│   ├── components/
-│   ├── lib/                  ← Supabase clients, AI, Graph, integrations, utils
-│   ├── server/               ← server-only business logic
-│   ├── stores/               ← Zustand
-│   ├── hooks/
-│   └── types/
-├── supabase/
-│   ├── migrations/
-│   ├── functions/            ← edge functions
-│   └── seed.sql
-├── libreoffice-worker/       ← Fly.io DOCX worker
-└── tests/
-    ├── e2e/
-    └── unit/
+├── docs/                     ← PRD, architecture, ADRs, runbook, content
+└── app/                      ← the Next.js project (run all npm commands here)
+    ├── src/app/              ← App Router, Vietnamese slugs (tin-tuyen-dung, ung-vien, …)
+    ├── src/server/<module>/  ← server-only business logic (one README per module)
+    ├── src/db/               ← Drizzle schema (single source of truth) + accessor
+    ├── src/lib/              ← auth, graph, gemini, r2, validation, i18n
+    ├── migrations-d1/        ← generated SQLite migrations (wrangler applies)
+    ├── supabase/migrations/  ← LEGACY Postgres history (pre-pivot, reference only)
+    ├── custom-worker.ts      ← Worker entry: OpenNext fetch + cron scheduled()
+    └── wrangler.jsonc        ← bindings: DB (D1), FILES (R2), crons
 ```
 
-## Local development setup
+## Local development
 
-> Requires: Node 20+, npm/pnpm, Git, Supabase CLI, Netlify CLI, Fly CLI, GitHub CLI
+> Requires: Node 20+, npm. No external services needed — D1/R2 run locally via miniflare.
 
 ```bash
-# 1. Clone
-git clone <repo-url> matviet-hr
-cd matviet-hr
-
-# 2. Install deps
+cd app
 npm install
+cp .dev.vars.example .dev.vars     # fill Gemini + MS Graph creds (optional for UI work)
+npm run db:migrate:local           # create + seed the local D1 database
+npm run dev                        # Next dev with local bindings → http://localhost:3000
 
-# 3. Copy env template and fill in real values
-cp .env.example .env.local
-# Edit .env.local with your Supabase URL, anon key, service role key, Gemini API key, MS Graph creds
+# OR run the real Worker locally:
+npx opennextjs-cloudflare build && npx wrangler dev
 
-# 4. Set up Supabase MCP (if you're using Claude Code)
-cp .mcp.example.json .mcp.json
-# Edit .mcp.json — replace REPLACE_WITH_YOUR_PERSONAL_ACCESS_TOKEN with your Supabase PAT
-# Quit and re-launch Claude Code from this directory
-
-# 5. Apply migrations
-npx supabase db push
-
-# 6. Generate TS types
-npx supabase gen types typescript --linked > src/types/db.ts
-
-# 7. Seed dev data
-npm run db:seed
-
-# 8. Run
-npm run dev          # http://localhost:3000
+# First admin account (fresh DB):
+curl -X POST http://localhost:8787/api/setup \
+  -H "Authorization: Bearer $CRON_SECRET" -H "content-type: application/json" \
+  -d '{"email":"you@matkinh.com.vn","password":"...","name":"Your Name"}'
 ```
 
-## Common tasks
+## Common commands
 
 ```bash
-npm run dev          # Local dev server
-npm run build        # Production build
-npm run typecheck    # TypeScript check
+npm run typecheck    # tsc --noEmit
 npm run lint         # ESLint
-npm run test         # Vitest unit tests
-npm run e2e          # Playwright E2E
-npm run db:seed      # Reload deterministic dev data
-
-# Migrations (via Claude Code + Supabase MCP)
-# Claude calls mcp__supabase-matviet__apply_migration; SQL is mirrored to supabase/migrations/
-
-# Deploy
-git push origin main # Netlify auto-deploys main
+npm run test         # Vitest (69 tests)
+npm run test:e2e     # Playwright
+npm run db:generate  # emit migration after editing src/db/schema.ts
+npm run deploy       # build + deploy to Cloudflare (needs wrangler login)
 ```
 
 ## Configuration
 
-All secrets live in `.env.local` (gitignored). See `.env.example` for the complete list.
+Local secrets in `app/.dev.vars` (gitignored, template: `.dev.vars.example`); production secrets via `npx wrangler secret put <NAME>`:
 
-| Variable | Source | Used by |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project | Browser + server |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project | Browser + server |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase project (server-only) | Server (admin queries) |
-| `GEMINI_API_KEY` | Google Cloud | Server (AI scoring) |
-| `MS_TENANT_ID` | Mắt Việt IT | Server (Graph) |
-| `MS_CLIENT_ID` | Mắt Việt IT | Server (Graph) |
-| `MS_CLIENT_SECRET` | Mắt Việt IT | Server (Graph) |
-| `MS_MAILBOX_ADDRESS` | hr@matviet.com.vn | Server (Graph) |
-| `LIBREOFFICE_WORKER_URL` | Fly.io | Server (DOCX→PDF) |
-| `LIBREOFFICE_WORKER_SECRET` | Sanh-generated | Server (worker auth) |
-| `CRON_SECRET` | Sanh-generated | Server (scheduled functions) |
-| `SENTRY_DSN` | Sentry | Browser + server |
+| Variable | Purpose |
+|---|---|
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | CV scoring |
+| `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_MAILBOX_ADDRESS` | Graph email + calendar |
+| `CRON_SECRET` | Drain routes + first-admin setup |
+| `BETTER_AUTH_SECRET` | Session signing |
 
 ## Documentation map
 
@@ -128,26 +83,14 @@ All secrets live in `.env.local` (gitignored). See `.env.example` for the comple
 |---|---|
 | Operating manual for Claude Code | `CLAUDE.md` |
 | Product requirements | `docs/PRD.md` |
-| Tech architecture (DB schema, RLS) | `docs/architecture.md` |
-| UI/UX spec | `docs/ui-ux.md` |
-| External integrations | `docs/integrations.md` |
-| Internal API | `docs/api.md` |
-| Asset & dependency checklist | `docs/infra-checklist.md` |
+| Architecture Decision Records (0009–0012 = Cloudflare pivot) | `docs/decisions/` |
+| Asset & dependency checklist (Sanh's manual steps) | `docs/infra-checklist.md` |
 | Operational runbook | `docs/runbook.md` |
-| Privacy notice (candidate-facing, Vietnamese) | `docs/privacy-notice-vi.md` |
-| Architecture Decision Records | `docs/decisions/` |
-| Email templates (Vietnamese) | `docs/content/email-templates.md` |
-| Scoring rubrics (per role family) | `docs/content/scoring-rubrics.md` |
-| UI strings (Vietnamese i18n) | `docs/content/ui-strings.md` |
-| Build log (decisions in chat) | `docs/build-log.md` |
-| Supabase database branches | `docs/branch-log.md` |
-
-## License
-
-Internal — Mắt Việt proprietary.
+| Build log (chat-time decisions) | `docs/build-log.md` |
+| Per-module internals | `app/src/server/<module>/README.md` |
 
 ## Contact
 
-- **Project owner / dev:** Sanh Võ
+- **Project owner / reviewer:** Sanh Võ
 - **Primary user:** chị Bùi Thị Hương (HR Staff)
 - **Company:** Mắt Việt (Mat Viet Optical)

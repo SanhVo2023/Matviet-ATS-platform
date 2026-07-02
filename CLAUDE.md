@@ -41,12 +41,13 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 
 `@/` path alias → `app/src/` (configured in both `tsconfig.json` and `vitest.config.ts` — Vitest needs its own alias entry).
 
-## Build status (as of 2026-07-02, post-consolidation)
+## Build status (as of 2026-07-02, post-pivot)
 
-- **Merged to main:** Groups 1–6, 8, 9, 10 (foundation, jobs, candidates+CV, AI scoring, kanban, email send, interviews+approvals, assessments+CSV, reports). 69 tests green, build clean, 31 routes.
-- **In progress:** Cloudflare pivot (`feat/12-cloudflare-pivot`) per ADR 0009 — D1/R2/Workers port of the data, auth, storage, and cron layers.
-- **Remaining features:** Group 7 (Outlook calendar + Teams links for interviews — scheduling UI exists from G8, Graph event creation missing), Group 11 (polish/launch at hr.matviet.com.vn).
+- **All feature groups 1–10 built** (foundation, jobs, candidates+CV, AI scoring, kanban, email send, calendar+Teams, interviews+approvals, assessments+CSV, reports).
+- **Cloudflare pivot COMPLETE** on `feat/12-cloudflare-pivot` (ADRs 0009–0012): D1+Drizzle data layer, R2 files, better-auth, in-process Gemini scoring, cron drains via `custom-worker.ts` `scheduled()`. Verified end-to-end on local wrangler: migrations applied, admin bootstrap (`POST /api/setup`), sign-in, all dashboard routes 200, drains hitting D1.
+- **Remaining:** Group 11 polish (Playwright e2e, axe, Sentry re-check), production deploy (blocked on Sanh's infra-checklist §Cloudflare items), Supabase/Netlify decommission after cutover.
 - **Local main is ahead of origin/main** — pushing to the protected default branch needs Sanh's go-ahead.
+- **Windows dev quirk:** workerd crashes when started from this repo path (diacritics) during `next build` — `initOpenNextCloudflareForDev()` is guarded to dev-only in `next.config.ts`. `wrangler dev` / `d1` commands work fine.
 
 ## Modules (`app/src/server/*`) — keep in sync after every PR
 
@@ -146,20 +147,25 @@ Each of the 11 build groups becomes one or more feature branches: `feat/01-found
 
 ---
 
-## MCP usage map
+## Database & platform workflow (post-pivot — wrangler, not Supabase MCP)
 
-| Manual step | MCP replacement | Verification + commit |
+> The `mcp__supabase-matviet__*` tools are LEGACY (project pending decommission). Do not use them for new work.
+
+| Task | Command | Verification + commit |
 |---|---|---|
-| Apply migration | `mcp__supabase-matviet__apply_migration(name='000N_*', query=...)` | Mirror to `supabase/migrations/000N_*.sql` and commit |
-| Generate TS types | `mcp__supabase-matviet__generate_typescript_types` | Save to `src/types/db.ts` and commit in same PR as migration |
-| Inspect schema | `list_tables`, `list_extensions`, `list_migrations` | No commit |
-| Read-only inspection / seed | `execute_sql(query=...)` | Seed SQL to `supabase/seed.sql` if it's a permanent seed |
-| RLS audit | `get_advisors(type='security')` after any migration changing tables/policies | Findings in PR description "Advisor Report"; high-severity blocks merge |
-| Risky migration on prod | `create_branch` → apply on branch → smoke via `execute_sql` → `merge_branch` after Sanh OK, or `delete_branch` if rolled back | Branch lifecycle in `docs/branch-log.md` |
-| Edge function deploy | `deploy_edge_function(name='cv-parse', files=[...])` | Source under `supabase/functions/<name>/index.ts`; deploy SHA in PR |
-| Tail logs | `get_logs(service='postgres'\|'auth'\|'storage'\|'edge-function')` | Paste into PR comment |
+| Change schema | Edit `app/src/db/schema.ts` → `npm run db:generate` | Commit schema + generated `migrations-d1/NNNN_*.sql` together |
+| Apply migration (local) | `npm run db:migrate:local` | Smoke via `wrangler d1 execute matviet-hr --local --command "..."` |
+| Apply migration (prod) | `npm run db:migrate:remote` | **Pause and confirm with Sanh first**; D1 Time Travel (30d) is the rollback |
+| Inspect data | `npx wrangler d1 execute matviet-hr --local\|--remote --json --command "..."` | No commit |
+| Types | Derived automatically — `src/types/db.ts` infers from the Drizzle schema | Nothing to regenerate |
+| Secrets | `npx wrangler secret put NAME` (Sanh runs; values never in chat/files) | Names listed in `wrangler.jsonc` header comment |
+| Build worker bundle | `npx opennextjs-cloudflare build` | `.open-next/` is gitignored |
+| Local run | `npm run dev` (Next dev + bindings) or `npx wrangler dev` (real worker) | — |
+| Deploy | `npm run deploy` | Monitor `npx wrangler tail matviet-hr` for 5 min post-deploy |
+| Logs | `npx wrangler tail matviet-hr` | Paste relevant lines into PR comment |
+| First admin (fresh DB) | `POST /api/setup` with `Authorization: Bearer $CRON_SECRET` + JSON {email,password,name} | One-time; 409 afterwards |
 
-**Branching policy:** any migration touching `candidates`, `applications`, `interview_reviews`, `email_logs`, `approvals` MUST go through `create_branch` → test → merge. Pure additive migrations on new tables can apply directly to main.
+**Migration policy:** D1 has no database branches. Destructive migrations (drop/rename on `candidates`, `interviews`, `approvals`, `email_messages`) get tested on the local D1 first, applied remotely only after Sanh confirms; Time Travel is the recovery path (`wrangler d1 time-travel restore`).
 
 ---
 
@@ -262,19 +268,16 @@ npm run test:watch   # Vitest watch mode
 npx vitest run src/server/email/sender.test.ts   # single test file
 npm run test:e2e     # Playwright
 
-# DB / data
-npm run db:types     # regen src/types/db.ts from Supabase (or use MCP generate_typescript_types)
-npm run seed:demo    # demo data for reports
-
-# Migrations (via MCP, mirrored locally)
-# Use mcp__supabase-matviet__apply_migration directly; commit SQL to app/supabase/migrations/
+# Cloudflare (see "Database & platform workflow" above)
+npm run db:generate        # drizzle-kit generate (after editing src/db/schema.ts)
+npm run db:migrate:local   # apply migrations to local D1
+npm run db:migrate:remote  # apply to production D1 (confirm with Sanh first)
+npm run preview            # opennextjs build + local preview
+npm run deploy             # opennextjs build + wrangler deploy
 
 # PR
 gh pr create --fill
 gh pr view --web
-
-# Logs (via MCP)
-# Use mcp__supabase-matviet__get_logs(service='postgres'|'auth'|'storage'|'edge-function')
 ```
 
 ---
