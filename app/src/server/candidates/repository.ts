@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, like, or } from "drizzle-orm";
 import { getDb } from "@/db";
-import { candidates, cv_files, stage_history, users } from "@/db/schema";
+import { candidates, cv_files, job_assignments, stage_history, users } from "@/db/schema";
 import type { Database, Tables } from "@/types/db";
 
 export type CandidateRow = Tables<"candidates">;
@@ -15,6 +15,8 @@ export interface CandidateListFilters {
   stage?: Stage | "all";
   source?: Source | "all";
   search?: string;
+  /** When set (hiring_manager callers), restrict to candidates on jobs this user is assigned to. */
+  for_manager_user_id?: string | null;
 }
 
 export async function listCandidates(filters: CandidateListFilters = {}): Promise<CandidateRow[]> {
@@ -22,6 +24,17 @@ export async function listCandidates(filters: CandidateListFilters = {}): Promis
   const conds = [eq(candidates.is_archived, false)];
 
   if (filters.job_id) conds.push(eq(candidates.job_id, filters.job_id));
+  if (filters.for_manager_user_id) {
+    conds.push(
+      inArray(
+        candidates.job_id,
+        db
+          .select({ job_id: job_assignments.job_id })
+          .from(job_assignments)
+          .where(eq(job_assignments.manager_user_id, filters.for_manager_user_id)),
+      ),
+    );
+  }
   if (filters.stage && filters.stage !== "all")
     conds.push(eq(candidates.current_stage, filters.stage));
   if (filters.source && filters.source !== "all") conds.push(eq(candidates.source, filters.source));

@@ -36,6 +36,12 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
   const candidate = await getCandidate(id);
   if (!candidate) notFound();
 
+  // Hiring managers only see candidates on their assigned jobs (ADR 0011)
+  if (profile.role === "hiring_manager") {
+    const assignments = await getJobAssignments(candidate.job_id);
+    if (!assignments.some((a) => a.manager_user_id === profile.id)) notFound();
+  }
+
   const [
     job,
     cvFile,

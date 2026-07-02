@@ -31,7 +31,7 @@ export async function generateMetadata({
 }
 
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole(["admin", "hr", "hiring_manager", "bod", "tap_doan"]);
+  const profile = await requireRole(["admin", "hr", "hiring_manager", "bod", "tap_doan"]);
   const { id } = await params;
 
   const job = await getJob(id);
@@ -49,7 +49,14 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           .limit(1)
           .then((r) => r[0] ?? null)
       : Promise.resolve(null as null | { name: string }),
-    listCandidates({ job_id: id }),
+    // Mirrors the old RLS policy: HR/admin see all candidates; a hiring
+    // manager only those on jobs assigned to them; exec approvers see none
+    // here (they work from the approvals inbox).
+    ["admin", "hr"].includes(profile.role)
+      ? listCandidates({ job_id: id })
+      : profile.role === "hiring_manager"
+        ? listCandidates({ job_id: id, for_manager_user_id: profile.id })
+        : Promise.resolve([]),
     listJobs(),
   ]);
 

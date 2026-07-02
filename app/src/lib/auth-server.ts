@@ -73,11 +73,19 @@ export async function getAuth() {
       window: 15 * 60,
       max: 20,
       customRules: {
+        // 5 attempts / 15 min per IP (baseline). Per-email lockout is a G11
+        // TODO — better-auth keys on ip+path only (see build-log 2026-07-02).
         "/sign-in/email": { window: 15 * 60, max: 5 },
       },
     },
     advanced: {
       database: { generateId: () => crypto.randomUUID() },
+      ipAddress: {
+        // Cloudflare's trusted client-IP header — without this the limiter
+        // falls back to x-forwarded-for and can collapse all clients into one
+        // shared bucket (trivial lockout DoS).
+        ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"],
+      },
     },
   });
 }

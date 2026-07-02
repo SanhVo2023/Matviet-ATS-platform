@@ -11,15 +11,19 @@ export async function decideApprovalAction(
   decision: "approved" | "rejected",
   notes?: string,
 ): Promise<ActionResult> {
-  // All four roles can approve their own steps. The engine doesn't enforce
-  // role-step matching — that's the inbox's job (only shows steps the user
-  // can act on). The Server Action acts as a defence-in-depth role gate.
+  // Role gate here; the ENGINE enforces role↔step matching + job assignment
+  // (Server Actions are directly invocable RPC — UI hiding is not access control).
   const profile = await requireRole(["admin", "hr", "hiring_manager", "bod", "tap_doan"]);
   if (decision !== "approved" && decision !== "rejected") {
     return { ok: false, error: "Quyết định không hợp lệ" };
   }
   try {
-    const r = await decideApproval(approvalId, decision, profile.id, notes);
+    const r = await decideApproval(
+      approvalId,
+      decision,
+      { id: profile.id, role: profile.role },
+      notes,
+    );
     revalidatePath("/phe-duyet");
     revalidatePath(`/ung-vien/${r.candidateId}`);
     return { ok: true };

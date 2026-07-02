@@ -1,11 +1,60 @@
 import "server-only";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { approvals, candidates, jobs } from "@/db/schema";
+import { approvals, candidates, jobs, job_assignments } from "@/db/schema";
 import type { Database } from "@/types/db";
 import { APPROVAL_PRESETS, STAGE_FOR_PENDING_STEP, type FlowType } from "./presets";
 
 type StepKind = Database["public"]["Enums"]["approval_step_kind"];
+type UserRole = Database["public"]["Enums"]["user_role"];
+
+export interface ApprovalActor {
+  id: string;
+  role: UserRole;
+}
+
+/**
+ * Authorization matrix for deciding a step (ADR 0011 — enforcement lives HERE,
+ * not in the inbox UI; Server Actions are directly invocable RPC):
+ *   - admin / hr        → any step (HR drives the process)
+ *   - hiring_manager    → only manager_recommend, and only for candidates on
+ *                         jobs they're assigned to via job_assignments
+ *   - bod / tap_doan    → only their own step kind
+ */
+async function assertActorMayDecide(
+  actor: ApprovalActor,
+  stepKind: StepKind,
+  candidateJobId: string,
+): Promise<void> {
+  if (actor.role === "admin" || actor.role === "hr") return;
+
+  const allowedKind: Record<Exclude<UserRole, "admin" | "hr">, StepKind> = {
+    hiring_manager: "manager_recommend",
+    bod: "bod",
+    tap_doan: "tap_doan",
+  };
+  if (allowedKind[actor.role] !== stepKind) {
+    throw new Error("Bạn không có quyền duyệt bước này");
+  }
+
+  if (actor.role === "hiring_manager") {
+    const db = await getDb();
+    const assigned = await db
+      .select({ id: job_assignments.id })
+      .from(job_assignments)
+      .where(
+        and(
+          eq(job_assignments.job_id, candidateJobId),
+          eq(job_assignments.manager_user_id, actor.id),
+        ),
+      )
+      .limit(1)
+      .then((r) => r[0] ?? null);
+    if (!assigned) {
+      throw new Error("Bạn không phụ trách tin tuyển dụng của ứng viên này");
+    }
+  }
+}
 
 /**
  * Kick off the approval flow for a candidate. Reads job.flow_type to pick
@@ -85,7 +134,7 @@ export async function startApproval(
 export async function decideApproval(
   approvalId: string,
   decision: "approved" | "rejected",
-  actorId: string,
+  actor: ApprovalActor,
   notes?: string,
 ): Promise<{ candidateId: string; finalized: boolean; nextStep: StepKind | null }> {
   const db = await getDb();
@@ -100,16 +149,42 @@ export async function decideApproval(
   if (!r) throw new Error("Không tìm thấy bước duyệt");
   if (r.status !== "pending") throw new Error("Bước này đã được xử lý");
 
-  // 1. Update this row to the decision
-  await db
+  // Authorization: role must match the step (and job assignment for managers)
+  const cand = await db
+    .select({ job_id: candidates.job_id })
+    .from(candidates)
+    .where(eq(candidates.id, r.candidate_id))
+    .limit(1)
+    .then((rows) => rows[0] ?? null);
+  if (!cand) throw new Error("Không tìm thấy ứng viên");
+  await assertActorMayDecide(actor, r.step_kind, cand.job_id);
+
+  // Sequencing: only the LOWEST pending step may be decided (no skipping ahead
+  // to an exec step while earlier steps are open)
+  const lowestPending = await db
+    .select({ step_index: approvals.step_index })
+    .from(approvals)
+    .where(and(eq(approvals.candidate_id, r.candidate_id), eq(approvals.status, "pending")))
+    .orderBy(asc(approvals.step_index))
+    .limit(1)
+    .then((rows) => rows[0] ?? null);
+  if (lowestPending && lowestPending.step_index !== r.step_index) {
+    throw new Error("Chưa đến lượt bước này — còn bước trước đang chờ duyệt");
+  }
+
+  // 1. Update this row to the decision (guarded on still-pending — atomic
+  //    protection against double-submit races)
+  const updated = await db
     .update(approvals)
     .set({
       status: decision,
-      actor_user_id: actorId,
+      actor_user_id: actor.id,
       decided_at: new Date().toISOString(),
       notes: notes?.trim() || null,
     })
-    .where(eq(approvals.id, approvalId));
+    .where(and(eq(approvals.id, approvalId), eq(approvals.status, "pending")))
+    .returning({ id: approvals.id });
+  if (updated.length === 0) throw new Error("Bước này đã được xử lý");
 
   // 2. Resolve next state of the candidate
   if (decision === "rejected") {
