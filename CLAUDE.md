@@ -2,7 +2,9 @@
 
 You are building an internal-HR ATS for Mắt Việt (Vietnamese optical retail chain). Vietnamese-only UI. Built end-to-end by Claude Code under Sanh Võ's review.
 
-**Read this file on every session.** It's the navigator. The full plan lives at `~/.claude/plans/mutable-crunching-coral.md` (v5.0).
+**Read this file on every session.** It's the navigator.
+
+> **⚡ PLATFORM PIVOT (2026-07-02, Sanh directive):** The app is migrating from Supabase+Netlify+Fly.io to **Cloudflare (Workers + D1 + R2 + Cron Triggers)**, target domain `hr.matviet.com.vn`. Read ADRs **0009–0012** before touching data/auth/storage code. The Supabase MCP tools and `supabase/` folder are legacy during the transition — new DB work happens in `app/src/db/` (Drizzle) + `app/migrations-d1/`. The old master plan (`~/.claude/plans/mutable-crunching-coral.md` v5.0) is **superseded** where it conflicts with the ADRs. The app is also being positioned as the base of an all-in employee management system (ADR 0012) — foundation only, don't build HRIS features without a new directive.
 
 ---
 
@@ -39,12 +41,12 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 
 `@/` path alias → `app/src/` (configured in both `tsconfig.json` and `vitest.config.ts` — Vitest needs its own alias entry).
 
-## Build status (as of 2026-07-02)
+## Build status (as of 2026-07-02, post-consolidation)
 
-- **Merged to main:** Groups 1–4 (foundation, jobs CRUD, candidates + CV upload, AI scoring).
-- **On `feat/06-email-send` (current branch, stacked, unmerged):** Group 9 (assessments + CSV import) → Group 10 (reports) → Group 6 (MS Graph email send).
-- **On `feat/05-pipeline-kanban` (unmerged):** Group 5 kanban.
-- **Not started:** Group 7 (calendar), Group 8 code (branch `feat/08-interviews-approvals` has docs only), Group 11 (polish/launch).
+- **Merged to main:** Groups 1–6, 8, 9, 10 (foundation, jobs, candidates+CV, AI scoring, kanban, email send, interviews+approvals, assessments+CSV, reports). 69 tests green, build clean, 31 routes.
+- **In progress:** Cloudflare pivot (`feat/12-cloudflare-pivot`) per ADR 0009 — D1/R2/Workers port of the data, auth, storage, and cron layers.
+- **Remaining features:** Group 7 (Outlook calendar + Teams links for interviews — scheduling UI exists from G8, Graph event creation missing), Group 11 (polish/launch at hr.matviet.com.vn).
+- **Local main is ahead of origin/main** — pushing to the protected default branch needs Sanh's go-ahead.
 
 ## Modules (`app/src/server/*`) — keep in sync after every PR
 
@@ -90,7 +92,8 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 - **Secondary users:** Trưởng phòng (Hiring Manager) — bursty, mobile-on-store-floor; BOD/Tập đoàn — rare exec approvers
 - **Candidates:** no app account — email-only interaction
 - **Scale:** 1–3 jobs/month, 20–50 CVs/job, ≤5 users, ≤5 outbound emails/day
-- **Stack:** Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui + Supabase (Auth/DB/Storage/RLS) + Gemini 2.5 Flash + Microsoft Graph API + Netlify + Fly.io (LibreOffice DOCX→PDF worker)
+- **Stack (post-pivot, ADR 0009):** Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui, deployed to **Cloudflare Workers** via `@opennextjs/cloudflare` · **D1** (SQLite, Drizzle ORM) · **R2** (files) · **Cron Triggers** (queues drain) · **better-auth** (ADR 0010) · Gemini 2.5 Flash · Microsoft Graph API
+- **Legacy stack (being decommissioned):** Supabase project ref `xeyqbapegqeibeqrwnkm` (pause after cutover), Netlify, Fly.io worker (never deployed — retired)
 
 ---
 

@@ -106,3 +106,11 @@ When a decision is significant enough to outlive a session, **promote to a numbe
 - **First-time agent loading this project:** read `CLAUDE.md` first, then `docs/PRD.md`, then this file (recent month).
 - **Resuming mid-build:** read this file's last 10 entries to get recent context, then check the active branch and PR.
 - **Debugging an old behavior:** grep this file + `docs/decisions/` for the topic.
+
+## 2026-07
+
+```
+2026-07-02 | decision | Sanh | DIRECTIVE: pivot everything to Cloudflare (Workers+D1+R2), publish at hr.matviet.com.vn, finish the app, decide autonomously, lay foundation for all-in employee management system (build later). Old plan superseded where it conflicts.
+2026-07-02 | note | Claude | Consolidated all branches into main: G6 stack (G9+G10+G6) fast-forward, G5 kanban merge, G8 interviews+approvals merge (audit surprise: feat/08 had full G8 code, not just docs). Conflicts resolved as union (CandidateTabs 6 tabs live). Typecheck clean, 69/69 tests, build clean, 31 routes.
+2026-07-02 | decision | Claude | ADRs 0009-0012 written: Cloudflare pivot architecture, better-auth on D1, authorization moves to service layer (no RLS in D1), person-centric employee-management foundation (people/departments/positions/employees tables reserved, module registry, HRIS UI deferred).
+```
