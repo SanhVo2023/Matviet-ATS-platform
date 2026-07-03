@@ -10,7 +10,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary-600 text-primary-foreground hover:bg-primary-700 shadow-sm",
+        /* SIGNATURE CTA — gold on navy text (design-language §4.2) */
+        default: "bg-accent-400 font-semibold text-brand-900 shadow-sm hover:bg-accent-300",
+        /* Navy solid — secondary-strength actions */
+        navy: "bg-brand-700 text-white shadow-sm hover:bg-brand-600",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border border-input bg-background hover:bg-muted",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",

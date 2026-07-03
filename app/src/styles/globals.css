@@ -7,35 +7,36 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%; /* #FFFFFF */
-    --foreground: 222.2 47.4% 11.2%; /* slate-900-ish */
+    /* Design language v2 — navy + gold (docs/design-language.md) */
+    --background: 0 0% 100%; /* surface-raised #FFFFFF */
+    --foreground: 226 54% 15%; /* ink #11183a */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
+    --card-foreground: 226 54% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 226 54% 15%;
 
-    --primary: 221 83% 53%; /* primary-600 #2563EB */
-    --primary-foreground: 210 40% 98%;
+    --primary: 223 51% 37%; /* brand-500 #2f4a8f */
+    --primary-foreground: 220 40% 98%;
 
-    --secondary: 210 40% 96.1%; /* slate-100 */
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 222 33% 95%; /* slate-100 #eceff6 */
+    --secondary-foreground: 226 54% 15%;
 
-    --muted: 210 40% 96.1%; /* slate-100 */
-    --muted-foreground: 215.4 16.3% 46.9%; /* slate-500 */
+    --muted: 222 33% 95%;
+    --muted-foreground: 226 18% 49%; /* ink-muted #667192 */
 
-    --accent: 38 92% 50%; /* accent-500 #F59E0B */
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 46 97% 53%; /* GOLD accent-400 #fbc312 */
+    --accent-foreground: 225 63% 12%; /* brand-900 #0b1430 */
 
-    --destructive: 0 84% 60%; /* error #DC2626 */
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 3 73% 55%; /* danger #e0413a */
+    --destructive-foreground: 220 40% 98%;
 
-    --border: 214.3 31.8% 91.4%; /* slate-200 */
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221 83% 53%; /* primary-600 — focus ring */
+    --border: 223 32% 93%; /* border #e6e9f2 */
+    --input: 223 32% 93%;
+    --ring: 223 51% 37%; /* brand-500 — focus ring */
 
-    --radius: 0.5rem; /* 8px — rounded-lg */
+    --radius: 0.625rem;
   }
 
   * {
@@ -47,7 +48,7 @@
     text-rendering: optimizeLegibility;
   }
   body {
-    @apply bg-background font-sans text-foreground;
+    @apply bg-surface font-sans text-foreground;
     font-feature-settings: "cv11", "ss01";
     font-variation-settings: normal;
   }

@@ -1,17 +1,34 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Mắt Việt HR — design tokens
- * - Brand colors (logo-adjacent surfaces only): brand-navy + brand-yellow
- * - Interactive UI: primary blue scale (Tailwind blue, lighter than brand-navy)
- * - Action / urgency: accent amber scale
- * - Stage badges: explicit per-stage tokens for the 16 pipeline_stage values
- * - Semantic: success / warning / error / info
+ * Mắt Việt HR — design tokens (v2, shared design language with the Mắt Việt
+ * voucher-wallet app; see docs/design-language.md).
  *
- * Brand vs UI separation per docs/ui-ux.md §2:
- *   brand-navy / brand-yellow → sidebar bg, login hero, OG image, email header
- *   primary / accent → buttons, links, focus rings, status badges (UI affordances)
+ * - brand: navy scale, 500 #2f4a8f → 900 #0b1430. Navy chrome = brand-900.
+ * - accent: gold, signature value accent-400 #fbc312.
+ *   The SIGNATURE CTA is gold bg + navy text (bg-accent-400 text-brand-900).
+ * - slate: OVERRIDDEN with a navy-tinted ink ramp so the whole app sits on
+ *   the premium surface/ink/border palette without per-class rewrites:
+ *     slate-50 = surface #f3f5fa · slate-200 = border #e6e9f2
+ *     slate-500 = ink-muted #667192 · slate-900 = ink #11183a
+ * - primary: interactive scale = the brand navy-blue (buttons/links/rings).
+ * - radius: cards 1rem (rounded-lg), controls 0.625rem (rounded-md).
  */
+
+const brandScale = {
+  50: "#eef2fb",
+  100: "#dde5f6",
+  200: "#bccbed",
+  300: "#93a9de",
+  400: "#5f7cc0",
+  500: "#2f4a8f",
+  600: "#263d78",
+  700: "#1d3061",
+  800: "#14224a",
+  900: "#0b1430",
+  950: "#070d20",
+};
+
 const config: Config = {
   content: [
     "./src/pages/**/*.{ts,tsx}",
@@ -58,93 +75,107 @@ const config: Config = {
           foreground: "hsl(var(--destructive-foreground))",
         },
 
-        // Brand — match the actual MV1-MV6 PNG values (logo-adjacent surfaces only)
+        // Brand navy scale + chrome aliases
         brand: {
-          navy: "#13245C",
-          yellow: "#FFC107",
+          ...brandScale,
+          navy: brandScale[900],
+          yellow: "#fbc312",
         },
 
-        // Primary — interactive UI (Tailwind blue scale; lighter than brand-navy)
+        // Primary — interactive UI = brand navy-blue
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          50: "#EFF6FF",
-          100: "#DBEAFE",
-          200: "#BFDBFE",
-          300: "#93C5FD",
-          400: "#60A5FA",
-          500: "#3B82F6",
-          600: "#2563EB",
-          700: "#1D4ED8",
-          800: "#1E40AF",
-          900: "#1E3A8A",
-          950: "#172554",
+          ...brandScale,
         },
 
-        // Accent — warm amber for CTAs + urgency badges (NOT brand-yellow which is reserved for logo)
+        // Accent — GOLD. accent-400 is the signature.
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
-          50: "#FFFBEB",
-          100: "#FEF3C7",
-          200: "#FDE68A",
-          300: "#FCD34D",
-          400: "#FBBF24",
-          500: "#F59E0B",
-          600: "#D97706",
-          700: "#B45309",
+          50: "#fefbeb",
+          100: "#fdf3c4",
+          200: "#fce78d",
+          300: "#fcd54d",
+          400: "#fbc312",
+          500: "#e2ab04",
+          600: "#c38d02",
+          700: "#9c6a06",
         },
+
+        // Navy-tinted ink neutrals (overrides Tailwind slate globally)
+        slate: {
+          50: "#f3f5fa",
+          100: "#eceff6",
+          200: "#e6e9f2",
+          300: "#ccd3e4",
+          400: "#9aa4c0",
+          500: "#667192",
+          600: "#4e587a",
+          700: "#39425f",
+          800: "#202a4d",
+          900: "#11183a",
+          950: "#0b1430",
+        },
+
+        // Direct tokens for new components
+        surface: { DEFAULT: "#f3f5fa", raised: "#ffffff" },
+        ink: { DEFAULT: "#11183a", muted: "#667192" },
 
         // Semantic
         success: {
-          DEFAULT: "#059669",
-          fg: "#065F46",
-          bg: "#D1FAE5",
+          DEFAULT: "#12a05f",
+          fg: "#0b6e41",
+          bg: "#dcf5e9",
         },
         warning: {
-          DEFAULT: "#D97706",
-          fg: "#92400E",
-          bg: "#FEF3C7",
+          DEFAULT: "#ef7a00",
+          fg: "#9a4e00",
+          bg: "#ffefd9",
         },
         error: {
-          DEFAULT: "#DC2626",
-          fg: "#991B1B",
-          bg: "#FEE2E2",
+          DEFAULT: "#e0413a",
+          fg: "#a02722",
+          bg: "#fde3e2",
+        },
+        danger: {
+          DEFAULT: "#e0413a",
+          fg: "#a02722",
+          bg: "#fde3e2",
         },
         info: {
-          DEFAULT: "#0284C7",
-          fg: "#075985",
-          bg: "#E0F2FE",
+          DEFAULT: "#2f6fbf",
+          fg: "#1e4e8c",
+          bg: "#e0ecfb",
         },
 
-        // Stage badges — covers all 16 pipeline_stage enum values
+        // Stage badges — navy-family tints for the 16 pipeline_stage values
         stage: {
-          new: { bg: "#F1F5F9", fg: "#334155" },
-          screening: { bg: "#DBEAFE", fg: "#1D4ED8" },
-          screened: { bg: "#DBEAFE", fg: "#1D4ED8" },
-          interview: { bg: "#FEF3C7", fg: "#92400E" },
-          test: { bg: "#EDE9FE", fg: "#5B21B6" },
-          recommended: { bg: "#E0E7FF", fg: "#3730A3" },
-          salary: { bg: "#E0E7FF", fg: "#3730A3" },
-          bod: { bg: "#E0E7FF", fg: "#3730A3" },
-          tap_doan: { bg: "#E0E7FF", fg: "#3730A3" },
-          offer: { bg: "#D1FAE5", fg: "#065F46" },
-          hired: { bg: "#059669", fg: "#FFFFFF" },
-          rejected: { bg: "#FFE4E6", fg: "#9F1239" },
-          withdrew: { bg: "#F4F4F5", fg: "#52525B" },
+          new: { bg: "#eceff6", fg: "#39425f" },
+          screening: { bg: "#dde5f6", fg: "#1d3061" },
+          screened: { bg: "#dde5f6", fg: "#1d3061" },
+          interview: { bg: "#fdf3c4", fg: "#9c6a06" },
+          test: { bg: "#ede9fe", fg: "#5b21b6" },
+          recommended: { bg: "#dde5f6", fg: "#263d78" },
+          salary: { bg: "#dde5f6", fg: "#263d78" },
+          bod: { bg: "#dde5f6", fg: "#263d78" },
+          tap_doan: { bg: "#dde5f6", fg: "#263d78" },
+          offer: { bg: "#dcf5e9", fg: "#0b6e41" },
+          hired: { bg: "#12a05f", fg: "#FFFFFF" },
+          rejected: { bg: "#fde3e2", fg: "#a02722" },
+          withdrew: { bg: "#eceff6", fg: "#667192" },
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg: "1rem", // radius-card
+        md: "0.625rem", // controls
+        sm: "0.5rem",
       },
       boxShadow: {
-        // Per docs/ui-ux.md §5
-        sm: "0 1px 2px rgba(15, 23, 42, 0.06)",
-        md: "0 4px 6px rgba(15, 23, 42, 0.07), 0 2px 4px rgba(15, 23, 42, 0.06)",
-        lg: "0 10px 15px rgba(15, 23, 42, 0.08), 0 4px 6px rgba(15, 23, 42, 0.05)",
-        xl: "0 20px 25px rgba(15, 23, 42, 0.1), 0 10px 10px rgba(15, 23, 42, 0.04)",
+        sm: "0 1px 2px rgba(11, 20, 48, 0.06)",
+        md: "0 4px 10px rgba(11, 20, 48, 0.07), 0 2px 4px rgba(11, 20, 48, 0.05)",
+        lg: "0 10px 24px rgba(11, 20, 48, 0.09), 0 4px 8px rgba(11, 20, 48, 0.05)",
+        xl: "0 20px 40px rgba(11, 20, 48, 0.12), 0 10px 12px rgba(11, 20, 48, 0.05)",
       },
       keyframes: {
         "accordion-down": {
