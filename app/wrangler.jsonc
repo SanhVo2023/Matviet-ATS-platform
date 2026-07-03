@@ -7,7 +7,7 @@
  *   npx wrangler r2 bucket create matviet-hr-files
  * Secrets (never in this file): npx wrangler secret put <NAME>
  *   MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MS_MAILBOX_ADDRESS,
- *   CRON_SECRET, BETTER_AUTH_SECRET
+ *   CRON_SECRET, BETTER_AUTH_SECRET, VAPID_PRIVATE_KEY
  * AI runs on the Workers AI binding below (ADR 0013) — no API key.
  */
 {
@@ -70,7 +70,12 @@
     // company's Google Workspace mailbox for this address — make sure it
     // exists there (alias is fine).
     "EMAIL_FROM_ADDRESS": "hr@matviet.com.vn",
-    "EMAIL_FROM_NAME": "Mắt Việt HR"
+    "EMAIL_FROM_NAME": "Mắt Việt HR",
+    // Web Push (notification bell). Public half of the VAPID pair — the
+    // private half is the VAPID_PRIVATE_KEY secret. Rotating the pair
+    // invalidates every existing browser subscription.
+    "VAPID_PUBLIC_KEY": "BAq8_Y6itTD8NVKNJKurYwDx41jzzxB1DMBBXvlrWVGlDxuSfIKTQN0Tm-XMsRRuEqAjDPWB1c7sFgSADl6dRWI",
+    "VAPID_SUBJECT": "mailto:hr@matviet.com.vn"
   },
   "observability": {
     "enabled": true

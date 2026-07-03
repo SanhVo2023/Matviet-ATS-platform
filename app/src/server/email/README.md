@@ -14,8 +14,9 @@ the Google MX records. Replies to the from-address land in Google Workspace.
 
 - `templates.ts` — `renderTemplate(string, vars)` does `{{var}}` substitution + HTML escape. `loadTemplate(code)` reads `email_templates`. `renderFromTemplate(code, vars)` does both.
 - `repository.ts` — typed wrapper around `email_messages` for the queue worker + composer + queue page.
-- `transport.ts` — `deliverMail(input)`: Cloudflare `send_email` binding when present, else MS Graph. Shared by the queue worker and better-auth password reset.
-- `sender.ts` — `sendOne(message)` and `drainQueue(limit)`. Handles retry classification (`auth | throttle | permanent | transient`); Cloudflare `E_*` codes are mapped onto the same taxonomy in `src/lib/email/cloudflare.ts`.
+- `transport.ts` — `deliverMail(input)`: Cloudflare `send_email` binding when present, else MS Graph. Shared by the queue worker and better-auth password reset. Wraps every body in the branded shell (`layout.ts`) and derives the plain-text alternative from the pre-wrap body.
+- `layout.ts` — pure string builders: `brandEmailHtml` (navy+gold table-based shell, inline styles, idempotent — full `<html>` docs pass through untouched), `emailCtaButton`, `htmlToText`. DB templates stay content-only `<p>` HTML; the shell owns the chrome, so the composer's live preview shows content-only too.
+- `sender.ts` — `sendOne(message)` and `drainQueue(limit)`. Handles retry classification (`auth | throttle | permanent | transient`); Cloudflare `E_*` codes are mapped onto the same taxonomy in `src/lib/email/cloudflare.ts`. Dead-lettered messages raise an `email_failed` bell notification for hr+admin.
 - `service.ts` — high-level: `composeFromTemplate`, `composeAdHoc`, `approveAndQueue`, `sendNow`, `manualRetry`, `cancel`.
 
 ## Send pipeline

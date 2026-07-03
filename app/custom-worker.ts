@@ -11,7 +11,7 @@
 // @ts-ignore — generated at build time
 import handler from "./.open-next/worker.js";
 
-const CRON_ROUTES = ["/api/scoring/drain", "/api/emails/drain"];
+const CRON_ROUTES = ["/api/scoring/drain", "/api/emails/drain", "/api/notifications/cron"];
 
 /** Invoke one of the app's own API routes in-process (no public round-trip). */
 async function invokeRoute(

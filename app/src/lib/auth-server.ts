@@ -5,6 +5,7 @@ import { admin } from "better-auth/plugins";
 import { getDb } from "@/db";
 import * as schema from "@/db/schema";
 import { deliverMail } from "@/server/email/transport";
+import { emailCtaButton } from "@/server/email/layout";
 
 /**
  * better-auth on D1 (ADR 0010).
@@ -46,9 +47,8 @@ export async function getAuth() {
           bodyHtml: `
             <p>Chào ${user.name || "bạn"},</p>
             <p>Bạn (hoặc quản trị viên) vừa yêu cầu đặt lại mật khẩu cho tài khoản Mắt Việt HR.</p>
-            <p><a href="${url}">Bấm vào đây để đặt mật khẩu mới</a> (liên kết hết hạn sau 1 giờ).</p>
-            <p>Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
-            <p>— Hệ thống Mắt Việt HR</p>`,
+            ${emailCtaButton(url, "Đặt mật khẩu mới")}
+            <p>Liên kết hết hạn sau 1 giờ. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>`,
         });
       },
       resetPasswordTokenExpiresIn: 60 * 60,

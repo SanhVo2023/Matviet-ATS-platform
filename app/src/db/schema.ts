@@ -686,3 +686,57 @@ export const audit_log = sqliteTable(
     index("idx_audit_actor").on(t.actor_user_id, t.at),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// In-app notifications + Web Push (notification center in the TopBar bell).
+// ---------------------------------------------------------------------------
+
+export const NOTIFICATION_TYPES = [
+  "scoring_done",
+  "scoring_failed",
+  "approval_pending",
+  "approval_finalized",
+  "interview_created",
+  "interview_reminder",
+  "email_failed",
+  "system",
+] as const;
+
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type", { enum: NOTIFICATION_TYPES }).notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    /** App-relative link ("/ung-vien/<id>") the bell navigates to on click. */
+    link: text("link"),
+    read_at: text("read_at"),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+  },
+  (t) => [
+    index("idx_notifications_user").on(t.user_id, t.created_at),
+    // reminder dedup lookups: same user + type + link only once
+    index("idx_notifications_dedup").on(t.user_id, t.type, t.link),
+  ],
+);
+
+/** One row per browser push subscription (a user can have several devices). */
+export const push_subscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    user_agent: text("user_agent"),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+  },
+  (t) => [index("idx_push_subs_user").on(t.user_id)],
+);

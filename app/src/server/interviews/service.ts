@@ -16,6 +16,8 @@ import {
   type CalendarAttendee,
 } from "@/lib/graph/calendar";
 import { publicEnv } from "@/types/env";
+import { notifyUsers } from "@/server/notifications/service";
+import { formatDateTime } from "@/lib/vi-format";
 
 /**
  * Schedule a new interview (G7-complete).
@@ -156,6 +158,18 @@ export async function scheduleInterview(
   } catch (err) {
     console.warn("[interviews] Outlook event creation failed (interview kept):", err);
   }
+
+  // 5. Bell + push for the interviewers (the scheduler already knows)
+  await notifyUsers(
+    input.attendee_ids,
+    {
+      type: "interview_created",
+      title: `Lịch phỏng vấn mới: ${candidate.full_name}`,
+      body: `${formatDateTime(input.scheduled_at)} · ${input.duration_min} phút`,
+      link: "/phong-van",
+    },
+    { excludeUserId: createdBy },
+  );
 
   return { id: interviewId };
 }

@@ -61,9 +61,10 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 | `jobs` | Jobs CRUD repository + service | — |
 | `candidates` | Candidate CRUD, CV upload, stage transitions | — |
 | `scoring` | AI scoring pipeline: `enqueueScoring` + `triggerScoring` (SCORING_QUEUE) → in-process `worker.ts` (Workers AI 2-pass via `toMarkdown`→parse→score, decoupled weights, evidence validation + anti-bluff cap 45) → cron drain `/api/scoring/drain` backstop. Manual-slider fallback for failed scoring | yes |
-| `email` | Outbound queue → `transport.ts` `deliverMail` (Cloudflare Email Service first, MS Graph fallback). Templates are plain HTML `{{var}}` strings in DB (`template-render.ts` shared server+client). Retry: auth/permanent→fail now; throttle/transient→1m/5m/15m ×3. Drain `/api/emails/drain` batch=10, cron every minute | yes |
+| `email` | Outbound queue → `transport.ts` `deliverMail` (Cloudflare Email Service first, MS Graph fallback) — every body wrapped in the branded navy+gold shell (`layout.ts`; DB templates stay content-only). Templates are plain HTML `{{var}}` strings in DB (`template-render.ts` shared server+client). Retry: auth/permanent→fail now; throttle/transient→1m/5m/15m ×3. Drain `/api/emails/drain` batch=10, cron every minute | yes |
 | `assessments` | Bài test send/receive/grade; 48h base64url tokens; public `/test/[token]` page | yes |
 | `csv-import` | TopCV/CareerViet CSV bulk import; two-phase preview→commit; accent-stripped header maps | yes |
+| `notifications` | In-app bell (TopBar, 60s poll) + Web Push (payload-free VAPID via WebCrypto; SW fetches content with its session cookie). Emitters: scoring done/failed, approval pending/finalized, interview created + ≤60-min reminder (cron `/api/notifications/cron`), email dead-letter. `notifyUsers`/`notifyRoles` swallow every error | yes |
 | `reports` | 6 charts + PDF/Excel export + demo seeder; all queries take a `ReportFilter` | yes |
 
 ---

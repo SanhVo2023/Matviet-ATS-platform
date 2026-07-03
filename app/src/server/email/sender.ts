@@ -1,5 +1,6 @@
 import "server-only";
 import { SendMailError } from "@/lib/graph/email";
+import { notifyRoles } from "@/server/notifications/service";
 import { deliverMail } from "./transport";
 import {
   bumpRetry,
@@ -62,6 +63,13 @@ export async function sendOne(message: DrainableEmail): Promise<SendOneOutcome> 
         message.id,
         `[${e.kind}${e.statusCode ? ` ${e.statusCode}` : ""}] ${e.message}`,
       );
+      // The queue drains async — surface the dead letter in the bell.
+      await notifyRoles(["hr", "admin"], {
+        type: "email_failed",
+        title: "Gửi email thất bại",
+        body: `"${message.subject}" → ${message.to_emails.join(", ")}`,
+        link: "/email",
+      });
       return { id: message.id, result: "failed", error: e.message };
     }
     const delayMs = nextRetryDelayMs(message.retry_count, e.retryAfterSec);

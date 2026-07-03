@@ -33,6 +33,8 @@ export interface CloudflareSendInput {
   cc?: string[];
   subject: string;
   bodyHtml: string;
+  /** Plain-text alternative; caller derives it from the pre-branding body. */
+  bodyText?: string;
 }
 
 /** Returns the binding if deployed with `send_email`, else null (dev/tests). */
@@ -66,13 +68,15 @@ export async function sendViaCloudflare(
       from,
       subject: input.subject,
       html: input.bodyHtml,
-      // Plain-text alternative improves spam scores; strip tags naively.
-      text: input.bodyHtml
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<\/p>/gi, "\n\n")
-        .replace(/<[^>]+>/g, "")
-        .replace(/&nbsp;/g, " ")
-        .trim(),
+      // Plain-text alternative improves spam scores; fall back to a naive strip.
+      text:
+        input.bodyText ??
+        input.bodyHtml
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/p>/gi, "\n\n")
+          .replace(/<[^>]+>/g, "")
+          .replace(/&nbsp;/g, " ")
+          .trim(),
     });
     return { fromAddress: from.email };
   } catch (err) {

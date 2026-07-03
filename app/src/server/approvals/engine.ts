@@ -3,7 +3,8 @@ import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { approvals, candidates, jobs, job_assignments } from "@/db/schema";
 import type { Database } from "@/types/db";
-import { APPROVAL_PRESETS, STAGE_FOR_PENDING_STEP, type FlowType } from "./presets";
+import { notifyRoles, notifyUsers, jobManagerIds } from "@/server/notifications/service";
+import { APPROVAL_PRESETS, STAGE_FOR_PENDING_STEP, STEP_LABEL_VI, type FlowType } from "./presets";
 
 type StepKind = Database["public"]["Enums"]["approval_step_kind"];
 type UserRole = Database["public"]["Enums"]["user_role"];
@@ -84,7 +85,7 @@ export async function startApproval(
 
   // Look up job to determine flow_type
   const cand = await db
-    .select({ id: candidates.id, job_id: candidates.job_id })
+    .select({ id: candidates.id, job_id: candidates.job_id, full_name: candidates.full_name })
     .from(candidates)
     .where(eq(candidates.id, candidateId))
     .limit(1)
@@ -120,10 +121,39 @@ export async function startApproval(
     .set({ current_stage: targetStage })
     .where(eq(candidates.id, candidateId));
 
+  await notifyStepPending(firstStep, candidateId, cand.full_name, cand.job_id);
+
   return {
     approval_ids: ins.map((r) => r.id),
     first_step_kind: firstStep,
   };
+}
+
+/**
+ * Bell + push for whoever decides the now-active step: HR steps → hr+admin,
+ * manager step → managers assigned to the job (fallback hr+admin), exec
+ * steps → that exec role only.
+ */
+async function notifyStepPending(
+  step: StepKind,
+  candidateId: string,
+  candidateName: string,
+  jobId: string,
+  excludeUserId?: string,
+): Promise<void> {
+  const payload = {
+    type: "approval_pending" as const,
+    title: `Chờ duyệt: ${candidateName}`,
+    body: `Bước "${STEP_LABEL_VI[step]}" đang chờ quyết định của bạn`,
+    link: "/phe-duyet",
+  };
+  const opts = { excludeUserId };
+  if (step === "bod") return notifyRoles(["bod"], payload, opts);
+  if (step === "tap_doan") return notifyRoles(["tap_doan"], payload, opts);
+  if (step === "manager_recommend") {
+    return notifyUsers(await jobManagerIds(jobId), payload, opts);
+  }
+  return notifyRoles(["hr", "admin"], payload, opts);
 }
 
 /**
@@ -151,7 +181,7 @@ export async function decideApproval(
 
   // Authorization: role must match the step (and job assignment for managers)
   const cand = await db
-    .select({ job_id: candidates.job_id })
+    .select({ job_id: candidates.job_id, full_name: candidates.full_name })
     .from(candidates)
     .where(eq(candidates.id, r.candidate_id))
     .limit(1)
@@ -192,6 +222,16 @@ export async function decideApproval(
       .update(candidates)
       .set({ current_stage: "rejected" })
       .where(eq(candidates.id, r.candidate_id));
+    await notifyRoles(
+      ["hr", "admin"],
+      {
+        type: "approval_finalized",
+        title: `Từ chối: ${cand.full_name}`,
+        body: `Bị từ chối ở bước "${STEP_LABEL_VI[r.step_kind]}"`,
+        link: `/ung-vien/${r.candidate_id}`,
+      },
+      { excludeUserId: actor.id },
+    );
     return { candidateId: r.candidate_id, finalized: true, nextStep: null };
   }
 
@@ -213,6 +253,16 @@ export async function decideApproval(
       .update(candidates)
       .set({ current_stage: "offer_sent" })
       .where(eq(candidates.id, r.candidate_id));
+    await notifyRoles(
+      ["hr", "admin"],
+      {
+        type: "approval_finalized",
+        title: `Duyệt xong: ${cand.full_name}`,
+        body: "Tất cả các bước đã được duyệt — chuyển sang gửi offer",
+        link: `/ung-vien/${r.candidate_id}`,
+      },
+      { excludeUserId: actor.id },
+    );
     return { candidateId: r.candidate_id, finalized: true, nextStep: null };
   }
 
@@ -222,5 +272,6 @@ export async function decideApproval(
     .update(candidates)
     .set({ current_stage: targetStage })
     .where(eq(candidates.id, r.candidate_id));
+  await notifyStepPending(next.step_kind, r.candidate_id, cand.full_name, cand.job_id, actor.id);
   return { candidateId: r.candidate_id, finalized: false, nextStep: next.step_kind };
 }

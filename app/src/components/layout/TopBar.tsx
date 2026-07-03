@@ -1,8 +1,9 @@
 "use client";
 
-import { Bell, Search, LogOut } from "lucide-react";
+import { Search, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import { authClient } from "@/lib/auth-client";
 import { t } from "@/lib/i18n";
 import { initials } from "@/lib/vi-format";
@@ -50,15 +51,7 @@ export function TopBar({ fullName, email, role }: TopBarProps) {
         </div>
       </div>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label="Thông báo"
-        disabled
-        className="hidden md:inline-flex"
-      >
-        <Bell className="h-4 w-4" aria-hidden />
-      </Button>
+      <NotificationBell />
 
       <div className="flex items-center gap-3">
         <div className="text-right">

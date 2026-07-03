@@ -38,6 +38,7 @@ import {
   PARSE_USER_PROMPT,
 } from "@/lib/ai/gemini/prompts";
 import type { ParsedCv, ScoreResult, Weights, CriterionCode } from "@/lib/ai/gemini/types";
+import { notifyRoles } from "@/server/notifications/service";
 import { readWeights, computeWeightedTotalFromVerified, applyEvidenceDiscount } from "./weights";
 import { validateEvidence } from "./evidence";
 import { getRubricForJob, rubricGuidanceMap } from "./rubric";
@@ -76,6 +77,7 @@ export async function runScoringJob(candidateId?: string): Promise<ScoringOutcom
       .update(scoring_queue)
       .set({ status: "succeeded", completed_at: new Date().toISOString(), last_error: null })
       .where(eq(scoring_queue.id, queueRow.id));
+    await notifyScoringOutcome(queueRow.candidate_id, screeningId);
     return {
       status: "succeeded",
       candidate_id: queueRow.candidate_id,
@@ -86,7 +88,8 @@ export async function runScoringJob(candidateId?: string): Promise<ScoringOutcom
     const reason = errMessage(err);
     const retriable = isRetriable(err);
     console.error("[scoring] job failed:", err instanceof Error ? (err.stack ?? err.message) : err);
-    await markFailure(queueRow, reason, retriable, isQuotaError(err));
+    const finalFailure = await markFailure(queueRow, reason, retriable, isQuotaError(err));
+    if (finalFailure) await notifyScoringOutcome(queueRow.candidate_id, null, reason);
     return {
       status: "failed",
       candidate_id: queueRow.candidate_id,
@@ -340,12 +343,13 @@ async function runScore(args: {
 }
 // ---------- failure handling ----------
 
+/** Returns true when the failure is FINAL (no retry scheduled). */
 async function markFailure(
   q: QueueRow,
   reason: string,
   retriable: boolean,
   isQuota: boolean,
-): Promise<void> {
+): Promise<boolean> {
   const db = await getDb();
   const attempts = q.attempts + 1; // claimJob already incremented in DB; q reflects post-claim value
   let nextRetry: string | null = null;
@@ -372,6 +376,56 @@ async function markFailure(
       .update(candidates)
       .set({ ai_screening_status: "failed", ai_screening_error: reason })
       .where(eq(candidates.id, q.candidate_id));
+  }
+  return !nextRetry;
+}
+
+/**
+ * Bell + push for HR/admin when scoring finishes. Scoring runs async
+ * (queue/cron) so nobody is watching — this is the "kết quả đã có" signal.
+ * screeningId null → permanent failure.
+ */
+async function notifyScoringOutcome(
+  candidateId: string,
+  screeningId: string | null,
+  errorReason?: string,
+): Promise<void> {
+  try {
+    const db = await getDb();
+    const [cand, screening] = await Promise.all([
+      db
+        .select({ full_name: candidates.full_name })
+        .from(candidates)
+        .where(eq(candidates.id, candidateId))
+        .limit(1)
+        .then((r) => r[0] ?? null),
+      screeningId
+        ? db
+            .select({ total: ai_screenings.total })
+            .from(ai_screenings)
+            .where(eq(ai_screenings.id, screeningId))
+            .limit(1)
+            .then((r) => r[0] ?? null)
+        : Promise.resolve(null),
+    ]);
+    const name = cand?.full_name ?? "ứng viên";
+    if (screeningId) {
+      await notifyRoles(["hr", "admin"], {
+        type: "scoring_done",
+        title: `Chấm điểm xong: ${name}`,
+        body: screening ? `Điểm AI: ${screening.total}/100` : null,
+        link: `/ung-vien/${candidateId}`,
+      });
+    } else {
+      await notifyRoles(["hr", "admin"], {
+        type: "scoring_failed",
+        title: `Chấm điểm thất bại: ${name}`,
+        body: errorReason ? errorReason.slice(0, 140) : "Cần chấm điểm thủ công",
+        link: `/ung-vien/${candidateId}`,
+      });
+    }
+  } catch (err) {
+    console.warn("[scoring] notify failed:", err);
   }
 }
 
