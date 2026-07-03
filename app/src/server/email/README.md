@@ -1,12 +1,21 @@
 # `src/server/email`
 
-Outbound email pipeline. G6 turns the `email_messages` queue (filled by G9 today, G7/G8 later) into actual mail through MS Graph.
+Outbound email pipeline. G6 turns the `email_messages` queue (filled by G9 today, G7/G8 later) into actual mail.
+
+**Transport (since 2026-07-03): Cloudflare Email Service first, MS Graph fallback.**
+The matviet.com.vn zone is onboarded to Email Sending (SPF/DKIM on
+`cf-bounce.matviet.com.vn`); the Worker sends via the `send_email` binding
+(`EMAIL` in wrangler.jsonc) from `EMAIL_FROM_ADDRESS` (default
+`hr@matviet.com.vn`). Inbound mail stays on the company's Google Workspace MX
+— do **not** enable Cloudflare Email Routing on this zone, it would replace
+the Google MX records. Replies to the from-address land in Google Workspace.
 
 ## Files
 
 - `templates.ts` — `renderTemplate(string, vars)` does `{{var}}` substitution + HTML escape. `loadTemplate(code)` reads `email_templates`. `renderFromTemplate(code, vars)` does both.
 - `repository.ts` — typed wrapper around `email_messages` for the queue worker + composer + queue page.
-- `sender.ts` — `sendOne(message)` and `drainQueue(limit)`. Handles retry classification (`auth | throttle | permanent | transient`).
+- `transport.ts` — `deliverMail(input)`: Cloudflare `send_email` binding when present, else MS Graph. Shared by the queue worker and better-auth password reset.
+- `sender.ts` — `sendOne(message)` and `drainQueue(limit)`. Handles retry classification (`auth | throttle | permanent | transient`); Cloudflare `E_*` codes are mapped onto the same taxonomy in `src/lib/email/cloudflare.ts`.
 - `service.ts` — high-level: `composeFromTemplate`, `composeAdHoc`, `approveAndQueue`, `sendNow`, `manualRetry`, `cancel`.
 
 ## Send pipeline

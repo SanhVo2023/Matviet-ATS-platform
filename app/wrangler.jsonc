@@ -37,19 +37,45 @@
   "ai": {
     "binding": "AI"
   },
+  // Cloudflare Email Service — matviet.com.vn is onboarded to Email Sending
+  // (SPF/DKIM live on cf-bounce.matviet.com.vn). Inbound mail stays on the
+  // company's Google Workspace MX; do NOT enable Email Routing on this zone.
+  "send_email": [{ "name": "EMAIL" }],
+  "queues": {
+    // Fast path for CV scoring: upload → queue message → consumer invocation
+    // (own lifetime, no 30s waitUntil cap). The cron below is the backstop.
+    "producers": [{ "binding": "SCORING_QUEUE", "queue": "matviet-hr-scoring" }],
+    "consumers": [
+      {
+        "queue": "matviet-hr-scoring",
+        "max_batch_size": 3,
+        "max_batch_timeout": 5,
+        "max_retries": 2
+      }
+    ]
+  },
   "triggers": {
-    // Every 5 minutes: drain scoring queue + outbound email queue (UTC).
-    "crons": ["*/5 * * * *"]
+    // Every minute: backstop drain for scoring + outbound email queues (UTC).
+    // Idle drains are single cheap D1 SELECTs — effectively free.
+    "crons": ["* * * * *"]
   },
   "vars": {
-    // Switch to https://hr.matviet.com.vn once DNS lands (and rebuild: the
-    // NEXT_PUBLIC_* values are also inlined into the client bundle at build).
-    "NEXT_PUBLIC_APP_URL": "https://matviet-hr.gentle-sky-3b0e.workers.dev",
-    "NEXT_PUBLIC_APP_NAME": "Mắt Việt HR"
+    // Canonical domain (custom_domain route below). The workers.dev URL keeps
+    // serving as fallback; both are in better-auth trustedOrigins.
+    // NEXT_PUBLIC_* values are inlined into the client bundle at build time —
+    // changing them requires a rebuild, not just a redeploy.
+    "NEXT_PUBLIC_APP_URL": "https://hr.matviet.com.vn",
+    "NEXT_PUBLIC_APP_NAME": "Mắt Việt HR",
+    // Outbound from-identity (Cloudflare Email Service). Replies go to the
+    // company's Google Workspace mailbox for this address — make sure it
+    // exists there (alias is fine).
+    "EMAIL_FROM_ADDRESS": "hr@matviet.com.vn",
+    "EMAIL_FROM_NAME": "Mắt Việt HR"
   },
   "observability": {
     "enabled": true
-  }
-  // Custom domain — uncomment once the matviet.com.vn zone is on Cloudflare:
-  // "routes": [{ "pattern": "hr.matviet.com.vn", "custom_domain": true }]
+  },
+  // Custom domain — the matviet.com.vn zone is on this account; Cloudflare
+  // provisions the DNS record + certificate automatically on deploy.
+  "routes": [{ "pattern": "hr.matviet.com.vn", "custom_domain": true }]
 }

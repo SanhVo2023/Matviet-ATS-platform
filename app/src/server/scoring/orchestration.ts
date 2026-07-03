@@ -3,26 +3,36 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { runScoringJob } from "./worker";
 
 /**
- * Fire-and-forget dispatch of an in-process scoring run (ADR 0009 — the
- * Supabase Edge Function is gone; scoring executes inside this Worker).
+ * Dispatch a scoring run for a candidate (ADR 0013).
  *
- * Server Actions call this AFTER enqueueScoring. `ctx.waitUntil` keeps the
- * isolate alive past the response so the 15–30s Gemini round-trips finish.
- * The every-5-min cron drain is the safety net if the isolate is still cut
- * short (the queue's stale-running recovery re-claims orphans).
+ * Production path: send a message to the SCORING_QUEUE — the queue consumer
+ * (custom-worker.ts) gets its OWN invocation with no 30-second waitUntil cap
+ * (which silently killed in-isolate runs: scoring takes 30–100s). The 1-minute
+ * cron is the backstop; stale-running recovery re-claims anything dropped.
+ *
+ * Dev/tests (no queue binding): run detached in-process — Node keeps the
+ * process alive, so the cap doesn't exist there.
  */
 export function triggerScoring(candidateId: string): void {
   void (async () => {
     try {
-      const { ctx } = await getCloudflareContext({ async: true });
+      const { env, ctx } = await getCloudflareContext({ async: true });
+      if (env.SCORING_QUEUE) {
+        ctx.waitUntil(
+          env.SCORING_QUEUE.send({ candidateId }).catch((err: unknown) => {
+            console.warn("[scoring] queue send failed (cron will catch up):", err);
+          }) as Promise<void>,
+        );
+        return;
+      }
+      // No queue binding (older env): best-effort in-isolate run.
       ctx.waitUntil(
         runScoringJob(candidateId).catch((err) => {
-          console.warn("[scoring] in-process run failed (drain will retry):", err);
+          console.warn("[scoring] in-isolate run failed (cron will retry):", err);
         }),
       );
     } catch {
-      // Not on Workers (plain `next dev` without bindings, or tests):
-      // run detached — Node keeps the process alive.
+      // Plain `next dev` / tests: detached run.
       runScoringJob(candidateId).catch((err) => {
         console.warn("[scoring] detached run failed (drain will retry):", err);
       });

@@ -4,14 +4,15 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { admin } from "better-auth/plugins";
 import { getDb } from "@/db";
 import * as schema from "@/db/schema";
-import { sendMail } from "@/lib/graph/email";
+import { deliverMail } from "@/server/email/transport";
 
 /**
  * better-auth on D1 (ADR 0010).
  * - email/password only; public sign-up disabled (admin creates accounts)
  * - 8h sliding sessions (matches the locked security baseline)
  * - `users` carries the old `profiles` fields as additionalFields
- * - password-reset email goes through our MS Graph sender
+ * - password-reset email goes through the shared mail transport (Cloudflare
+ *   Email Service first, MS Graph fallback — see server/email/transport.ts)
  *
  * The instance is created per call: on Workers each isolate is short-lived and
  * betterAuth() construction is cheap; the D1 binding must come from the live
@@ -31,12 +32,15 @@ export async function getAuth() {
     }),
     secret: process.env.BETTER_AUTH_SECRET,
     baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    // Both hosts stay usable during the domain transition — the canonical
+    // hr.matviet.com.vn plus the workers.dev fallback URL.
+    trustedOrigins: ["https://hr.matviet.com.vn", "https://matviet-hr.gentle-sky-3b0e.workers.dev"],
     emailAndPassword: {
       enabled: true,
       disableSignUp: true,
       minPasswordLength: 8,
       sendResetPassword: async ({ user, url }) => {
-        await sendMail({
+        await deliverMail({
           to: [user.email],
           subject: "Đặt lại mật khẩu — Mắt Việt HR",
           bodyHtml: `

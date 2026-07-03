@@ -43,8 +43,10 @@ import { validateEvidence } from "./evidence";
 import { getRubricForJob, rubricGuidanceMap } from "./rubric";
 
 const PDF_MIME = "application/pdf";
-/** A 'running' row older than this is considered orphaned (worker was cut off) and re-claimable. */
-const STALE_RUNNING_MS = 10 * 60 * 1000;
+/** A 'running' row older than this is considered orphaned (worker was cut off)
+ * and re-claimable. 3 min: comfortably longer than the slowest observed job
+ * (~100s), short enough that the 1-minute cron rescues drops quickly. */
+const STALE_RUNNING_MS = 3 * 60 * 1000;
 
 type QueueRow = typeof scoring_queue.$inferSelect;
 
@@ -83,6 +85,7 @@ export async function runScoringJob(candidateId?: string): Promise<ScoringOutcom
   } catch (err) {
     const reason = errMessage(err);
     const retriable = isRetriable(err);
+    console.error("[scoring] job failed:", err instanceof Error ? (err.stack ?? err.message) : err);
     await markFailure(queueRow, reason, retriable, isQuotaError(err));
     return {
       status: "failed",
@@ -293,7 +296,9 @@ async function runParse(
     user: `${PARSE_USER_PROMPT}\n\n--- NỘI DUNG CV (trích xuất từ PDF) ---\n${rawText.slice(0, 24_000)}`,
     jsonSchema: PARSE_RESPONSE_SCHEMA as unknown as Record<string, unknown>,
     zod: ParsedCvSchema,
-    maxTokens: 3072,
+    // Reasoning models (Kimi/GLM/Nemotron) spend output tokens THINKING before
+    // answering — a tight budget starves the answer (finish_reason=length).
+    maxTokens: 8192,
     temperature: 0.1,
     feature: "scoring",
   });
@@ -327,7 +332,7 @@ async function runScore(args: {
     user: userPrompt,
     jsonSchema: SCORE_RESPONSE_SCHEMA as unknown as Record<string, unknown>,
     zod: ScoreResultSchema,
-    maxTokens: 3072,
+    maxTokens: 8192, // reasoning-model headroom (thinking + answer)
     temperature: 0.2,
     feature: "scoring",
   });
@@ -401,6 +406,7 @@ function isRetriable(err: unknown): boolean {
     msg.includes("429") ||
     msg.includes("quota") ||
     msg.includes("capacity") ||
+    msg.includes("tạm thời") ||
     msg.includes("503") ||
     msg.includes("502") ||
     msg.includes("500") ||

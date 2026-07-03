@@ -1,5 +1,6 @@
 import "server-only";
-import { sendMail, SendMailError } from "@/lib/graph/email";
+import { SendMailError } from "@/lib/graph/email";
+import { deliverMail } from "./transport";
 import {
   bumpRetry,
   listDrainableEmails,
@@ -34,14 +35,12 @@ export async function sendOne(message: DrainableEmail): Promise<SendOneOutcome> 
     return { id: message.id, result: "failed", error: "empty body" };
   }
   try {
-    await sendMail({
+    // Cloudflare Email Service first, MS Graph fallback — see transport.ts.
+    await deliverMail({
       to: message.to_emails,
       cc: message.cc_emails?.length ? message.cc_emails : undefined,
       subject: message.subject,
       bodyHtml: message.body_html,
-      // in_reply_to is not the Graph message id; replying via /reply requires the
-      // Graph message id from a previously matched inbound, which the inbox poller
-      // (G6.5) populates. For v1 we always send a fresh thread.
     });
     await markSent(message.id);
     return { id: message.id, result: "sent" };

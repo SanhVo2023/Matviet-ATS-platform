@@ -1,37 +1,35 @@
-import { NextResponse } from "next/server";
-import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
-import { requireRole } from "@/lib/auth";
-import { buildReportPayload } from "@/server/reports/queries";
-import { parseReportFilter } from "@/server/reports/filter";
+"use client";
+
+/**
+ * Report PDF document — rendered IN THE BROWSER via @react-pdf/renderer.
+ *
+ * Why client-side: react-pdf's yoga layout engine compiles WASM from bytes at
+ * runtime, which Cloudflare Workers forbids ("Wasm code generation disallowed
+ * by embedder") — browsers allow it. Bonus: Be Vietnam Pro is registered from
+ * /fonts so Vietnamese diacritics render correctly (the old server route used
+ * WinAnsi Helvetica, which can't encode them).
+ *
+ * Keep this file free of server imports — it's dynamic-imported by
+ * ExportButtons only when the user clicks "Xuất PDF".
+ */
+import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import { formatDate } from "@/lib/vi-format";
 import type { ReportPayload } from "@/server/reports/types";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-export async function GET(req: Request): Promise<Response> {
-  await requireRole(["admin", "hr"]);
-
-  const url = new URL(req.url);
-  const filter = parseReportFilter(url.searchParams);
-  const payload = await buildReportPayload(filter);
-
-  const buffer = await renderToBuffer(<ReportDoc payload={payload} />);
-  const filename = `bao-cao-tuyen-dung-${filter.from.slice(0, 10)}-${filter.to.slice(0, 10)}.pdf`;
-  return new NextResponse(buffer as unknown as ArrayBuffer, {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "no-store",
-    },
-  });
-}
+Font.register({
+  family: "BeVietnamPro",
+  fonts: [
+    { src: "/fonts/BeVietnamPro-Regular.ttf", fontWeight: 400 },
+    { src: "/fonts/BeVietnamPro-Bold.ttf", fontWeight: 700 },
+  ],
+});
 
 const styles = StyleSheet.create({
   page: {
     padding: 36,
     fontSize: 10,
     color: "#1F2937",
+    fontFamily: "BeVietnamPro",
   },
   cover: {
     marginBottom: 16,
@@ -68,10 +66,6 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     marginTop: 4,
     fontSize: 10,
-  },
-  metric: {
-    marginTop: 6,
-    fontSize: 11,
   },
   table: { width: "100%", borderColor: "#E5E7EB" },
   row: {
@@ -114,7 +108,7 @@ const SOURCE_VI: Record<string, string> = {
   referral: "Giới thiệu",
 };
 
-function ReportDoc({ payload }: { payload: ReportPayload }) {
+export function ReportPdfDoc({ payload }: { payload: ReportPayload }) {
   return (
     <Document title="Báo cáo tuyển dụng - Mắt Việt" author="Mắt Việt HR" creator="Mắt Việt HR">
       <Page size="A4" style={styles.page}>

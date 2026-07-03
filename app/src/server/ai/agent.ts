@@ -250,7 +250,8 @@ function makeExecutor(profile: SessionProfile) {
               content: `Ứng viên: ${c.full_name}. Vị trí: ${jobTitle ?? "—"}. Mục đích: ${purpose}. Ký tên: ${profile.full_name ?? "Phòng Nhân sự"} — Phòng Nhân sự Mắt Việt.`,
             },
           ],
-          { maxTokens: 700, temperature: 0.5, feature: "agent", userId: profile.id },
+          // Reasoning models think before writing — 700 starved the draft body.
+          { maxTokens: 3072, temperature: 0.5, feature: "agent", userId: profile.id },
         );
         const m = draft.text.match(/SUBJECT:\s*(.+)\s*BODY:\s*([\s\S]+)/);
         const subject = m?.[1]?.trim() ?? `Mắt Việt — ${purpose}`;
@@ -293,9 +294,19 @@ function makeExecutor(profile: SessionProfile) {
           },
           profile.id,
         );
+        // The Outlook event is best-effort inside scheduleInterview — only
+        // claim the invite went out if it actually did.
+        const row = await (await getDb())
+          .select({ graph_event_id: interviews.graph_event_id })
+          .from(interviews)
+          .where(eq(interviews.id, r.id))
+          .get();
+        const inviteNote = row?.graph_event_id
+          ? "lời mời Outlook đã gửi cho ứng viên và bạn"
+          : "KHÔNG gửi được lời mời Outlook — báo ứng viên qua kênh khác hoặc đặt lại lịch";
         return {
           ok: true,
-          message: `Đã đặt lịch phỏng vấn ${type === "video" ? "online (Teams)" : type === "phone" ? "điện thoại" : "trực tiếp"} cho ${c.full_name} lúc ${scheduledAt.toISOString()} (lời mời Outlook đã gửi cho ứng viên và bạn).`,
+          message: `Đã đặt lịch phỏng vấn ${type === "video" ? "online (Teams)" : type === "phone" ? "điện thoại" : "trực tiếp"} cho ${c.full_name} lúc ${scheduledAt.toISOString()} (${inviteNote}).`,
           interview_url: `/phong-van/${r.id}`,
         };
       }

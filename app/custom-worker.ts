@@ -13,22 +13,51 @@ import handler from "./.open-next/worker.js";
 
 const CRON_ROUTES = ["/api/scoring/drain", "/api/emails/drain"];
 
+/** Invoke one of the app's own API routes in-process (no public round-trip). */
+async function invokeRoute(
+  path: string,
+  env: CloudflareEnv,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const base = env.NEXT_PUBLIC_APP_URL || "https://hr.matviet.com.vn";
+  const request = new Request(new URL(path, base), {
+    headers: { authorization: `Bearer ${env.CRON_SECRET ?? ""}` },
+  });
+  return (await handler.fetch(request, env, ctx)) as Response;
+}
+
 export default {
   fetch: handler.fetch,
 
   async scheduled(controller: ScheduledController, env: CloudflareEnv, ctx: ExecutionContext) {
-    const base = env.NEXT_PUBLIC_APP_URL || "https://hr.matviet.com.vn";
     for (const path of CRON_ROUTES) {
-      const request = new Request(new URL(path, base), {
-        headers: { authorization: `Bearer ${env.CRON_SECRET ?? ""}` },
-      });
       try {
-        const res = (await handler.fetch(request, env, ctx)) as Response;
+        const res = await invokeRoute(path, env, ctx);
         console.log(`[cron ${controller.cron}] ${path} -> ${res.status} ${await res.text()}`);
       } catch (err) {
         console.error(`[cron ${controller.cron}] ${path} failed:`, err);
       }
     }
+  },
+
+  /**
+   * SCORING_QUEUE consumer — the fast path for CV scoring. Each batch runs in
+   * its own invocation (no 30s waitUntil cap). The drain claims due rows from
+   * the D1 scoring_queue table (the real ledger), so message payloads only
+   * size the batch; retries/dedup live in D1.
+   */
+  async queue(batch: MessageBatch, env: CloudflareEnv, ctx: ExecutionContext) {
+    const limit = Math.max(1, Math.min(batch.messages.length, 5));
+    try {
+      const res = await invokeRoute(`/api/scoring/drain?limit=${limit}`, env, ctx);
+      console.log(
+        `[queue scoring] batch=${batch.messages.length} -> ${res.status} ${await res.text()}`,
+      );
+    } catch (err) {
+      console.error("[queue scoring] drain failed:", err);
+    }
+    // Always ack — the D1 queue table owns retry state, not Cloudflare Queues.
+    batch.ackAll();
   },
 } satisfies ExportedHandler<CloudflareEnv>;
 

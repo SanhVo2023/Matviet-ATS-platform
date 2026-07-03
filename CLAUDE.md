@@ -41,11 +41,16 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 
 `@/` path alias → `app/src/` (configured in both `tsconfig.json` and `vitest.config.ts` — Vitest needs its own alias entry).
 
-## Build status (as of 2026-07-02, post-pivot)
+## Build status (as of 2026-07-03, post-pivot)
 
 - **All feature groups 1–10 built** (foundation, jobs, candidates+CV, AI scoring, kanban, email send, calendar+Teams, interviews+approvals, assessments+CSV, reports).
-- **Cloudflare pivot COMPLETE** on `feat/12-cloudflare-pivot` (ADRs 0009–0012): D1+Drizzle data layer, R2 files, better-auth, in-process Gemini scoring, cron drains via `custom-worker.ts` `scheduled()`. Verified end-to-end on local wrangler: migrations applied, admin bootstrap (`POST /api/setup`), sign-in, all dashboard routes 200, drains hitting D1.
-- **Remaining:** Group 11 polish (Playwright e2e, axe, Sentry re-check), production deploy (blocked on Sanh's infra-checklist §Cloudflare items), Supabase/Netlify decommission after cutover.
+- **Cloudflare pivot COMPLETE** (ADRs 0009–0013): D1+Drizzle data layer, R2 files, better-auth, Workers AI scoring (in-process), cron drains via `custom-worker.ts` `scheduled()`.
+- **PRODUCTION LIVE at https://hr.matviet.com.vn** (custom_domain route; the workers.dev URL still serves as fallback — both hosts are in better-auth `trustedOrigins`).
+  - **AI:** Workers AI, default `@cf/moonshotai/kimi-k2.6` — a REASONING model: give it generous `max_tokens` or it burns the whole budget thinking and returns empty (`finish_reason=length`). Admin model picker + kill switch + usage stats at `/cai-dat/he-thong`.
+  - **Scoring reliability:** `SCORING_QUEUE` (Cloudflare Queues) fast path — the consumer invocation escapes the ~30s `ctx.waitUntil` cap that killed in-isolate runs — plus every-minute cron backstop and 3-min stale-`running` recovery. Never rely on a manual HTTP drain for long jobs: client disconnect kills the invocation.
+  - **Outbound email:** Cloudflare Email Service (`send_email` binding `EMAIL`, from `hr@matviet.com.vn`, seam `src/server/email/transport.ts`; MS Graph fallback + still does calendar/Teams). ⚠️ matviet.com.vn MX = **Google Workspace** — NEVER enable CF Email Routing on that zone (it would hijack corporate inbound). Sanh must keep `hr@matviet.com.vn` existing in Google Workspace so replies land somewhere.
+  - **Reports PDF** renders client-side (react-pdf WASM is forbidden on Workers) via `/api/reports/export/pdf-data` + `ReportPdfDoc` (Be Vietnam Pro from `public/fonts`).
+- **Remaining:** Group 11 polish (Playwright e2e, axe, Sentry re-check), Supabase/Netlify decommission (checklist C8), per-email login lockout.
 - **Local main is ahead of origin/main** — pushing to the protected default branch needs Sanh's go-ahead.
 - **Windows dev quirk:** workerd crashes when started from this repo path (diacritics) during `next build` — `initOpenNextCloudflareForDev()` is guarded to dev-only in `next.config.ts`. `wrangler dev` / `d1` commands work fine.
 
@@ -55,8 +60,8 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 |---|---|---|
 | `jobs` | Jobs CRUD repository + service | — |
 | `candidates` | Candidate CRUD, CV upload, stage transitions | — |
-| `scoring` | AI scoring pipeline: `enqueueScoring` → edge function `score-candidate` (Gemini 2-pass, decoupled weights, Fuse.js evidence validation) → cron drain `/api/scoring/drain`. Manual-slider fallback for failed scoring | yes |
-| `email` | Outbound queue → MS Graph `/sendMail`. Templates are plain HTML `{{var}}` strings in DB (`template-render.ts` shared server+client). Retry: auth/permanent→fail now; throttle/transient→1m/5m/15m ×3. Drain `/api/emails/drain` batch=10 every 5 min | yes |
+| `scoring` | AI scoring pipeline: `enqueueScoring` + `triggerScoring` (SCORING_QUEUE) → in-process `worker.ts` (Workers AI 2-pass via `toMarkdown`→parse→score, decoupled weights, evidence validation + anti-bluff cap 45) → cron drain `/api/scoring/drain` backstop. Manual-slider fallback for failed scoring | yes |
+| `email` | Outbound queue → `transport.ts` `deliverMail` (Cloudflare Email Service first, MS Graph fallback). Templates are plain HTML `{{var}}` strings in DB (`template-render.ts` shared server+client). Retry: auth/permanent→fail now; throttle/transient→1m/5m/15m ×3. Drain `/api/emails/drain` batch=10, cron every minute | yes |
 | `assessments` | Bài test send/receive/grade; 48h base64url tokens; public `/test/[token]` page | yes |
 | `csv-import` | TopCV/CareerViet CSV bulk import; two-phase preview→commit; accent-stripped header maps | yes |
 | `reports` | 6 charts + PDF/Excel export + demo seeder; all queries take a `ReportFilter` | yes |
@@ -93,7 +98,7 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 - **Secondary users:** Trưởng phòng (Hiring Manager) — bursty, mobile-on-store-floor; BOD/Tập đoàn — rare exec approvers
 - **Candidates:** no app account — email-only interaction
 - **Scale:** 1–3 jobs/month, 20–50 CVs/job, ≤5 users, ≤5 outbound emails/day
-- **Stack (post-pivot, ADR 0009):** Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui, deployed to **Cloudflare Workers** via `@opennextjs/cloudflare` · **D1** (SQLite, Drizzle ORM) · **R2** (files) · **Cron Triggers** (queues drain) · **better-auth** (ADR 0010) · Gemini 2.5 Flash · Microsoft Graph API
+- **Stack (post-pivot, ADRs 0009–0013):** Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui, deployed to **Cloudflare Workers** via `@opennextjs/cloudflare` · **D1** (SQLite, Drizzle ORM) · **R2** (files) · **Queues** (scoring fast path) + **Cron Triggers** (every-minute backstop drains) · **better-auth** (ADR 0010) · **Workers AI** (default `@cf/moonshotai/kimi-k2.6`, admin-switchable) · **Cloudflare Email Service** (outbound, `hr@matviet.com.vn`) · Microsoft Graph API (calendar/Teams + email fallback)
 - **Legacy stack (being decommissioned):** Supabase project ref `xeyqbapegqeibeqrwnkm` (pause after cutover), Netlify, Fly.io worker (never deployed — retired)
 
 ---
