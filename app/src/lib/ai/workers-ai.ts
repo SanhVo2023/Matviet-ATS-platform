@@ -1,6 +1,6 @@
 import "server-only";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import type { ZodType } from "zod";
+import type { ZodType, ZodTypeDef } from "zod";
 
 /**
  * Workers AI provider (ADR 0013) — replaces the geo-gated Gemini API.
@@ -167,7 +167,8 @@ export async function aiJson<T>(
     system: string;
     user: string;
     jsonSchema: Record<string, unknown>;
-    zod: ZodType<T>;
+    /** Input type is unconstrained so schemas with .transform() coercions fit. */
+    zod: ZodType<T, ZodTypeDef, unknown>;
     maxTokens?: number;
     temperature?: number;
   } & AiCallMeta,
@@ -177,17 +178,44 @@ export async function aiJson<T>(
     { role: "user", content: args.user },
   ];
   let usage: AiUsage = { in: 0, out: 0 };
+  // Constrained decoding (json_schema) can fail with Workers AI error 5024
+  // ("JSON Model couldn't be met") on complex schemas. When that happens we
+  // drop to free-form JSON with the schema embedded in the prompt — the Zod
+  // pass below stays the correctness gate either way.
+  let useSchemaMode = true;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const r = await run(
-      {
-        messages,
-        max_tokens: args.maxTokens ?? 3072,
-        temperature: args.temperature ?? 0.15,
-        response_format: { type: "json_schema", json_schema: args.jsonSchema },
-      },
-      args,
-    );
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let r: RawAiResponse;
+    try {
+      r = await run(
+        {
+          messages: useSchemaMode
+            ? messages
+            : [
+                messages[0]!,
+                {
+                  role: "user" as const,
+                  content: `${args.user}\n\nTrả về DUY NHẤT một JSON hợp lệ đúng schema sau (không markdown, không giải thích):\n${JSON.stringify(args.jsonSchema)}`,
+                },
+                ...messages.slice(2),
+              ],
+          max_tokens: args.maxTokens ?? 3072,
+          temperature: args.temperature ?? 0.15,
+          ...(useSchemaMode
+            ? { response_format: { type: "json_schema", json_schema: args.jsonSchema } }
+            : {}),
+        },
+        args,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (useSchemaMode && (msg.includes("5024") || /json model/i.test(msg))) {
+        useSchemaMode = false; // same attempt, free-form fallback
+        attempt--;
+        continue;
+      }
+      throw err;
+    }
     const u = usageOf(r);
     usage = { in: usage.in + u.in, out: usage.out + u.out };
 

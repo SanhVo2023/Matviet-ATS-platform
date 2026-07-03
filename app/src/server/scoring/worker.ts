@@ -23,6 +23,7 @@ import { getDb } from "@/db";
 import { ai_screenings, candidates, cv_files, jobs, scoring_queue } from "@/db/schema";
 import { getFile } from "@/lib/r2";
 import { aiJson, aiModelId, computeAiCost } from "@/lib/ai/workers-ai";
+import { convertToMarkdown } from "@/lib/ai/to-markdown";
 import "@/server/ai/runtime";
 import {
   ParsedCvSchema,
@@ -37,7 +38,7 @@ import {
   PARSE_USER_PROMPT,
 } from "@/lib/ai/gemini/prompts";
 import type { ParsedCv, ScoreResult, Weights, CriterionCode } from "@/lib/ai/gemini/types";
-import { readWeights, computeWeightedTotalFromVerified } from "./weights";
+import { readWeights, computeWeightedTotalFromVerified, applyEvidenceDiscount } from "./weights";
 import { validateEvidence } from "./evidence";
 import { getRubricForJob, rubricGuidanceMap } from "./rubric";
 
@@ -154,23 +155,30 @@ async function processJob(q: QueueRow): Promise<string> {
     .get();
   if (!cvFile) throw new NonRetriableError("Không tìm thấy file CV.");
 
-  const pdfPath =
-    cvFile.pdf_storage_path ?? (cvFile.mime === PDF_MIME ? cvFile.storage_path : null);
-  if (!pdfPath) {
-    throw new NonRetriableError("Cần chuyển đổi DOCX sang PDF (chưa hỗ trợ trên nền tảng mới).");
+  // toMarkdown handles PDF *and* DOCX (and more) — prefer the converted PDF
+  // path when one exists, else the original file whatever its format.
+  const filePath = cvFile.pdf_storage_path ?? cvFile.storage_path;
+  const fileMime = cvFile.pdf_storage_path ? PDF_MIME : cvFile.mime;
+
+  const obj = await getFile(filePath);
+  if (!obj) throw new Error(`Không tải được CV từ R2: ${filePath}`);
+  const fileBytes = new Uint8Array(await obj.arrayBuffer());
+
+  // Document → Markdown via Workers AI toMarkdown (layout-aware: headings,
+  // lists, reading order on multi-column CVs). Fallback: raw pdf.js text.
+  // Evidence quotes verify against this ACTUAL document text either way.
+  let rawText = "";
+  try {
+    rawText = await convertToMarkdown(cvFile.original_name, fileBytes, fileMime);
+  } catch (err) {
+    console.warn("[scoring] toMarkdown failed, falling back to unpdf:", err);
   }
-
-  const obj = await getFile(pdfPath);
-  if (!obj) throw new Error(`Không tải được CV từ R2: ${pdfPath}`);
-  const pdfBytes = new Uint8Array(await obj.arrayBuffer());
-
-  // Extract real text in-worker (ADR 0013 — Workers AI takes text, not PDFs).
-  // Upside vs the Gemini flow: evidence quotes now verify against the CV's
-  // ACTUAL text instead of an AI-synthesized reconstruction.
-  const rawText = await extractPdfText(pdfBytes);
+  if (rawText.trim().length < 50 && fileMime === PDF_MIME) {
+    rawText = await extractPdfText(fileBytes);
+  }
   if (rawText.trim().length < 50) {
     throw new NonRetriableError(
-      "CV không có lớp chữ (có thể là bản scan) — cần chấm điểm thủ công.",
+      "Không trích xuất được nội dung CV (có thể là bản scan mờ) — cần chấm điểm thủ công.",
     );
   }
 
@@ -206,7 +214,9 @@ async function processJob(q: QueueRow): Promise<string> {
     extraSystemNote,
   });
 
-  const verified = validateEvidence(passTwo.scored, passOne.parsed._raw_text);
+  const verified = applyEvidenceDiscount(
+    validateEvidence(passTwo.scored, passOne.parsed._raw_text),
+  );
   const total = computeWeightedTotalFromVerified(verified, weights);
 
   const tokensIn = passOne.usage.in + passTwo.usage.in;

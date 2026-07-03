@@ -25,8 +25,14 @@ export async function GET(req: Request): Promise<Response> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // ?limit=N caps the batch (each job ≈ 30s of AI wall-clock — small batches
+  // keep manual drains inside client/proxy request timeouts).
+  const limitParam = Number(new URL(req.url).searchParams.get("limit"));
+  const batch =
+    Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, MAX_BATCH) : MAX_BATCH;
+
   const outcomes: ScoringOutcome[] = [];
-  for (let i = 0; i < MAX_BATCH; i++) {
+  for (let i = 0; i < batch; i++) {
     const outcome = await runScoringJob();
     if (outcome.status === "idle") break;
     outcomes.push(outcome);

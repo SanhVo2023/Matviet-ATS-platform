@@ -12,49 +12,71 @@ import { CRITERION_CODES } from "./types";
 
 // ============ Pass 1 — Parse CV ============
 
+/**
+ * The parse pass is DESCRIPTIVE data — real CVs (and bluff CVs) omit fields,
+ * and models emit null/missing for anything absent. Every field is lenient:
+ * failing the whole parse over one null helps nobody (found by the VDK test
+ * set — a no-companies CV crashed on `company: z.string()`).
+ */
+const lenientString = z
+  .string()
+  .nullish()
+  .transform((v) => v ?? "");
+const nullableString = z
+  .string()
+  .nullish()
+  .transform((v) => v ?? null);
+const lenientBool = z
+  .boolean()
+  .nullish()
+  .transform((v) => v ?? false);
+
 export const ParsedCvSchema = z.object({
   personal: z.object({
-    full_name: z.string().nullable(),
-    email: z.string().nullable(),
-    phone: z.string().nullable(),
-    location: z.string().nullable(),
-    date_of_birth: z.string().nullable(),
+    full_name: nullableString,
+    email: nullableString,
+    phone: nullableString,
+    location: nullableString,
+    date_of_birth: nullableString,
   }),
   experience: z.array(
     z.object({
-      company: z.string(),
-      title: z.string(),
-      start_date: z.string().nullable(),
-      end_date: z.string().nullable(),
-      is_current: z.boolean(),
-      description: z.string().nullable(),
-      industry: z.string().nullable(),
+      company: lenientString,
+      title: lenientString,
+      start_date: nullableString,
+      end_date: nullableString,
+      is_current: lenientBool,
+      description: nullableString,
+      industry: nullableString,
     }),
   ),
   education: z.array(
     z.object({
-      institution: z.string(),
-      degree: z.string().nullable(),
-      field: z.string().nullable(),
-      start_date: z.string().nullable(),
-      end_date: z.string().nullable(),
+      institution: lenientString,
+      degree: nullableString,
+      field: nullableString,
+      start_date: nullableString,
+      end_date: nullableString,
     }),
   ),
-  skills: z.array(z.string()),
+  skills: z.array(lenientString).catch([]),
   languages: z.array(
     z.object({
-      name: z.string(),
-      level: z.string().nullable(),
+      name: lenientString,
+      level: nullableString,
     }),
   ),
   certifications: z.array(
     z.object({
-      name: z.string(),
-      issuer: z.string().nullable(),
-      year: z.string().nullable(),
+      name: lenientString,
+      issuer: nullableString,
+      year: nullableString,
     }),
   ),
-  total_years_experience: z.number().nullable(),
+  total_years_experience: z
+    .number()
+    .nullish()
+    .transform((v) => v ?? null),
 });
 
 export type ParsedCvInput = z.infer<typeof ParsedCvSchema>;

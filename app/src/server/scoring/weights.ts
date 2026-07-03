@@ -48,10 +48,44 @@ export function computeWeightedTotal(
   return Math.round(total * 100) / 100;
 }
 
-/** Convenience for the verified shape produced by the Edge Function. */
+/** Convenience for the verified shape produced by the scoring worker. */
 export function computeWeightedTotalFromVerified(
   criteria: VerifiedCriteria,
   weights: Weights,
 ): number {
   return computeWeightedTotal(criteria, weights);
+}
+
+/**
+ * Anti-bluff discount (found by the VDK test set, 2026-07-03): a keyword-stuffed
+ * CV with zero substantiated claims scored 69.5 because evidence verification
+ * was informational-only. Now it ENFORCES:
+ * - a quote only counts as substantive evidence if it verified against the CV
+ *   text AND is ≥ MIN_EVIDENCE_CHARS (kills two-word freebies like "Bán hàng")
+ * - a criterion scored above UNSUBSTANTIATED_CAP with no substantive evidence
+ *   is capped at UNSUBSTANTIATED_CAP, with the reasoning annotated so HR sees why.
+ * Matches the rubric's "thiếu thông tin: chấm 30–50" guidance.
+ */
+export const UNSUBSTANTIATED_CAP = 45;
+export const MIN_EVIDENCE_CHARS = 15;
+
+export function applyEvidenceDiscount(criteria: VerifiedCriteria): VerifiedCriteria {
+  const out = {} as VerifiedCriteria;
+  for (const k of CRITERION_CODES) {
+    const c = criteria[k];
+    if (!c) continue;
+    const substantive = (c.evidence_quotes ?? []).filter(
+      (q) => q.verified && q.text.trim().length >= MIN_EVIDENCE_CHARS,
+    );
+    if (c.score > UNSUBSTANTIATED_CAP && substantive.length === 0) {
+      out[k] = {
+        ...c,
+        score: UNSUBSTANTIATED_CAP,
+        reasoning: `${c.reasoning} (Điểm bị giới hạn còn ${UNSUBSTANTIATED_CAP} vì không có trích dẫn bằng chứng nào xác thực được từ nội dung CV.)`,
+      };
+    } else {
+      out[k] = c;
+    }
+  }
+  return out;
 }

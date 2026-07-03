@@ -96,3 +96,52 @@ describe("computeWeightedTotal", () => {
     expect(Math.round(got * 100) / 100).toBe(got);
   });
 });
+
+// --- applyEvidenceDiscount (anti-bluff cap, added after the VDK test set) ---
+import { applyEvidenceDiscount, UNSUBSTANTIATED_CAP } from "./weights";
+import type { VerifiedCriteria } from "@/lib/ai/gemini/types";
+
+function verifiedCriteria(
+  score: number,
+  quotes: Array<{ text: string; verified: boolean }>,
+): VerifiedCriteria {
+  const one = { score, reasoning: "test", evidence_quotes: quotes };
+  return {
+    industry_fit: one,
+    professional_skills: one,
+    work_experience: one,
+    years_experience: one,
+    education: one,
+    location: one,
+  };
+}
+
+describe("applyEvidenceDiscount", () => {
+  test("caps high scores with zero verified quotes", () => {
+    const out = applyEvidenceDiscount(
+      verifiedCriteria(80, [{ text: "tuyên bố chung chung không xác thực", verified: false }]),
+    );
+    expect(out.industry_fit.score).toBe(UNSUBSTANTIATED_CAP);
+    expect(out.industry_fit.reasoning).toContain("giới hạn");
+  });
+
+  test("trivially short verified quotes do not count as evidence", () => {
+    const out = applyEvidenceDiscount(verifiedCriteria(75, [{ text: "Bán hàng", verified: true }]));
+    expect(out.professional_skills.score).toBe(UNSUBSTANTIATED_CAP);
+  });
+
+  test("keeps high scores backed by substantive verified evidence", () => {
+    const out = applyEvidenceDiscount(
+      verifiedCriteria(88, [
+        { text: "4 năm tư vấn kính mắt cao cấp tại Takashimaya", verified: true },
+      ]),
+    );
+    expect(out.industry_fit.score).toBe(88);
+    expect(out.industry_fit.reasoning).not.toContain("giới hạn");
+  });
+
+  test("leaves low scores untouched regardless of evidence", () => {
+    const out = applyEvidenceDiscount(verifiedCriteria(30, []));
+    expect(out.education.score).toBe(30);
+  });
+});

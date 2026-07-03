@@ -50,6 +50,8 @@ Quy tắc QUAN TRỌNG về evidence_quotes:
 Quy tắc về score:
 - Số nguyên 0-100. Dùng thang đo trong "Hướng dẫn chấm điểm" được cung cấp.
 - Khi không đủ thông tin: chấm 30-50 + nêu rõ "thiếu thông tin" trong reasoning.
+- Tuyên bố chung chung KHÔNG kèm công ty/thời gian/số liệu cụ thể ("chuyên gia số 1", "doanh số luôn cao nhất") KHÔNG phải bằng chứng — chấm ≤ 40 và ghi "chỉ có tuyên bố, thiếu bằng chứng cụ thể".
+- Sinh viên mới tốt nghiệp có thực tập/hoạt động liên quan: chấm theo những gì thể hiện được trong CV (thường 35-55), không chấm 0.
 
 Quy tắc về reasoning:
 - 1-2 câu tiếng Việt, ngắn gọn, nêu rõ TẠI SAO cho điểm này (không lặp lại evidence quote).
