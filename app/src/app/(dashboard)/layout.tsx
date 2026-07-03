@@ -12,6 +12,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen bg-slate-50">
+      {/* Skip link must be the FIRST focusable element, before the nav it skips */}
+      <a href="#main-content" className="skip-link">
+        Bỏ qua đến nội dung
+      </a>
       <Sidebar role={profile.role} />
       <div className="flex min-h-screen flex-1 flex-col">
         <TopBar
@@ -19,10 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           email={profile.email ?? ""}
           role={profile.role}
         />
-        <main id="main-content" className="flex-1 overflow-y-auto">
-          <a href="#main-content" className="skip-link">
-            Bỏ qua đến nội dung
-          </a>
+        <main id="main-content" className="flex-1 overflow-y-auto" tabIndex={-1}>
           {children}
         </main>
       </div>

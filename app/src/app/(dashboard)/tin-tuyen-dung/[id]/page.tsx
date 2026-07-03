@@ -27,7 +27,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const job = await getJob(id);
-  return { title: job ? `${job.title} · ${t.nav.jobs}` : t.nav.jobs };
+  return { title: job ? `${job.title} Â· ${t.nav.jobs}` : t.nav.jobs };
 }
 
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -82,8 +82,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
           </div>
           <p className="text-sm text-slate-500">
             {t.roleFamily[job.role_family]}
-            {department?.name ? ` · ${department.name}` : ""}
-            {job.location ? ` · ${job.location}` : ""}
+            {department?.name ? ` Â· ${department.name}` : ""}
+            {job.location ? ` Â· ${job.location}` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -110,7 +110,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm font-medium text-slate-500">Lương</p>
+            <p className="text-sm font-medium text-slate-500">LÆ°Æ¡ng</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
               {formatSalary(job.salary_min, job.salary_max)}
             </p>
@@ -118,7 +118,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm font-medium text-slate-500">Quy trình duyệt</p>
+            <p className="text-sm font-medium text-slate-500">Quy trÃ¬nh duyá»‡t</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
               {job.flow_type === "staff" ? t.jobForm.flowType.staff : t.jobForm.flowType.management}
             </p>
@@ -126,9 +126,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm font-medium text-slate-500">Đăng ngày</p>
+            <p className="text-sm font-medium text-slate-500">ÄÄƒng ngÃ y</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
-              {job.posted_at ? formatDate(job.posted_at) : "—"}
+              {job.posted_at ? formatDate(job.posted_at) : "â€”"}
             </p>
           </CardContent>
         </Card>
@@ -144,11 +144,10 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               <div
                 className="prose prose-sm max-w-none text-slate-700"
                 lang="vi"
-                // eslint-disable-next-line react/no-danger
                 dangerouslySetInnerHTML={{ __html: description }}
               />
             ) : (
-              <p className="text-sm text-slate-400">Chưa có mô tả.</p>
+              <p className="text-sm text-slate-400">ChÆ°a cÃ³ mÃ´ táº£.</p>
             )}
           </CardContent>
         </Card>
@@ -156,7 +155,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         <Card>
           <CardHeader>
             <CardTitle>{t.jobForm.weights.title}</CardTitle>
-            <CardDescription>Áp dụng tự động cho mọi CV thuộc tin này.</CardDescription>
+            <CardDescription>Ãp dá»¥ng tá»± Ä‘á»™ng cho má»i CV thuá»™c tin nÃ y.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -182,11 +181,10 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
             <div
               className="prose prose-sm max-w-none text-slate-700"
               lang="vi"
-              // eslint-disable-next-line react/no-danger
               dangerouslySetInnerHTML={{ __html: requirementsHtml }}
             />
           ) : (
-            <p className="text-sm text-slate-400">Chưa có yêu cầu.</p>
+            <p className="text-sm text-slate-400">ChÆ°a cÃ³ yÃªu cáº§u.</p>
           )}
         </CardContent>
       </Card>
@@ -208,7 +206,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-slate-400">Chưa có trưởng phòng nào được gán.</p>
+            <p className="text-sm text-slate-400">ChÆ°a cÃ³ trÆ°á»Ÿng phÃ²ng nÃ o Ä‘Æ°á»£c gÃ¡n.</p>
           )}
         </CardContent>
       </Card>
@@ -217,7 +215,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div>
             <CardTitle>{t.nav.candidates}</CardTitle>
-            <CardDescription>Ứng viên đang ứng tuyển vào vị trí này.</CardDescription>
+            <CardDescription>á»¨ng viÃªn Ä‘ang á»©ng tuyá»ƒn vÃ o vá»‹ trÃ­ nÃ y.</CardDescription>
           </div>
           <CsvImportTrigger jobId={job.id} jobTitle={job.title} />
         </CardHeader>
@@ -234,7 +232,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 }
 
 function formatSalary(min: number | null, max: number | null) {
-  if (min == null && max == null) return "Thương lượng";
-  if (min != null && max != null) return `${formatVND(min)} – ${formatVND(max)}`;
+  if (min == null && max == null) return "ThÆ°Æ¡ng lÆ°á»£ng";
+  if (min != null && max != null) return `${formatVND(min)} â€“ ${formatVND(max)}`;
   return formatVND(min ?? max ?? 0);
 }

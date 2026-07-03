@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { listPendingApprovalsForUser } from "@/server/approvals/repository";
-import { lookupProfileNames } from "@/server/candidates/repository";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { t } from "@/lib/i18n";
 import { STEP_LABEL_VI } from "@/server/approvals/presets";
@@ -22,7 +22,8 @@ export default async function ApprovalsInboxPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-slate-900">{t.nav.approvals}</h1>
         <p className="text-sm text-slate-500">
-          Các bước duyệt đang chờ bạn xử lý. Bấm vào ứng viên để mở chi tiết và quyết định.
+          CÃ¡c bÆ°á»›c duyá»‡t Ä‘ang chá» báº¡n xá»­ lÃ½. Báº¥m vÃ o á»©ng viÃªn Ä‘á»ƒ má»Ÿ chi
+          tiáº¿t vÃ  quyáº¿t Ä‘á»‹nh.
         </p>
       </header>
 
@@ -43,10 +44,10 @@ export default async function ApprovalsInboxPage() {
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-900">
-                    {row.candidate_name ?? "—"}
+                    {row.candidate_name ?? "â€”"}
                   </p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    {row.job_title ?? "—"} ·{" "}
+                    {row.job_title ?? "â€”"} Â·{" "}
                     <span className="font-medium text-slate-700">
                       {STEP_LABEL_VI[row.step_kind]}
                     </span>

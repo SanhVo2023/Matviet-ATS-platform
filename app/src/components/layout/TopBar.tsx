@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { t } from "@/lib/i18n";
 import { initials } from "@/lib/vi-format";
+import { MobileNav } from "./MobileNav";
 import type { Database } from "@/types/db";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
@@ -30,8 +31,9 @@ export function TopBar({ fullName, email, role }: TopBarProps) {
       className="flex h-16 items-center gap-4 border-b border-slate-200 bg-white px-6"
       role="banner"
     >
+      <MobileNav role={role} />
       <div className="flex flex-1 items-center gap-3">
-        <div className="relative w-full max-w-md">
+        <div className="relative hidden w-full max-w-md sm:block">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
             aria-hidden

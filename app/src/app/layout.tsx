@@ -20,6 +20,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://hr.matviet.com.vn"),
   title: {
     default: `${t.app.name} — ${t.app.description}`,
     template: `%s · ${t.app.name}`,

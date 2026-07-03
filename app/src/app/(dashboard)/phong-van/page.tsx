@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Calendar } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { listInterviews } from "@/server/interviews/repository";
-import { lookupProfileNames, getCandidate } from "@/server/candidates/repository";
+import { getCandidate } from "@/server/candidates/repository";
 import { Card, CardContent } from "@/components/ui/card";
 import { t } from "@/lib/i18n";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
