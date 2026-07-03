@@ -38,7 +38,9 @@
     "crons": ["*/5 * * * *"]
   },
   "vars": {
-    "NEXT_PUBLIC_APP_URL": "https://hr.matviet.com.vn",
+    // Switch to https://hr.matviet.com.vn once DNS lands (and rebuild: the
+    // NEXT_PUBLIC_* values are also inlined into the client bundle at build).
+    "NEXT_PUBLIC_APP_URL": "https://matviet-hr.gentle-sky-3b0e.workers.dev",
     "NEXT_PUBLIC_APP_NAME": "Mắt Việt HR"
   },
   "observability": {
