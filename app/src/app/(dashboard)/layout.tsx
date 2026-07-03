@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { BottomTabs } from "@/components/layout/BottomTabs";
+import { AgentDock } from "@/components/features/agent/AgentDock";
 
 /**
  * Protected dashboard shell. Server-fetches the session profile,
@@ -32,6 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </main>
       </div>
       <BottomTabs role={profile.role} />
+      <AgentDock role={profile.role} />
     </div>
   );
 }

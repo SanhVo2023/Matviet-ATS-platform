@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth";
+import { aiChat } from "@/lib/ai/workers-ai";
+import "@/server/ai/runtime";
 import {
   approveAndQueue,
   cancel,
@@ -85,6 +87,60 @@ export async function composeEmailAction(
     return {
       ok: false,
       error: err instanceof Error ? err.message : "Không lưu được email",
+    };
+  }
+}
+
+const DraftEmailSchema = z.object({
+  purpose: z.string().trim().min(3, "Mô tả mục đích email (ít nhất 3 ký tự)").max(500),
+  candidate_name: z.string().trim().max(200).optional(),
+  job_title: z.string().trim().max(200).optional(),
+  extra_context: z.string().trim().max(1000).optional(),
+});
+
+/**
+ * AI-draft an email (subject + simple HTML body). Fills the composer fields
+ * only — nothing is queued or sent until the user submits and (if required)
+ * the draft passes approval. Mirrors the agent's draft_email prompt.
+ */
+export async function draftEmailAction(
+  input: unknown,
+): Promise<ActionResult<{ subject: string; body_html: string }>> {
+  const profile = await requireRole(["admin", "hr"]);
+  const parsed = DraftEmailSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ" };
+  }
+  const v = parsed.data;
+  try {
+    const { text } = await aiChat(
+      [
+        {
+          role: "system",
+          content:
+            "Bạn soạn email tuyển dụng tiếng Việt cho Mắt Việt (chuỗi cửa hàng mắt kính). Giọng chuyên nghiệp, ấm áp, xưng 'Mắt Việt', gọi ứng viên là 'bạn'. Trả về CHÍNH XÁC định dạng:\nSUBJECT: <tiêu đề>\nBODY:\n<nội dung HTML đơn giản dùng thẻ <p>>",
+        },
+        {
+          role: "user",
+          content:
+            `Ứng viên: ${v.candidate_name || "—"}. Vị trí: ${v.job_title || "—"}. Mục đích: ${v.purpose}.` +
+            (v.extra_context ? ` Thông tin thêm: ${v.extra_context}.` : "") +
+            ` Ký tên: ${profile.full_name ?? "Phòng Nhân sự"} — Phòng Nhân sự Mắt Việt.`,
+        },
+      ],
+      { maxTokens: 700, temperature: 0.5 },
+    );
+    const m = text.match(/SUBJECT:\s*(.+)\s*BODY:\s*([\s\S]+)/);
+    const subject = m?.[1]?.trim() ?? `Mắt Việt — ${v.purpose}`;
+    const bodyHtml = (m?.[2]?.trim() ?? `<p>${text.trim()}</p>`).replace(
+      /<\/?(?:script|style|iframe|object|embed)[^>]*>/gi,
+      "",
+    );
+    return { ok: true, data: { subject, body_html: bodyHtml } };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Không soạn được email bằng AI",
     };
   }
 }

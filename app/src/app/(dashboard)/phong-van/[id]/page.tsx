@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { InterviewReviewForm } from "@/components/features/interviews/InterviewReviewForm";
+import { AiQuestionsCard } from "@/components/features/interviews/AiQuestionsCard";
 import { t } from "@/lib/i18n";
 import { formatDateTime, formatRelative, initials, formatVND } from "@/lib/vi-format";
 
@@ -157,6 +158,9 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
           })}
         </ul>
       </section>
+
+      {/* AI-suggested interview questions — generated on demand, not persisted */}
+      <AiQuestionsCard interviewId={interview.id} />
 
       {/* Existing reviews — read-only summary */}
       {allEvaluations.length > 0 ? (

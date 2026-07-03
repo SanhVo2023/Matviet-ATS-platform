@@ -642,6 +642,32 @@ export const referrals = sqliteTable("referrals", {
   created_at: text("created_at").notNull().$defaultFn(nowIso),
 });
 
+/** Runtime-configurable settings (admin UI) — e.g. ai_model, ai_enabled. */
+export const app_settings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updated_at: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),
+});
+
+/** One row per Workers AI call — powers the admin usage/cost dashboard. */
+export const ai_usage_log = sqliteTable(
+  "ai_usage_log",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    feature: text("feature").notNull(), // scoring | agent | email_draft | jd_generate | interview_questions | candidate_summary
+    model: text("model").notNull(),
+    tokens_in: integer("tokens_in").notNull().default(0),
+    tokens_out: integer("tokens_out").notNull().default(0),
+    cost_usd: real("cost_usd").notNull().default(0),
+    user_id: text("user_id"),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+  },
+  (t) => [
+    index("idx_ai_usage_created").on(t.created_at),
+    index("idx_ai_usage_feature").on(t.feature, t.created_at),
+  ],
+);
+
 export const audit_log = sqliteTable(
   "audit_log",
   {

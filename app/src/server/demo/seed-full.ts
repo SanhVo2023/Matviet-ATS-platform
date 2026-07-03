@@ -1,5 +1,5 @@
 import "server-only";
-import { count, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   users,

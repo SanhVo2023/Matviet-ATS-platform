@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { HiringManagerPicker, type ManagerOption } from "./HiringManagerPicker";
 import { t } from "@/lib/i18n";
 import { JobInputSchema, type JobInput } from "@/lib/validation/job";
 import { DEFAULT_WEIGHT_TEMPLATES } from "@/lib/constants";
+import { generateJobContentAction } from "@/app/(dashboard)/tin-tuyen-dung/actions";
 
 interface Department {
   id: string;
@@ -75,6 +76,25 @@ export function JobForm({
   }, [open, initialValues?.title]);
 
   const [submitting, setSubmitting] = React.useState<"save_draft" | "publish" | null>(null);
+  const [generating, setGenerating] = React.useState(false);
+  const watchedTitle = methods.watch("title");
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    const res = await generateJobContentAction({
+      title: methods.getValues("title"),
+      role_family: methods.getValues("role_family"),
+      location: methods.getValues("location"),
+    });
+    setGenerating(false);
+    if (res.ok && res.data) {
+      methods.setValue("description", res.data.description_html, { shouldDirty: true });
+      methods.setValue("requirements_html", res.data.requirements_html, { shouldDirty: true });
+      toast.success("AI đã soạn mô tả và yêu cầu — hãy đọc lại và chỉnh sửa trước khi lưu.");
+    } else {
+      toast.error(res.ok ? "Lỗi tạo nội dung bằng AI" : res.error);
+    }
+  };
 
   const handle = async (intent: "save_draft" | "publish") => {
     const valid = await methods.trigger();
@@ -149,6 +169,27 @@ export function JobForm({
             </Section>
 
             <Section title={t.jobForm.description}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-slate-500">
+                  {watchedTitle?.trim()
+                    ? "AI soạn nháp mô tả + yêu cầu từ chức danh — bạn duyệt lại trước khi lưu."
+                    : "Nhập chức danh ở trên để dùng AI soạn nháp."}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerate}
+                  disabled={generating || submitting !== null || !watchedTitle?.trim()}
+                >
+                  {generating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Sparkles className="h-4 w-4" aria-hidden />
+                  )}
+                  {generating ? "Đang soạn..." : "Viết bằng AI"}
+                </Button>
+              </div>
               <RichTextEditor
                 value={methods.watch("description")}
                 onChange={(html) => methods.setValue("description", html, { shouldDirty: true })}

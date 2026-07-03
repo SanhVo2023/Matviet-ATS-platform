@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Mail, Phone, MapPin, Briefcase, Calendar } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StageDropdown } from "./StageDropdown";
+import { CandidateAiSummary } from "./CandidateAiSummary";
 import { ScoringStatusPill } from "@/components/features/scoring/ScoringStatusPill";
 import type { CandidateRow } from "@/server/candidates/repository";
 import { initials, formatRelative } from "@/lib/vi-format";
@@ -67,6 +68,8 @@ export function CandidateProfile({ candidate, jobTitle, jobId }: Props) {
         />
         <DataItem icon={Calendar} label="Đã nộp" value={formatRelative(candidate.created_at)} />
       </dl>
+
+      <CandidateAiSummary candidateId={candidate.id} />
 
       {candidate.notes ? (
         <div className="rounded-lg border border-slate-200 bg-white p-4">

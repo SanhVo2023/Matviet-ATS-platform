@@ -6,8 +6,9 @@
  *   npx wrangler d1 create matviet-hr        → paste database_id below
  *   npx wrangler r2 bucket create matviet-hr-files
  * Secrets (never in this file): npx wrangler secret put <NAME>
- *   GEMINI_API_KEY, MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET,
- *   MS_MAILBOX_ADDRESS, CRON_SECRET, BETTER_AUTH_SECRET
+ *   MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MS_MAILBOX_ADDRESS,
+ *   CRON_SECRET, BETTER_AUTH_SECRET
+ * AI runs on the Workers AI binding below (ADR 0013) — no API key.
  */
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
@@ -33,6 +34,9 @@
       "bucket_name": "matviet-hr-files"
     }
   ],
+  "ai": {
+    "binding": "AI"
+  },
   "triggers": {
     // Every 5 minutes: drain scoring queue + outbound email queue (UTC).
     "crons": ["*/5 * * * *"]

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Send } from "lucide-react";
+import { Loader2, Send, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { SlideOver } from "@/components/primitives/SlideOver";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import { composeEmailAction } from "@/app/(dashboard)/email/actions";
+import { composeEmailAction, draftEmailAction } from "@/app/(dashboard)/email/actions";
 import { findMissingPlaceholders, renderTemplate } from "@/server/email/template-render";
 
 export interface ComposerTemplateInfo {
@@ -56,6 +56,8 @@ export function EmailComposerDialog({ open, onOpenChange, templates, defaults }:
   const [body, setBody] = React.useState<string>("");
   const [forceImmediate, setForceImmediate] = React.useState<boolean>(false);
   const [submitting, setSubmitting] = React.useState<boolean>(false);
+  const [aiPurpose, setAiPurpose] = React.useState<string>("");
+  const [drafting, setDrafting] = React.useState<boolean>(false);
 
   // Reset when opening fresh
   React.useEffect(() => {
@@ -68,8 +70,30 @@ export function EmailComposerDialog({ open, onOpenChange, templates, defaults }:
       setBody("");
       setForceImmediate(false);
       setSubmitting(false);
+      setAiPurpose("");
+      setDrafting(false);
     }
   }, [open, defaults]);
+
+  const handleAiDraft = async () => {
+    setDrafting(true);
+    const res = await draftEmailAction({
+      purpose: aiPurpose,
+      candidate_name: vars.candidate_name || defaults?.vars?.candidate_name || undefined,
+      job_title: vars.job_title || defaults?.vars?.job_title || undefined,
+    });
+    setDrafting(false);
+    if (!res.ok || !res.data) {
+      toast.error(res.ok ? "Không soạn được email bằng AI" : res.error);
+      return;
+    }
+    // AI drafts are ad-hoc content: drop any selected template so the send
+    // path uses the subject + body the user reviews on screen.
+    setTemplateCode("");
+    setSubject(res.data.subject);
+    setBody(res.data.body_html);
+    toast.success("AI đã soạn nháp — hãy đọc lại và chỉnh sửa trước khi gửi.");
+  };
 
   const selectedTemplate = templates.find((tpl) => tpl.code === templateCode) ?? null;
 
@@ -174,6 +198,38 @@ export function EmailComposerDialog({ open, onOpenChange, templates, defaults }:
                 placeholder="hr-team@matkinh.com.vn"
               />
             </div>
+          </div>
+
+          {/* AI draft helper — fills subject + body for review, never sends */}
+          <div className="space-y-1.5 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <Label htmlFor="ai-purpose">Soạn nháp bằng AI</Label>
+            <div className="flex gap-2">
+              <Input
+                id="ai-purpose"
+                value={aiPurpose}
+                onChange={(e) => setAiPurpose(e.target.value)}
+                disabled={submitting || drafting}
+                placeholder="Mục đích, vd: mời phỏng vấn vòng 2 thứ Năm 14h"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-10 shrink-0"
+                onClick={handleAiDraft}
+                disabled={submitting || drafting || aiPurpose.trim().length < 3}
+              >
+                {drafting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Sparkles className="h-4 w-4" aria-hidden />
+                )}
+                {drafting ? "Đang soạn..." : "Soạn bằng AI"}
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500">
+              AI điền tiêu đề + nội dung để bạn duyệt lại — không tự gửi.
+            </p>
           </div>
 
           {/* Variable inputs (only for templates) */}

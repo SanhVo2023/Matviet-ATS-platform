@@ -7,6 +7,9 @@ import { enqueueScoring, recordManualScore, jobWeights } from "@/server/scoring/
 import { triggerEdgeFunction } from "@/server/scoring/orchestration";
 import { getCandidate } from "@/server/candidates/repository";
 import { getJob } from "@/server/jobs/repository";
+import { aiChat } from "@/lib/ai/workers-ai";
+import "@/server/ai/runtime";
+import { t } from "@/lib/i18n";
 import { CRITERION_CODES, type CriterionCode } from "@/lib/ai/gemini/types";
 import {
   ASSESSMENT_FILE_MAX_BYTES,
@@ -82,6 +85,58 @@ export async function manualScoreAction(input: unknown): Promise<ActionResult> {
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
+/**
+ * AI summary of a candidate (3-4 Vietnamese sentences: highlights, risks,
+ * suggested next step). On-demand, read-only — never persisted.
+ */
+export async function summarizeCandidateAction(
+  candidateId: string,
+): Promise<ActionResult<{ summary: string }>> {
+  await requireRole(["admin", "hr", "hiring_manager"]);
+  if (!isUuid(candidateId)) return { ok: false, error: "ID không hợp lệ" };
+
+  const candidate = await getCandidate(candidateId);
+  if (!candidate) return { ok: false, error: "Không tìm thấy ứng viên" };
+  const job = await getJob(candidate.job_id);
+
+  const cvText = (candidate.cv_text ?? "").slice(0, 6000);
+  const breakdown = candidate.ai_breakdown
+    ? JSON.stringify(candidate.ai_breakdown).slice(0, 2500)
+    : "";
+
+  try {
+    const { text } = await aiChat(
+      [
+        {
+          role: "system",
+          content:
+            "Bạn là chuyên viên tuyển dụng của Mắt Việt (chuỗi cửa hàng mắt kính Việt Nam). " +
+            "Tóm tắt hồ sơ ứng viên trong 3-4 câu tiếng Việt: (1) điểm nổi bật phù hợp vị trí, " +
+            "(2) rủi ro hoặc điểm cần lưu ý, (3) đề xuất bước tiếp theo phù hợp với giai đoạn hiện tại. " +
+            "Chỉ dựa trên dữ liệu được cung cấp, không bịa. Trả về văn bản thuần, không markdown, không tiêu đề.",
+        },
+        {
+          role: "user",
+          content:
+            `Ứng viên: ${candidate.full_name}. Vị trí ứng tuyển: ${job?.title ?? "—"}. ` +
+            `Giai đoạn hiện tại: ${t.stage[candidate.current_stage] ?? candidate.current_stage}. ` +
+            (candidate.ai_score != null
+              ? `Điểm AI tổng: ${Math.round(candidate.ai_score)}/100. `
+              : "") +
+            (cvText ? `\nNội dung CV:\n${cvText}\n` : "\nCV chưa có nội dung trích xuất.\n") +
+            (breakdown ? `Chi tiết chấm điểm AI theo tiêu chí (JSON):\n${breakdown}` : ""),
+        },
+      ],
+      { maxTokens: 500, temperature: 0.4 },
+    );
+    const summary = text.trim();
+    if (!summary) return { ok: false, error: "AI trả về rỗng — vui lòng thử lại." };
+    return { ok: true, data: { summary } };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Không tóm tắt được hồ sơ" };
+  }
 }
 
 // ──────────────────────── Assessments (Group 9) ────────────────────────

@@ -1,8 +1,8 @@
 # Copy to .dev.vars and fill in real values (gitignored).
 # Production: set the same names via `npx wrangler secret put <NAME>`.
+# AI runs on Workers AI (env.AI binding) — no API key needed (ADR 0013).
+# Optional override: AI_MODEL=@cf/openai/gpt-oss-120b
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash
 MS_TENANT_ID=
 MS_CLIENT_ID=
 MS_CLIENT_SECRET=

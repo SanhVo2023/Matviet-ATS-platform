@@ -18,10 +18,12 @@
  */
 import "server-only";
 import { and, asc, eq, lte, lt, or, sql } from "drizzle-orm";
-import { GoogleGenAI } from "@google/genai";
+import { extractText, getDocumentProxy } from "unpdf";
 import { getDb } from "@/db";
 import { ai_screenings, candidates, cv_files, jobs, scoring_queue } from "@/db/schema";
 import { getFile } from "@/lib/r2";
+import { aiJson, aiModelId, computeAiCost } from "@/lib/ai/workers-ai";
+import "@/server/ai/runtime";
 import {
   ParsedCvSchema,
   PARSE_RESPONSE_SCHEMA,
@@ -35,9 +37,8 @@ import {
   PARSE_USER_PROMPT,
 } from "@/lib/ai/gemini/prompts";
 import type { ParsedCv, ScoreResult, Weights, CriterionCode } from "@/lib/ai/gemini/types";
-import { computeCost } from "@/lib/ai/gemini/cost";
 import { readWeights, computeWeightedTotalFromVerified } from "./weights";
-import { synthesizeRawText, validateEvidence } from "./evidence";
+import { validateEvidence } from "./evidence";
 import { getRubricForJob, rubricGuidanceMap } from "./rubric";
 
 const PDF_MIME = "application/pdf";
@@ -163,6 +164,16 @@ async function processJob(q: QueueRow): Promise<string> {
   if (!obj) throw new Error(`Không tải được CV từ R2: ${pdfPath}`);
   const pdfBytes = new Uint8Array(await obj.arrayBuffer());
 
+  // Extract real text in-worker (ADR 0013 — Workers AI takes text, not PDFs).
+  // Upside vs the Gemini flow: evidence quotes now verify against the CV's
+  // ACTUAL text instead of an AI-synthesized reconstruction.
+  const rawText = await extractPdfText(pdfBytes);
+  if (rawText.trim().length < 50) {
+    throw new NonRetriableError(
+      "CV không có lớp chữ (có thể là bản scan) — cần chấm điểm thủ công.",
+    );
+  }
+
   const job = await db.select().from(jobs).where(eq(jobs.id, candidate.job_id)).get();
   if (!job) throw new NonRetriableError("Không tìm thấy tin tuyển dụng.");
 
@@ -170,12 +181,11 @@ async function processJob(q: QueueRow): Promise<string> {
   const { rubric, extraSystemNote } = getRubricForJob(job.role_family, job.title);
   const guidance = rubricGuidanceMap(rubric);
 
-  const model = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
-  const genai = new GoogleGenAI({ apiKey: requireGeminiKey() });
+  const model = await aiModelId();
 
   // Pass 1 — parse CV
-  const passOne = await runParse(genai, model, pdfBytes);
-  passOne.parsed._raw_text = synthesizeRawText(passOne.parsed);
+  const passOne = await runParse(rawText);
+  passOne.parsed._raw_text = rawText;
 
   // Pass 2 — score
   const requirementsHtml =
@@ -184,7 +194,7 @@ async function processJob(q: QueueRow): Promise<string> {
       : typeof job.requirements === "string"
         ? job.requirements
         : "";
-  const passTwo = await runScore(genai, model, {
+  const passTwo = await runScore({
     parsedCv: passOne.parsed,
     jobTitle: job.title,
     jobDescription: job.description ?? "",
@@ -215,7 +225,7 @@ async function processJob(q: QueueRow): Promise<string> {
       total,
       tokens_in: tokensIn,
       tokens_out: tokensOut,
-      cost_usd: computeCost(model, tokensIn, tokensOut),
+      cost_usd: computeAiCost(model, tokensIn, tokensOut),
       duration_ms: passOne.durationMs + passTwo.durationMs,
       error: null,
     })
@@ -245,23 +255,19 @@ function stripRawText(p: ParsedCv): Omit<ParsedCv, "_raw_text"> {
   return copy as Omit<ParsedCv, "_raw_text">;
 }
 
-function requireGeminiKey(): string {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY chưa cấu hình.");
-  return key;
-}
-
-function toBase64(bytes: Uint8Array): string {
-  // Chunked btoa — works on Workers and Node without Buffer.
-  let binary = "";
-  const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+async function extractPdfText(bytes: Uint8Array): Promise<string> {
+  try {
+    const doc = await getDocumentProxy(bytes);
+    const { text } = await extractText(doc, { mergePages: true });
+    return typeof text === "string" ? text : (text as string[]).join("\n");
+  } catch (err) {
+    throw new NonRetriableError(
+      `Không đọc được nội dung PDF: ${err instanceof Error ? err.message : "lỗi không rõ"}`,
+    );
   }
-  return btoa(binary);
 }
 
-// ---------- Gemini calls ----------
+// ---------- Workers AI calls (ADR 0013) ----------
 
 interface PassUsage {
   in: number;
@@ -269,112 +275,54 @@ interface PassUsage {
 }
 
 async function runParse(
-  genai: GoogleGenAI,
-  model: string,
-  pdfBytes: Uint8Array,
+  rawText: string,
 ): Promise<{ parsed: ParsedCv; raw: unknown; usage: PassUsage; durationMs: number }> {
   const start = Date.now();
-  const resp = await genai.models.generateContent({
-    model,
-    contents: [
-      {
-        role: "user",
-        parts: [
-          { text: PARSE_USER_PROMPT },
-          { inlineData: { data: toBase64(pdfBytes), mimeType: PDF_MIME } },
-        ],
-      },
-    ],
-    config: {
-      systemInstruction: PARSE_SYSTEM_PROMPT,
-      responseMimeType: "application/json",
-      responseSchema: PARSE_RESPONSE_SCHEMA as unknown as Record<string, unknown>,
-      temperature: 0.1,
-      maxOutputTokens: 8192,
-    },
+  const { data, raw, usage } = await aiJson({
+    system: PARSE_SYSTEM_PROMPT,
+    user: `${PARSE_USER_PROMPT}\n\n--- NỘI DUNG CV (trích xuất từ PDF) ---\n${rawText.slice(0, 24_000)}`,
+    jsonSchema: PARSE_RESPONSE_SCHEMA as unknown as Record<string, unknown>,
+    zod: ParsedCvSchema,
+    maxTokens: 3072,
+    temperature: 0.1,
+    feature: "scoring",
   });
-
-  const text = (resp as { text?: string }).text ?? "";
-  if (!text) throw new Error("Gemini trả về rỗng (parse pass).");
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    throw new NonRetriableError("Gemini trả về JSON không hợp lệ (parse pass).");
-  }
-  const validated = ParsedCvSchema.safeParse(raw);
-  if (!validated.success) {
-    throw new NonRetriableError(
-      "Schema CV parse không khớp: " + validated.error.issues[0]?.message,
-    );
-  }
-  const usage =
-    (resp as { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } })
-      .usageMetadata ?? {};
   return {
-    parsed: { ...validated.data, _raw_text: "" },
+    parsed: { ...data, _raw_text: "" },
     raw,
-    usage: { in: usage.promptTokenCount ?? 0, out: usage.candidatesTokenCount ?? 0 },
+    usage,
     durationMs: Date.now() - start,
   };
 }
 
-async function runScore(
-  genai: GoogleGenAI,
-  model: string,
-  args: {
-    parsedCv: ParsedCv;
-    jobTitle: string;
-    jobDescription: string;
-    jobRequirementsHtml: string;
-    jobLocation: string | null;
-    roleFamily: string;
-    weights: Weights;
-    rubricGuidance: Record<CriterionCode, string>;
-    extraSystemNote: string;
-  },
-): Promise<{ scored: ScoreResult; raw: unknown; usage: PassUsage; durationMs: number }> {
+async function runScore(args: {
+  parsedCv: ParsedCv;
+  jobTitle: string;
+  jobDescription: string;
+  jobRequirementsHtml: string;
+  jobLocation: string | null;
+  roleFamily: string;
+  weights: Weights;
+  rubricGuidance: Record<CriterionCode, string>;
+  extraSystemNote: string;
+}): Promise<{ scored: ScoreResult; raw: unknown; usage: PassUsage; durationMs: number }> {
   const start = Date.now();
   const userPrompt = buildScoreUserPrompt(args);
   const systemPrompt = args.extraSystemNote
     ? `${buildScoreSystemPrompt()}\n\n${args.extraSystemNote}`
     : buildScoreSystemPrompt();
 
-  const resp = await genai.models.generateContent({
-    model,
-    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-    config: {
-      systemInstruction: systemPrompt,
-      responseMimeType: "application/json",
-      responseSchema: SCORE_RESPONSE_SCHEMA as unknown as Record<string, unknown>,
-      temperature: 0.2,
-      maxOutputTokens: 4096,
-    },
+  const { data, raw, usage } = await aiJson({
+    system: systemPrompt,
+    user: userPrompt,
+    jsonSchema: SCORE_RESPONSE_SCHEMA as unknown as Record<string, unknown>,
+    zod: ScoreResultSchema,
+    maxTokens: 3072,
+    temperature: 0.2,
+    feature: "scoring",
   });
-
-  const text = (resp as { text?: string }).text ?? "";
-  if (!text) throw new Error("Gemini trả về rỗng (score pass).");
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    throw new NonRetriableError("Gemini trả về JSON không hợp lệ (score pass).");
-  }
-  const validated = ScoreResultSchema.safeParse(raw);
-  if (!validated.success) {
-    throw new NonRetriableError("Schema score không khớp: " + validated.error.issues[0]?.message);
-  }
-  const usage =
-    (resp as { usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } })
-      .usageMetadata ?? {};
-  return {
-    scored: validated.data,
-    raw,
-    usage: { in: usage.promptTokenCount ?? 0, out: usage.candidatesTokenCount ?? 0 },
-    durationMs: Date.now() - start,
-  };
+  return { scored: data, raw, usage, durationMs: Date.now() - start };
 }
-
 // ---------- failure handling ----------
 
 async function markFailure(
@@ -442,6 +390,7 @@ function isRetriable(err: unknown): boolean {
     msg.includes("rate") ||
     msg.includes("429") ||
     msg.includes("quota") ||
+    msg.includes("capacity") ||
     msg.includes("503") ||
     msg.includes("502") ||
     msg.includes("500") ||

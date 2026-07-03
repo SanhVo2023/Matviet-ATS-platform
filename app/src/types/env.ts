@@ -26,8 +26,6 @@ export const serverEnv = {
   msClientSecret: () => optional("MS_CLIENT_SECRET"),
   msMailbox: () => optional("MS_MAILBOX_ADDRESS") ?? "hr@matviet.com.vn",
   msTimezone: () => optional("MS_TIMEZONE") ?? "SE Asia Standard Time",
-  geminiApiKey: () => optional("GEMINI_API_KEY"),
-  geminiModel: () => optional("GEMINI_MODEL") ?? "gemini-2.5-flash",
   cronSecret: () => optional("CRON_SECRET"),
   sentryDsn: () => optional("SENTRY_DSN"),
 };
