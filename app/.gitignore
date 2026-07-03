@@ -63,3 +63,4 @@ supabase/.temp
 .wrangler/
 .open-next/
 .dev.vars
+.prod-secrets.local

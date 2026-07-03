@@ -23,7 +23,7 @@
     {
       "binding": "DB",
       "database_name": "matviet-hr",
-      "database_id": "REPLACE_AFTER_wrangler_d1_create",
+      "database_id": "7cd9cd94-b67f-4b25-bab7-d93e3e8194af",
       "migrations_dir": "migrations-d1"
     }
   ],
