@@ -5,10 +5,12 @@ import { Download, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Props {
-  /** Signed URL valid for ~10 minutes; component shows a download fallback if it expires. */
+  /** Authed streaming URL (/api/files/...). */
   signedUrl: string | null;
   mime: string;
   originalName: string;
+  /** Optional action slot (e.g. the "Đổi CV" re-upload button). */
+  actionSlot?: React.ReactNode;
 }
 
 /**
@@ -19,7 +21,7 @@ interface Props {
  * Future (G4+): swap the iframe for `react-pdf` to enable text-layer search,
  * page navigation, and selection highlighting for the AI evidence quotes.
  */
-export function CvPreview({ signedUrl, mime, originalName }: Props) {
+export function CvPreview({ signedUrl, mime, originalName, actionSlot }: Props) {
   if (!signedUrl) {
     return (
       <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
@@ -36,11 +38,14 @@ export function CvPreview({ signedUrl, mime, originalName }: Props) {
           <p className="flex items-center gap-2 text-sm text-slate-500">
             <FileText className="h-4 w-4" aria-hidden /> {originalName}
           </p>
-          <Button asChild variant="outline" size="sm">
-            <a href={signedUrl} download={originalName} target="_blank" rel="noreferrer">
-              <Download className="h-4 w-4" aria-hidden /> Tải về
-            </a>
-          </Button>
+          <span className="flex items-center gap-2">
+            {actionSlot}
+            <Button asChild variant="outline" size="sm">
+              <a href={signedUrl} download={originalName} target="_blank" rel="noreferrer">
+                <Download className="h-4 w-4" aria-hidden /> Tải về
+              </a>
+            </Button>
+          </span>
         </div>
         <iframe
           src={signedUrl}
@@ -57,13 +62,16 @@ export function CvPreview({ signedUrl, mime, originalName }: Props) {
       <FileText className="mx-auto h-10 w-10 text-slate-400" aria-hidden />
       <p className="mt-3 text-sm text-slate-700">{originalName}</p>
       <p className="mt-1 text-xs text-slate-500">
-        File dạng Word — chưa hỗ trợ xem trực tiếp. Tải về để mở.
+        File dạng Word — chưa hỗ trợ xem trực tiếp. Tải về để mở (AI vẫn đọc và chấm điểm được).
       </p>
-      <Button asChild className="mt-4">
-        <a href={signedUrl} download={originalName} target="_blank" rel="noreferrer">
-          <Download className="h-4 w-4" aria-hidden /> Tải về
-        </a>
-      </Button>
+      <div className="mt-4 flex items-center justify-center gap-2">
+        {actionSlot}
+        <Button asChild variant="navy" size="sm">
+          <a href={signedUrl} download={originalName} target="_blank" rel="noreferrer">
+            <Download className="h-4 w-4" aria-hidden /> Tải về
+          </a>
+        </Button>
+      </div>
     </div>
   );
 }

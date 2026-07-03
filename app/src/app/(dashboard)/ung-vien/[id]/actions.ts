@@ -26,6 +26,78 @@ import {
 export type ActionResult<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
 
 /**
+ * Replace a candidate's CV (re-upload). Stores the new file in R2, points the
+ * candidate at it, wipes the previous AI analysis, and re-enqueues scoring.
+ * The old file/cv_files row stay for audit (ai_screenings reference history).
+ */
+export async function changeCandidateCvAction(
+  candidateId: string,
+  formData: FormData,
+): Promise<ActionResult> {
+  const profile = await requireRole(["admin", "hr"]);
+  if (!isUuid(candidateId)) return { ok: false, error: "ID không hợp lệ" };
+
+  const file = formData.get("cv");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Chưa chọn file CV" };
+  }
+  const { CV_ACCEPTED_MIMES, CV_MAX_BYTES, cvStoragePath } = await import("@/lib/storage/paths");
+  if (!(CV_ACCEPTED_MIMES as readonly string[]).includes(file.type)) {
+    return { ok: false, error: "Chỉ nhận PDF hoặc DOCX" };
+  }
+  if (file.size > CV_MAX_BYTES) {
+    return { ok: false, error: "File vượt quá 10 MB" };
+  }
+
+  try {
+    const candidate = await getCandidate(candidateId);
+    if (!candidate) return { ok: false, error: "Không tìm thấy ứng viên" };
+
+    const { putFile } = await import("@/lib/r2");
+    const { getDb } = await import("@/db");
+    const { cv_files, candidates } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+
+    // Version the key with a timestamp so the old object is never overwritten
+    const storagePath = cvStoragePath(candidateId, `${Date.now()}-${file.name}`);
+    await putFile(storagePath, new Uint8Array(await file.arrayBuffer()), file.type);
+
+    const db = await getDb();
+    const inserted = await db
+      .insert(cv_files)
+      .values({
+        storage_path: storagePath,
+        original_name: file.name,
+        mime: file.type,
+        size_bytes: file.size,
+        uploaded_by: profile.id,
+      })
+      .returning({ id: cv_files.id });
+
+    await db
+      .update(candidates)
+      .set({
+        cv_file_id: inserted[0]!.id,
+        ai_score: null,
+        ai_breakdown: null,
+        ai_scored_at: null,
+        ai_screening_status: "pending",
+        ai_screening_error: null,
+        cv_text: null,
+        parsed: null,
+      })
+      .where(eq(candidates.id, candidateId));
+
+    await enqueueScoring(candidateId, profile.id);
+    triggerEdgeFunction(candidateId);
+    revalidatePath(`/ung-vien/${candidateId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Không đổi được CV" };
+  }
+}
+
+/**
  * Re-enqueue scoring for a candidate. Used by both:
  *   - "Thử lại" button on a failed screening
  *   - "Chấm lại" button on a successful screening (HR wants a fresh AI pass)

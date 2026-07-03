@@ -59,6 +59,8 @@ export async function GET(
   obj.writeHttpMetadata(headers as unknown as Parameters<typeof obj.writeHttpMetadata>[0]);
   headers.set("etag", obj.httpEtag);
   headers.set("cache-control", "private, max-age=300");
+  // inline → browsers render PDFs in the preview iframe instead of downloading
+  headers.set("content-disposition", "inline");
   return new Response(obj.body as ReadableStream, { headers });
 }
 

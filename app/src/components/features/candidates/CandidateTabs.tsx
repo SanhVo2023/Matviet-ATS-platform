@@ -1,5 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CvPreview } from "./CvPreview";
+import { ChangeCvButton } from "./ChangeCvButton";
 import { ScoringTab } from "@/components/features/scoring/ScoringTab";
 import { AssessmentsTab } from "@/components/features/assessments/AssessmentsTab";
 import { CandidateEmailsTab } from "@/components/features/emails/CandidateEmailsTab";
@@ -109,10 +110,22 @@ export function CandidateTabs({
 
       <TabsContent value="cv">
         {cv ? (
-          <CvPreview signedUrl={cv.signedUrl} mime={cv.mime} originalName={cv.originalName} />
+          <CvPreview
+            signedUrl={cv.signedUrl}
+            mime={cv.mime}
+            originalName={cv.originalName}
+            actionSlot={
+              canSendAssessment ? <ChangeCvButton candidateId={candidate.id} /> : undefined
+            }
+          />
         ) : (
           <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-            Chưa có CV được đính kèm.
+            <p>Chưa có CV được đính kèm.</p>
+            {canSendAssessment && (
+              <div className="mt-4 flex justify-center">
+                <ChangeCvButton candidateId={candidate.id} label="Tải CV lên" />
+              </div>
+            )}
           </div>
         )}
       </TabsContent>
