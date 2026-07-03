@@ -16,25 +16,32 @@ interface Props {
 export function CandidateProfile({ candidate, jobTitle, jobId }: Props) {
   return (
     <aside className="space-y-4">
-      <div className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white p-6 text-center">
-        <Avatar className="h-20 w-20">
-          <AvatarFallback className="text-xl">{initials(candidate.full_name)}</AvatarFallback>
-        </Avatar>
-        <h1 className="text-lg font-semibold text-slate-900">{candidate.full_name}</h1>
-        <p className="text-xs text-slate-500">Nguồn: {t.source[candidate.source]}</p>
-
-        <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
-          {candidate.ai_score != null ? (
-            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-slate-800">
-              {Math.round(candidate.ai_score)}
-              <span className="text-[10px] font-normal text-slate-500">điểm</span>
-            </span>
-          ) : null}
-          <ScoringStatusPill status={candidate.ai_screening_status} />
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white text-center">
+        {/* Navy header band */}
+        <div className="flex flex-col items-center gap-2 bg-brand-900 px-6 pb-8 pt-6">
+          <Avatar className="h-16 w-16 ring-2 ring-accent-400/70">
+            <AvatarFallback className="bg-brand-700 text-lg text-white">
+              {initials(candidate.full_name)}
+            </AvatarFallback>
+          </Avatar>
+          <h1 className="text-lg font-semibold text-white">{candidate.full_name}</h1>
+          {jobTitle ? <p className="text-xs text-brand-200">{jobTitle}</p> : null}
+          <p className="text-[11px] text-brand-300">Nguồn: {t.source[candidate.source]}</p>
         </div>
 
-        <div className="mt-2">
-          <StageDropdown candidateId={candidate.id} currentStage={candidate.current_stage} />
+        <div className="flex flex-col items-center gap-2 px-6 pb-5 pt-4">
+          {candidate.ai_score != null ? (
+            <div
+              className="-mt-8 flex h-14 w-14 items-center justify-center rounded-full bg-brand-900 text-xl font-extrabold tabular-nums text-accent-400 ring-4 ring-white"
+              aria-label={`Điểm AI: ${Math.round(candidate.ai_score)}`}
+            >
+              {Math.round(candidate.ai_score)}
+            </div>
+          ) : null}
+          <ScoringStatusPill status={candidate.ai_screening_status} />
+          <div className="mt-1">
+            <StageDropdown candidateId={candidate.id} currentStage={candidate.current_stage} />
+          </div>
         </div>
       </div>
 

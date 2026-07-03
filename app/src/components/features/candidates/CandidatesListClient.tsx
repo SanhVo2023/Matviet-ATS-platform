@@ -3,15 +3,16 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQueryState, parseAsString, parseAsStringEnum } from "nuqs";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Segmented } from "@/components/ui/segmented";
+import { PageHeader } from "@/components/primitives/PageHeader";
 import { CandidatesTable } from "./CandidatesTable";
 import { CandidateUploadDialog } from "./CandidateUploadDialog";
 import { ALL_STAGES, type Stage } from "@/lib/validation/candidate";
 import type { CandidateRow } from "@/server/candidates/repository";
 import { t } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
 
 interface JobOption {
   id: string;
@@ -87,43 +88,32 @@ export function CandidatesListClient({ initialCandidates, jobs }: Props) {
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">{t.nav.candidates}</h1>
-          <p className="text-sm text-slate-500">
-            {filtered.length} / {initialCandidates.length} ứng viên đang hiển thị
-          </p>
-        </div>
-        <Button onClick={() => setUploadOpen(true)} disabled={jobs.length === 0}>
-          <Plus className="h-4 w-4" aria-hidden /> Tải lên ứng viên
-        </Button>
-      </header>
+      <PageHeader
+        icon={Users}
+        title={t.nav.candidates}
+        subtitle={`${filtered.length} / ${initialCandidates.length} ứng viên đang hiển thị`}
+        action={
+          <Button onClick={() => setUploadOpen(true)} disabled={jobs.length === 0}>
+            <Plus className="h-4 w-4" aria-hidden /> Tải lên ứng viên
+          </Button>
+        }
+      />
 
       <section
         className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3"
         aria-label="Lọc danh sách"
       >
-        <div className="flex flex-wrap items-center gap-1">
-          {TOP_STAGE_CHIPS.map((s) => {
-            const active = stage === s;
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStage(s === "all" ? "all" : (s as Stage))}
-                aria-pressed={active}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                  active
-                    ? "bg-primary-600 text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200",
-                )}
-              >
-                {s === "all" ? "Tất cả" : t.stage[s as Stage]}
-              </button>
-            );
-          })}
-        </div>
+        <Segmented
+          id="candidates-stage"
+          size="sm"
+          aria-label="Lọc theo giai đoạn"
+          options={TOP_STAGE_CHIPS.map((s) => ({
+            value: s,
+            label: s === "all" ? "Tất cả" : t.stage[s as Stage],
+          }))}
+          value={stage}
+          onChange={(s) => setStage(s)}
+        />
 
         <span className="mx-1 hidden h-5 w-px bg-slate-200 md:inline" />
 

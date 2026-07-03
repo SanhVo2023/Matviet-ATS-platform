@@ -10,7 +10,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CHART_COLORS } from "@/lib/charts/colors";
+import {
+  CHART_COLORS,
+  CHART_GRID_STROKE,
+  CHART_TICK_FILL,
+  CHART_TOOLTIP_STYLE,
+} from "@/lib/charts/colors";
 import { t } from "@/lib/i18n";
 import type { TimeToHireGrouped } from "@/server/reports/types";
 
@@ -45,15 +50,17 @@ export function TimeToHireChart({ data }: { data: TimeToHireGrouped[] }) {
       </h3>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} />
+          <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+          <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_TICK_FILL }} />
+          <YAxis tick={{ fontSize: 11, fill: CHART_TICK_FILL }} />
           <Tooltip
             formatter={(value: number, key: string) => [
               `${value.toFixed(1)} ngày`,
               key === "median" ? "Trung vị" : "P90",
             ]}
             labelClassName="font-semibold"
+            contentStyle={CHART_TOOLTIP_STYLE}
+            cursor={{ fill: "#f3f5fa" }}
           />
           <Bar dataKey="median" name="Trung vị" radius={[4, 4, 0, 0]}>
             {chartData.map((_, i) => (

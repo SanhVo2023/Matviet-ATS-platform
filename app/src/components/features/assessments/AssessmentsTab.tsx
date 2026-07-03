@@ -80,14 +80,14 @@ export async function AssessmentsTab({
       <ConfiguredCard assessment={assessment} testUrl={testUrl} />
 
       {!submission.submitted_at ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+        <div className="rounded-md border border-warning/30 bg-warning-bg/60 p-4">
           <div className="flex items-start gap-3">
-            <Send className="mt-0.5 h-4 w-4 text-amber-600" aria-hidden />
+            <Send className="mt-0.5 h-4 w-4 text-warning" aria-hidden />
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-900">
+              <p className="text-sm font-medium text-warning-fg">
                 {t.assessment.awaitingSubmission}
               </p>
-              <p className="mt-0.5 text-xs text-amber-800">
+              <p className="mt-0.5 text-xs text-warning-fg/80">
                 {/* time hint omitted — we don't have token expiry on the submission row */}
                 Đã gửi lúc {formatDateTime(submission.created_at)}
               </p>
@@ -96,12 +96,12 @@ export async function AssessmentsTab({
           </div>
         </div>
       ) : (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4">
+        <div className="rounded-md border border-success/30 bg-success-bg/60 p-4">
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" aria-hidden />
+            <CheckCircle2 className="mt-0.5 h-4 w-4 text-success" aria-hidden />
             <div className="flex-1">
-              <p className="text-sm font-medium text-emerald-900">{t.assessment.submitted}</p>
-              <p className="mt-0.5 text-xs text-emerald-800">
+              <p className="text-sm font-medium text-success-fg">{t.assessment.submitted}</p>
+              <p className="mt-0.5 text-xs text-success-fg/80">
                 {`Ứng viên nộp lúc ${formatDateTime(submission.submitted_at)}`}
               </p>
               {submissionUrl && (
@@ -109,7 +109,7 @@ export async function AssessmentsTab({
                   href={submissionUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-900 hover:underline"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-success-fg hover:underline"
                 >
                   Tải file bài làm →
                 </a>

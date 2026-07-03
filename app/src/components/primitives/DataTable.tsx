@@ -87,7 +87,8 @@ export function DataTable<TData>({
                 key={row.id}
                 className={cn(
                   "border-b border-slate-100 transition-colors last:border-0",
-                  onRowClick && "cursor-pointer hover:bg-slate-50",
+                  onRowClick &&
+                    "cursor-pointer hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500",
                 )}
                 onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                 onKeyDown={

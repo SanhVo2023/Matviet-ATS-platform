@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/primitives/DataTable";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { StageBadge } from "@/components/primitives/StatusBadge";
@@ -69,7 +70,9 @@ export function CandidatesTable({ candidates, jobsById, onCreate }: Props) {
             {row.original.ai_score == null ? (
               <span className="text-slate-400">—</span>
             ) : (
-              <span className="font-mono tabular-nums">{Math.round(row.original.ai_score)}</span>
+              <span className="inline-flex items-center rounded-full bg-brand-900 px-2 py-0.5 text-xs font-semibold tabular-nums text-accent-400">
+                {Math.round(row.original.ai_score)}
+              </span>
             )}
             <ScoringStatusPill status={row.original.ai_screening_status} />
           </div>
@@ -95,13 +98,9 @@ export function CandidatesTable({ candidates, jobsById, onCreate }: Props) {
         icon={Users}
         title={t.empty.candidates}
         action={
-          <button
-            type="button"
-            onClick={onCreate}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-700"
-          >
+          <Button type="button" variant="navy" onClick={onCreate}>
             + Tải lên ứng viên đầu tiên
-          </button>
+          </Button>
         }
       />
     );

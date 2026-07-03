@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { CRITERION_CODES, type VerifiedCriteria, type Weights } from "@/lib/ai/gemini/types";
 import { t } from "@/lib/i18n";
 import { formatRelative } from "@/lib/vi-format";
@@ -24,13 +24,6 @@ interface Props {
   showCost?: boolean;
 }
 
-function bandFor(score: number): string {
-  if (score >= 80) return "text-emerald-600";
-  if (score >= 60) return "text-amber-600";
-  if (score >= 40) return "text-yellow-700";
-  return "text-rose-600";
-}
-
 export function ScoreCard({
   candidateId,
   total,
@@ -43,6 +36,7 @@ export function ScoreCard({
   weightsChanged,
   showCost,
 }: Props) {
+  const reduceMotion = useReducedMotion();
   return (
     <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
       {weightsChanged ? (
@@ -71,7 +65,7 @@ export function ScoreCard({
         {CRITERION_CODES.map((code, i) => (
           <motion.div
             key={code}
-            initial={{ opacity: 0, y: 4 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.06, duration: 0.2 }}
           >
@@ -90,7 +84,7 @@ export function ScoreCard({
             {t.score.scoredAt}: <time dateTime={scoredAt}>{formatRelative(scoredAt)}</time>
           </span>
           {showCost && costUsd != null ? (
-            <span className={bandFor(100)}>
+            <span>
               {t.score.cost}: <span className="font-mono">${costUsd.toFixed(4)}</span>
             </span>
           ) : null}
@@ -102,11 +96,11 @@ export function ScoreCard({
 }
 
 function CircularScore({ total }: { total: number }) {
+  const reduceMotion = useReducedMotion();
   const t100 = Math.max(0, Math.min(100, Math.round(total)));
   const radius = 32;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - t100 / 100);
-  const stroke = bandStroke(t100);
   return (
     <div className="relative grid h-20 w-20 place-items-center">
       <svg viewBox="0 0 80 80" className="h-20 w-20 -rotate-90">
@@ -115,7 +109,7 @@ function CircularScore({ total }: { total: number }) {
           cy="40"
           r={radius}
           stroke="currentColor"
-          className="text-slate-100"
+          className="text-brand-900/10"
           strokeWidth="6"
           fill="none"
         />
@@ -124,26 +118,17 @@ function CircularScore({ total }: { total: number }) {
           cy="40"
           r={radius}
           stroke="currentColor"
-          className={stroke}
+          className="text-accent-400"
           strokeWidth="6"
           fill="none"
           strokeLinecap="round"
           strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
+          initial={reduceMotion ? false : { strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: reduceMotion ? 0 : 0.8, ease: [0.4, 0, 0.2, 1] }}
         />
       </svg>
-      <span className={`absolute font-mono text-xl font-bold tabular-nums ${bandFor(t100)}`}>
-        {t100}
-      </span>
+      <span className="absolute text-xl font-extrabold tabular-nums text-brand-900">{t100}</span>
     </div>
   );
-}
-
-function bandStroke(score: number): string {
-  if (score >= 80) return "text-emerald-500";
-  if (score >= 60) return "text-amber-500";
-  if (score >= 40) return "text-yellow-500";
-  return "text-rose-500";
 }

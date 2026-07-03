@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, Kanban } from "lucide-react";
+import { Pencil, Kanban, Briefcase } from "lucide-react";
 import { eq, inArray } from "drizzle-orm";
 import { requireRole } from "@/lib/auth";
 import { getJob, getJobAssignments, listJobs } from "@/server/jobs/repository";
@@ -10,6 +10,7 @@ import { getDb } from "@/db";
 import { departments, users } from "@/db/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/primitives/PageHeader";
 import { JobStatusBadge } from "@/components/primitives/StatusBadge";
 import { JobCandidatesPanel } from "@/components/features/candidates/JobCandidatesPanel";
 import { CsvImportTrigger } from "@/components/features/csv-import/CsvImportTrigger";
@@ -27,7 +28,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const job = await getJob(id);
-  return { title: job ? `${job.title} Â· ${t.nav.jobs}` : t.nav.jobs };
+  return { title: job ? `${job.title} · ${t.nav.jobs}` : t.nav.jobs };
 }
 
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -74,32 +75,35 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 lg:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-900">{job.title}</h1>
+      <PageHeader
+        icon={Briefcase}
+        title={job.title}
+        subtitle={
+          <span className="inline-flex flex-wrap items-center gap-2">
             <JobStatusBadge status={job.status} />
-          </div>
-          <p className="text-sm text-slate-500">
-            {t.roleFamily[job.role_family]}
-            {department?.name ? ` Â· ${department.name}` : ""}
-            {job.location ? ` Â· ${job.location}` : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline">
-            <Link href={`/tin-tuyen-dung/${job.id}/pipeline`}>
-              <Kanban className="h-4 w-4" aria-hidden /> {t.pipeline.viewToggle.kanban}
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={`/tin-tuyen-dung/${job.id}/sua`}>
-              <Pencil className="h-4 w-4" aria-hidden /> {t.action.edit}
-            </Link>
-          </Button>
-          <JobStatusActions jobId={job.id} status={job.status} />
-        </div>
-      </header>
+            <span>
+              {t.roleFamily[job.role_family]}
+              {department?.name ? ` · ${department.name}` : ""}
+              {job.location ? ` · ${job.location}` : ""}
+            </span>
+          </span>
+        }
+        action={
+          <>
+            <Button asChild variant="outline">
+              <Link href={`/tin-tuyen-dung/${job.id}/sua`}>
+                <Pencil className="h-4 w-4" aria-hidden /> {t.action.edit}
+              </Link>
+            </Button>
+            <Button asChild variant="navy">
+              <Link href={`/tin-tuyen-dung/${job.id}/pipeline`}>
+                <Kanban className="h-4 w-4" aria-hidden /> {t.pipeline.viewToggle.kanban}
+              </Link>
+            </Button>
+            <JobStatusActions jobId={job.id} status={job.status} />
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -110,7 +114,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm font-medium text-slate-500">LÆ°Æ¡ng</p>
+            <p className="text-sm font-medium text-slate-500">Lương</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
               {formatSalary(job.salary_min, job.salary_max)}
             </p>
@@ -118,7 +122,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm font-medium text-slate-500">Quy trÃ¬nh duyá»‡t</p>
+            <p className="text-sm font-medium text-slate-500">Quy trình duyệt</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
               {job.flow_type === "staff" ? t.jobForm.flowType.staff : t.jobForm.flowType.management}
             </p>
@@ -126,9 +130,9 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm font-medium text-slate-500">ÄÄƒng ngÃ y</p>
+            <p className="text-sm font-medium text-slate-500">Đăng ngày</p>
             <p className="mt-1 text-base font-semibold text-slate-900">
-              {job.posted_at ? formatDate(job.posted_at) : "â€”"}
+              {job.posted_at ? formatDate(job.posted_at) : "—"}
             </p>
           </CardContent>
         </Card>
@@ -147,7 +151,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
                 dangerouslySetInnerHTML={{ __html: description }}
               />
             ) : (
-              <p className="text-sm text-slate-400">ChÆ°a cÃ³ mÃ´ táº£.</p>
+              <p className="text-sm text-slate-400">Chưa có mô tả.</p>
             )}
           </CardContent>
         </Card>
@@ -155,7 +159,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         <Card>
           <CardHeader>
             <CardTitle>{t.jobForm.weights.title}</CardTitle>
-            <CardDescription>Ãp dá»¥ng tá»± Ä‘á»™ng cho má»i CV thuá»™c tin nÃ y.</CardDescription>
+            <CardDescription>Áp dụng tự động cho mọi CV thuộc tin này.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
@@ -184,7 +188,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               dangerouslySetInnerHTML={{ __html: requirementsHtml }}
             />
           ) : (
-            <p className="text-sm text-slate-400">ChÆ°a cÃ³ yÃªu cáº§u.</p>
+            <p className="text-sm text-slate-400">Chưa có yêu cầu.</p>
           )}
         </CardContent>
       </Card>
@@ -206,7 +210,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-slate-400">ChÆ°a cÃ³ trÆ°á»Ÿng phÃ²ng nÃ o Ä‘Æ°á»£c gÃ¡n.</p>
+            <p className="text-sm text-slate-400">Chưa có trưởng phòng nào được gán.</p>
           )}
         </CardContent>
       </Card>
@@ -215,7 +219,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
           <div>
             <CardTitle>{t.nav.candidates}</CardTitle>
-            <CardDescription>á»¨ng viÃªn Ä‘ang á»©ng tuyá»ƒn vÃ o vá»‹ trÃ­ nÃ y.</CardDescription>
+            <CardDescription>Ứng viên đang ứng tuyển vào vị trí này.</CardDescription>
           </div>
           <CsvImportTrigger jobId={job.id} jobTitle={job.title} />
         </CardHeader>
@@ -232,7 +236,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
 }
 
 function formatSalary(min: number | null, max: number | null) {
-  if (min == null && max == null) return "ThÆ°Æ¡ng lÆ°á»£ng";
-  if (min != null && max != null) return `${formatVND(min)} â€“ ${formatVND(max)}`;
+  if (min == null && max == null) return "Thương lượng";
+  if (min != null && max != null) return `${formatVND(min)} – ${formatVND(max)}`;
   return formatVND(min ?? max ?? 0);
 }

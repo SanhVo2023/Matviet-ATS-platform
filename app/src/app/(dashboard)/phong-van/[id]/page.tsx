@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, MapPin, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, ExternalLink, MapPin, Calendar, Clock, Video } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import {
   getInterview,
@@ -14,6 +14,7 @@ import { getJob } from "@/server/jobs/repository";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/primitives/PageHeader";
 import { InterviewReviewForm } from "@/components/features/interviews/InterviewReviewForm";
 import { t } from "@/lib/i18n";
 import { formatDateTime, formatRelative, initials, formatVND } from "@/lib/vi-format";
@@ -61,16 +62,18 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6 lg:p-8">
-      <header className="space-y-1">
+      <div className="space-y-3">
         <Button asChild variant="ghost" size="sm" className="-ml-3">
           <Link href="/phong-van">
             <ArrowLeft className="h-4 w-4" aria-hidden /> {t.nav.interviews}
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold text-slate-900">
-          Phỏng vấn — {candidate?.full_name ?? "—"}
-        </h1>
-      </header>
+        <PageHeader
+          icon={Calendar}
+          title={`Phỏng vấn — ${candidate?.full_name ?? "—"}`}
+          subtitle={`${formatDateTime(interview.scheduled_at)} · ${t.interviewType[interview.type]}`}
+        />
+      </div>
 
       <Card>
         <CardContent className="grid grid-cols-1 gap-4 pt-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -84,8 +87,19 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
             icon={MapPin}
             label="Hình thức"
             value={
-              t.interviewType[interview.type] +
-              (interview.location_or_link ? ` · ${interview.location_or_link}` : "")
+              interview.type === "video" && interview.location_or_link ? (
+                <a
+                  href={interview.location_or_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full bg-accent-100 px-2.5 py-0.5 text-xs font-medium text-accent-700 transition-colors hover:bg-accent-200"
+                >
+                  <Video className="h-3 w-3" aria-hidden /> Vào phòng Teams
+                </a>
+              ) : (
+                t.interviewType[interview.type] +
+                (interview.location_or_link ? ` · ${interview.location_or_link}` : "")
+              )
             }
           />
           <Detail
@@ -134,7 +148,7 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
                 </Avatar>
                 <span className="font-medium text-slate-700">{name}</span>
                 {myEval ? (
-                  <span className="rounded bg-emerald-200/70 px-1 text-[10px] font-medium text-emerald-800">
+                  <span className="rounded bg-success-bg px-1 text-[10px] font-medium text-success-fg">
                     Đã đánh giá
                   </span>
                 ) : null}

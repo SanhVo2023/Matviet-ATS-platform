@@ -9,7 +9,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { CHART_COLORS } from "@/lib/charts/colors";
+import {
+  CHART_COLORS,
+  CHART_GRID_STROKE,
+  CHART_TICK_FILL,
+  CHART_TOOLTIP_STYLE,
+} from "@/lib/charts/colors";
 import { t } from "@/lib/i18n";
 import type { HiresPerMonthRow } from "@/server/reports/types";
 
@@ -48,12 +53,13 @@ export function HiresPerMonthChart({ data }: { data: HiresPerMonthRow[] }) {
               <stop offset="100%" stopColor={CHART_COLORS.emerald} stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-          <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+          <XAxis dataKey="month" tick={{ fontSize: 11, fill: CHART_TICK_FILL }} />
+          <YAxis tick={{ fontSize: 11, fill: CHART_TICK_FILL }} allowDecimals={false} />
           <Tooltip
             formatter={(value: number) => [`${value} người`, "Đã tuyển"]}
             labelClassName="font-semibold"
+            contentStyle={CHART_TOOLTIP_STYLE}
           />
           <Area
             type="monotone"

@@ -18,6 +18,8 @@ import {
 import type { PendingApprovalRow } from "@/server/approvals/repository";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StageBadge } from "@/components/primitives/StatusBadge";
+import { CountUp } from "@/components/primitives/CountUp";
+import { FadeIn, Stagger, StaggerItem } from "@/components/motion";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
 import { t, tf } from "@/lib/i18n";
 
@@ -53,6 +55,16 @@ function timeVN(iso: string): string {
     hour12: false,
     timeZone: "Asia/Ho_Chi_Minh",
   }).format(new Date(iso));
+}
+
+/** Section title with the signature gold tick (design-language "SectionLabel"). */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="flex items-center gap-2">
+      <span className="h-4 w-1 shrink-0 rounded-full bg-accent-400" aria-hidden />
+      {children}
+    </span>
+  );
 }
 
 function InterviewTypeIcon({ type }: { type: TodayInterviewItem["type"] }) {
@@ -92,37 +104,49 @@ function HrDashboard({
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 p-6 lg:p-8">
-      <header>
-        <h1 className="text-2xl font-bold text-slate-900 lg:text-3xl">{t.nav.dashboard}</h1>
-        <p className="mt-1 text-sm text-slate-500">{tf.greeting(name)}</p>
-      </header>
+      <FadeIn>
+        <header>
+          <h1 className="text-2xl font-extrabold tracking-tight text-brand-900 lg:text-3xl">
+            {t.nav.dashboard}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">{tf.greeting(name)}</p>
+        </header>
+      </FadeIn>
 
-      <section
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        aria-label="Số liệu nhanh"
-      >
-        {stats.map(({ label, value, href, icon: Icon }) => (
-          <Link key={href + label} href={href} className="group focus-visible:outline-none">
-            <Card className="h-full transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-primary-500">
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <p className="text-sm font-medium text-slate-500">{label}</p>
-                  <Icon
-                    className="h-4 w-4 text-slate-300 transition-colors group-hover:text-brand-navy"
-                    aria-hidden
-                  />
-                </div>
-                <p className="mt-2 text-3xl font-bold tabular-nums text-slate-900">{value}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+      <section aria-label="Số liệu nhanh">
+        <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map(({ label, value, href, icon: Icon }) => (
+            <StaggerItem key={href + label} className="h-full">
+              <Link href={href} className="group block h-full focus-visible:outline-none">
+                <Card className="h-full rounded-lg bg-surface-raised transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-primary-500">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium text-slate-500">{label}</p>
+                      <span
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-100 text-brand-600 transition-colors group-hover:bg-brand-900 group-hover:text-accent-400"
+                        aria-hidden
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
+                    </div>
+                    <CountUp
+                      value={value}
+                      className="mt-2 block text-3xl font-extrabold tabular-nums text-brand-900"
+                    />
+                  </CardContent>
+                </Card>
+              </Link>
+            </StaggerItem>
+          ))}
+        </Stagger>
       </section>
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <Card className="lg:col-span-7">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>CV mới nhất</CardTitle>
+            <CardTitle>
+              <SectionTitle>CV mới nhất</SectionTitle>
+            </CardTitle>
             <Link
               href="/ung-vien"
               className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline"
@@ -165,7 +189,9 @@ function HrDashboard({
 
         <Card className="lg:col-span-5">
           <CardHeader>
-            <CardTitle>{t.dashboard.todaySchedule.title}</CardTitle>
+            <CardTitle>
+              <SectionTitle>{t.dashboard.todaySchedule.title}</SectionTitle>
+            </CardTitle>
             <CardDescription>
               {data.todayInterviews.length > 0
                 ? `${data.todayInterviews.length} buổi phỏng vấn hôm nay`
@@ -214,13 +240,19 @@ function ManagerInbox({
 }) {
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6 lg:p-8">
-      <header>
-        <h1 className="text-2xl font-bold text-slate-900">{tf.greeting(name)}</h1>
-      </header>
+      <FadeIn>
+        <header>
+          <h1 className="text-2xl font-extrabold tracking-tight text-brand-900">
+            {tf.greeting(name)}
+          </h1>
+        </header>
+      </FadeIn>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>{t.managerInbox.toDo.title}</CardTitle>
+          <CardTitle>
+            <SectionTitle>{t.managerInbox.toDo.title}</SectionTitle>
+          </CardTitle>
           {data.pendingSteps.length > 0 && (
             <span className="rounded-full bg-brand-yellow px-2 py-0.5 text-xs font-bold text-brand-navy">
               {data.pendingSteps.length}
@@ -238,7 +270,9 @@ function ManagerInbox({
 
       <Card>
         <CardHeader>
-          <CardTitle>{t.managerInbox.upcomingInterviews.title}</CardTitle>
+          <CardTitle>
+            <SectionTitle>{t.managerInbox.upcomingInterviews.title}</SectionTitle>
+          </CardTitle>
           {data.upcomingInterviews.length === 0 && (
             <CardDescription>{t.empty.interviewsUpcoming}</CardDescription>
           )}
@@ -275,17 +309,23 @@ function ManagerInbox({
 function ExecApprovalQueue({ name, steps }: { name: string; steps: PendingApprovalRow[] }) {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6 lg:p-8">
-      <header>
-        <h1 className="text-2xl font-bold text-slate-900">{tf.greeting(name)}</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {steps.length > 0
-            ? `${steps.length} hồ sơ đang chờ quyết định của bạn.`
-            : "Không có hồ sơ nào chờ duyệt."}
-        </p>
-      </header>
+      <FadeIn>
+        <header>
+          <h1 className="text-2xl font-extrabold tracking-tight text-brand-900">
+            {tf.greeting(name)}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {steps.length > 0
+              ? `${steps.length} hồ sơ đang chờ quyết định của bạn.`
+              : "Không có hồ sơ nào chờ duyệt."}
+          </p>
+        </header>
+      </FadeIn>
       <Card>
         <CardHeader>
-          <CardTitle>{t.nav.approvals}</CardTitle>
+          <CardTitle>
+            <SectionTitle>{t.nav.approvals}</SectionTitle>
+          </CardTitle>
           {steps.length === 0 && <CardDescription>{t.empty.approvals}</CardDescription>}
         </CardHeader>
         {steps.length > 0 && (

@@ -108,14 +108,14 @@ function SendAssessmentDialog({
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-sm font-medium text-emerald-900">Đã gửi vào hàng chờ email</p>
-              <p className="mt-1 text-xs text-emerald-800">
+            <div className="rounded-md border border-success/30 bg-success-bg/60 p-3">
+              <p className="text-sm font-medium text-success-fg">Đã gửi vào hàng chờ email</p>
+              <p className="mt-1 text-xs text-success-fg/80">
                 {`${t.assessment.deadlineHint} ${formatDateTime(result.deadline_at)}`}
               </p>
             </div>
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-amber-700">
+              <p className="text-xs font-medium uppercase tracking-wide text-warning-fg">
                 {t.assessment.copyLinkHint}
               </p>
               <div className="flex gap-2">

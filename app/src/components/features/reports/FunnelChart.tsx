@@ -11,7 +11,7 @@ import {
   YAxis,
   type TooltipProps,
 } from "recharts";
-import { FUNNEL_SUPER_COLOR } from "@/lib/charts/colors";
+import { CHART_GRID_STROKE, CHART_TICK_FILL, FUNNEL_SUPER_COLOR } from "@/lib/charts/colors";
 import { t } from "@/lib/i18n";
 import type { FunnelSuperStageDatum } from "@/server/reports/types";
 
@@ -56,7 +56,7 @@ export function FunnelChart({ data }: { data: FunnelSuperStageDatum[] }) {
   const chartData = data.map((d) => ({
     name: SUPER_LABEL[d.super_stage] ?? d.super_stage,
     count: d.count,
-    fill: FUNNEL_SUPER_COLOR[d.super_stage] ?? "#64748B",
+    fill: FUNNEL_SUPER_COLOR[d.super_stage] ?? "#93a9de",
     breakdown: d.stage_breakdown,
   }));
 
@@ -65,10 +65,10 @@ export function FunnelChart({ data }: { data: FunnelSuperStageDatum[] }) {
       <h3 className="mb-2 text-sm font-semibold text-slate-700">{t.reports.charts.funnel}</h3>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-          <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-          <Tooltip content={<FunnelTooltip />} cursor={{ fill: "#F8FAFC" }} />
+          <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+          <XAxis dataKey="name" tick={{ fontSize: 11, fill: CHART_TICK_FILL }} />
+          <YAxis tick={{ fontSize: 11, fill: CHART_TICK_FILL }} allowDecimals={false} />
+          <Tooltip content={<FunnelTooltip />} cursor={{ fill: "#f3f5fa" }} />
           <Bar dataKey="count" radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -84,7 +84,7 @@ function FunnelTooltip({ active, payload }: TooltipProps<number, string>) {
     breakdown: Array<{ stage: string; count: number }>;
   };
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg">
       <p className="font-semibold text-slate-900">{datum.name}</p>
       <p className="text-slate-500">{datum.count} ứng viên</p>
       {datum.breakdown.length > 1 && (

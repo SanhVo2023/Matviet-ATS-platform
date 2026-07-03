@@ -26,11 +26,20 @@ export function CandidateTimeline({ history, actorNames }: Props) {
   return (
     <aside className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
       <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Lịch sử</h3>
-      <ol className="space-y-3">
+      <ol className="ml-1.5 space-y-4 border-l border-slate-200 pl-4">
         {history.map((row) => {
           const actor = row.actor_user_id ? (actorNames[row.actor_user_id] ?? "—") : "Hệ thống";
+          const isStageChange = row.from_stage != null;
           return (
-            <li key={row.id} className="border-l-2 border-slate-200 pl-3">
+            <li key={row.id} className="relative">
+              <span
+                className={
+                  isStageChange
+                    ? "absolute -left-[21.5px] top-1 h-2.5 w-2.5 rounded-full bg-accent-400 ring-2 ring-white"
+                    : "absolute -left-[21.5px] top-1 h-2.5 w-2.5 rounded-full bg-brand-300 ring-2 ring-white"
+                }
+                aria-hidden
+              />
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 <span className="text-slate-500">
                   {row.from_stage ? "Chuyển giai đoạn:" : "Tạo ứng viên ở giai đoạn:"}

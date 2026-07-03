@@ -37,7 +37,7 @@ export function JobCandidatesPanel({ jobId, jobs, candidates, readOnly }: Props)
             : `${candidates.length} ứng viên`}
         </p>
         {!readOnly ? (
-          <Button onClick={() => setUploadOpen(true)} size="sm">
+          <Button onClick={() => setUploadOpen(true)} size="sm" variant="navy">
             <Plus className="h-4 w-4" aria-hidden /> Tải lên ứng viên
           </Button>
         ) : null}
@@ -48,7 +48,7 @@ export function JobCandidatesPanel({ jobId, jobs, candidates, readOnly }: Props)
           {candidates.map((c) => (
             <li
               key={c.id}
-              className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50"
+              className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-slate-50"
             >
               <Link href={`/ung-vien/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
                 <Avatar className="h-9 w-9 shrink-0">

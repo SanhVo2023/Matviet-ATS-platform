@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { desc, asc } from "drizzle-orm";
+import { Settings } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { getDb } from "@/db";
 import { users, departments } from "@/db/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/primitives/PageHeader";
 import { t } from "@/lib/i18n";
 import { InviteForm } from "./InviteForm";
 
@@ -24,10 +26,11 @@ export default async function UsersAdminPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 lg:p-8">
-      <header>
-        <h1 className="text-2xl font-bold text-slate-900">Quản lý người dùng</h1>
-        <p className="mt-1 text-sm text-slate-500">Tạo tài khoản thành viên và phân quyền.</p>
-      </header>
+      <PageHeader
+        icon={Settings}
+        title="Quản lý người dùng"
+        subtitle="Tạo tài khoản thành viên và phân quyền."
+      />
 
       <Card>
         <CardHeader>
@@ -51,7 +54,7 @@ export default async function UsersAdminPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left text-slate-500">
+                  <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                     <th className="px-2 py-2 font-medium">Họ tên</th>
                     <th className="px-2 py-2 font-medium">Email</th>
                     <th className="px-2 py-2 font-medium">Vai trò</th>
@@ -59,12 +62,12 @@ export default async function UsersAdminPage() {
                     <th className="px-2 py-2 font-medium">Trạng thái</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {userRows.map((u) => {
                     const dept = departmentRows.find((d) => d.id === u.departmentId);
                     return (
-                      <tr key={u.id} className="border-b last:border-0">
-                        <td className="px-2 py-2 font-medium text-slate-700">{u.name || "—"}</td>
+                      <tr key={u.id} className="transition-colors hover:bg-slate-50">
+                        <td className="px-2 py-2 font-medium text-slate-900">{u.name || "—"}</td>
                         <td className="px-2 py-2 text-slate-600">{u.email}</td>
                         <td className="px-2 py-2 text-slate-600">{t.userRole[u.role]}</td>
                         <td className="px-2 py-2 text-slate-600">{dept?.name ?? "—"}</td>

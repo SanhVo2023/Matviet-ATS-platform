@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronRight, FileText } from "lucide-react";
+import { ChevronRight, ClipboardCheck, FileText } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { listJobs } from "@/server/jobs/repository";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { assessments } from "@/db/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/primitives/PageHeader";
 import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -37,12 +38,12 @@ export default async function BaiTestSettingsListPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-6 lg:p-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">{t.assessment.tabTitle}</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Cấu hình bài test cho từng vị trí. Một vị trí chỉ có một bài test đang hoạt động.
-        </p>
-      </header>
+      <PageHeader
+        icon={ClipboardCheck}
+        title={t.assessment.tabTitle}
+        subtitle="Cấu hình bài test cho từng vị trí. Một vị trí chỉ có một bài test đang hoạt động."
+        className="mb-6"
+      />
 
       <Card>
         <CardHeader>
@@ -66,7 +67,7 @@ export default async function BaiTestSettingsListPage() {
                   <li key={j.id}>
                     <Link
                       href={`/cai-dat/bai-test/${j.id}`}
-                      className="flex items-center gap-3 px-6 py-4 hover:bg-slate-50"
+                      className="flex items-center gap-3 px-6 py-4 transition-colors hover:bg-slate-50"
                     >
                       <FileText className="h-4 w-4 text-slate-400" aria-hidden />
                       <div className="flex-1">

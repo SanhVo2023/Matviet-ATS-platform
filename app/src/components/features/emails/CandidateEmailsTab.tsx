@@ -58,6 +58,7 @@ export async function CandidateEmailsTab({
               lockRecipient: true,
             }}
             size="sm"
+            variant="navy"
           />
         )}
       </div>
@@ -83,7 +84,7 @@ export async function CandidateEmailsTab({
                     </p>
                   )}
                   {e.error && (
-                    <p className="mt-1 rounded bg-rose-50 px-2 py-1 text-xs text-rose-700">
+                    <p className="mt-1 rounded bg-error-bg/60 px-2 py-1 text-xs text-error-fg">
                       {e.error}
                     </p>
                   )}

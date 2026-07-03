@@ -3,9 +3,10 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQueryState, parseAsString, parseAsStringEnum } from "nuqs";
-import { Plus, Search } from "lucide-react";
+import { Briefcase, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/primitives/PageHeader";
 import { JobsTable } from "./JobsTable";
 import { JobForm } from "./JobForm";
 import { JOB_STATUSES, type JobInput } from "@/lib/validation/job";
@@ -69,17 +70,16 @@ export function JobsListClient({
 
   return (
     <div className="space-y-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">{t.nav.jobs}</h1>
-          <p className="text-sm text-slate-500">
-            {filtered.length} / {initialJobs.length} tin đang hiển thị
-          </p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4" aria-hidden /> {t.action.create}
-        </Button>
-      </header>
+      <PageHeader
+        icon={Briefcase}
+        title={t.nav.jobs}
+        subtitle={`${filtered.length} / ${initialJobs.length} tin đang hiển thị`}
+        action={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden /> Tạo tin mới
+          </Button>
+        }
+      />
 
       <section
         className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3"

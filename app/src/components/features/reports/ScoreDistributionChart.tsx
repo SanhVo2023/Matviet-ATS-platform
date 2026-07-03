@@ -10,7 +10,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { scoreBucketColor } from "@/lib/charts/colors";
+import {
+  CHART_GRID_STROKE,
+  CHART_TICK_FILL,
+  CHART_TOOLTIP_STYLE,
+  scoreBucketColor,
+} from "@/lib/charts/colors";
 import { t } from "@/lib/i18n";
 import type { ScoreBucket } from "@/server/reports/types";
 
@@ -42,12 +47,14 @@ export function ScoreDistributionChart({ data }: { data: ScoreBucket[] }) {
       </h3>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-          <XAxis dataKey="bucket" tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+          <XAxis dataKey="bucket" tick={{ fontSize: 10, fill: CHART_TICK_FILL }} />
+          <YAxis tick={{ fontSize: 11, fill: CHART_TICK_FILL }} allowDecimals={false} />
           <Tooltip
             formatter={(value: number) => [`${value} ứng viên`, "Số lượng"]}
             labelFormatter={(label: string) => `Điểm ${label}`}
+            contentStyle={CHART_TOOLTIP_STYLE}
+            cursor={{ fill: "#f3f5fa" }}
           />
           <Bar dataKey="count" radius={[6, 6, 0, 0]}>
             {chartData.map((d) => (

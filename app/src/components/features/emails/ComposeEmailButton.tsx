@@ -13,8 +13,8 @@ import {
 interface Props {
   templates: ComposerTemplateInfo[];
   defaults?: ComposerDefaults;
-  /** Visual size + label override. Defaults to a medium primary button. */
-  variant?: "primary" | "outline";
+  /** Visual size + label override. Defaults to the gold signature CTA. */
+  variant?: "primary" | "navy" | "outline";
   size?: "sm" | "md";
   label?: string;
 }
@@ -32,7 +32,7 @@ export function ComposeEmailButton({
     <>
       <Button
         onClick={() => setOpen(true)}
-        variant={variant === "outline" ? "outline" : "default"}
+        variant={variant === "outline" ? "outline" : variant === "navy" ? "navy" : "default"}
         size={size === "sm" ? "sm" : "default"}
         className="gap-2"
       >

@@ -51,7 +51,7 @@ export function ApprovalsTab({
           Sau khi có ít nhất một đánh giá phỏng vấn, HR có thể đẩy ứng viên lên quy trình duyệt.
         </p>
         {canStart ? (
-          <Button onClick={onStart} disabled={pending} size="sm" className="mt-3">
+          <Button onClick={onStart} disabled={pending} size="sm" variant="navy" className="mt-3">
             <Send className="h-3.5 w-3.5" aria-hidden />
             {pending ? "Đang xử lý..." : "Đẩy lên duyệt"}
           </Button>

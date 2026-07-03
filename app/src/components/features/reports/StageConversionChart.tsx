@@ -11,7 +11,7 @@ import {
   YAxis,
   type TooltipProps,
 } from "recharts";
-import { CHART_COLORS } from "@/lib/charts/colors";
+import { CHART_COLORS, CHART_GRID_STROKE, CHART_TICK_FILL } from "@/lib/charts/colors";
 import { t } from "@/lib/i18n";
 import type { StageConversionRow } from "@/server/reports/types";
 
@@ -56,24 +56,28 @@ export function StageConversionChart({ data }: { data: StageConversionRow[] }) {
       </h3>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData} margin={{ top: 8, right: 16, left: -20, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+          <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
           <XAxis
             dataKey="pair"
-            tick={{ fontSize: 9 }}
+            tick={{ fontSize: 9, fill: CHART_TICK_FILL }}
             interval={0}
             angle={-30}
             textAnchor="end"
             height={70}
           />
-          <YAxis yAxisId="left" tick={{ fontSize: 11 }} allowDecimals={false} />
+          <YAxis
+            yAxisId="left"
+            tick={{ fontSize: 11, fill: CHART_TICK_FILL }}
+            allowDecimals={false}
+          />
           <YAxis
             yAxisId="right"
             orientation="right"
             domain={[0, 100]}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: CHART_TICK_FILL }}
             tickFormatter={(v) => `${v}%`}
           />
-          <Tooltip content={<ConvTooltip />} />
+          <Tooltip content={<ConvTooltip />} cursor={{ fill: "#f3f5fa" }} />
           <Bar
             yAxisId="left"
             dataKey="upstream"
@@ -92,10 +96,10 @@ export function StageConversionChart({ data }: { data: StageConversionRow[] }) {
             yAxisId="right"
             type="monotone"
             dataKey="pct"
-            stroke={CHART_COLORS.amber}
+            stroke={CHART_COLORS.yellow}
             name="Tỷ lệ chuyển"
-            strokeWidth={2}
-            dot={{ r: 3 }}
+            strokeWidth={2.5}
+            dot={{ r: 3, fill: CHART_COLORS.yellow, strokeWidth: 0 }}
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -112,13 +116,13 @@ function ConvTooltip({ active, payload }: TooltipProps<number, string>) {
     pct: number;
   };
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg">
       <p className="font-semibold text-slate-900">{datum.pair}</p>
       <p className="text-slate-600">
         Vào <span className="font-mono">{datum.upstream}</span> · Qua{" "}
         <span className="font-mono">{datum.crossed}</span>
       </p>
-      <p className="text-amber-700">Tỷ lệ {datum.pct}%</p>
+      <p className="font-medium text-accent-700">Tỷ lệ {datum.pct}%</p>
     </div>
   );
 }

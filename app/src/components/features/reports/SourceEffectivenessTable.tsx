@@ -67,12 +67,12 @@ function HireRatePill({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100);
   const colorClass =
     pct >= 30
-      ? "bg-emerald-100 text-emerald-800"
+      ? "bg-success-bg text-success-fg"
       : pct >= 15
-        ? "bg-amber-100 text-amber-800"
+        ? "bg-warning-bg text-warning-fg"
         : pct === 0
           ? "bg-slate-100 text-slate-500"
-          : "bg-rose-100 text-rose-800";
+          : "bg-danger-bg text-danger-fg";
   const Arrow = pct >= 15 ? ArrowUpRight : ArrowDownRight;
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${colorClass}`}>

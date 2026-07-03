@@ -13,13 +13,6 @@ interface Props {
   result: VerifiedCriterionResult;
 }
 
-function bandFor(score: number): string {
-  if (score >= 80) return "bg-emerald-500";
-  if (score >= 60) return "bg-amber-500";
-  if (score >= 40) return "bg-yellow-500";
-  return "bg-rose-500";
-}
-
 export function CriterionBar({ code, weight, result }: Props) {
   const [open, setOpen] = React.useState(false);
   const score = Math.max(0, Math.min(100, result.score));
@@ -37,13 +30,13 @@ export function CriterionBar({ code, weight, result }: Props) {
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-sm font-medium text-slate-700">{t.criterion[code]}</span>
             <span className="text-xs text-slate-500">
-              <span className="font-mono tabular-nums">{score}</span>
+              <span className="font-semibold tabular-nums text-brand-900">{score}</span>
               <span className="text-slate-400"> · {weightPct}%</span>
             </span>
           </div>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-brand-900/10">
             <div
-              className={cn("h-full rounded-full transition-all duration-500", bandFor(score))}
+              className="h-full rounded-full bg-brand-500 transition-all duration-500"
               style={{ width: `${score}%` }}
               aria-hidden
             />

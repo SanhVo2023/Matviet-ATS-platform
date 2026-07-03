@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Pause, Play, X, Archive, Pencil } from "lucide-react";
+import { MoreHorizontal, Pause, Play, Plus, X, Archive, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,8 +77,8 @@ export function JobsTable({ jobs, onCreate }: Props) {
         title={t.empty.jobs}
         description="Tạo tin đầu tiên để bắt đầu nhận hồ sơ."
         action={
-          <Button onClick={onCreate}>
-            <span className="text-base leading-none">+</span> {t.action.create}
+          <Button variant="navy" onClick={onCreate}>
+            <Plus className="h-4 w-4" aria-hidden /> Tạo tin mới
           </Button>
         }
       />

@@ -59,14 +59,9 @@ export function JobAssessmentSettings({ jobId, jobTitle, existing }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-slate-900">
-          {t.assessment.configureForJob}: {jobTitle}
-        </h2>
-        <p className="text-sm text-slate-500">
-          Một vị trí chỉ có một bài test đang hoạt động. Tải file mới sẽ thay thế file cũ.
-        </p>
-      </div>
+      <h2 className="text-base font-semibold text-brand-900">
+        {t.assessment.configureForJob}: {jobTitle}
+      </h2>
 
       {existing && (
         <div className="rounded-md border border-slate-200 bg-slate-50 p-3">

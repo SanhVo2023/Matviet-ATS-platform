@@ -111,9 +111,9 @@ function ApprovalStep({
     <li
       className={cn(
         "rounded-md border bg-white p-3",
-        status === "approved" && "border-emerald-200 bg-emerald-50/40",
-        status === "rejected" && "border-rose-200 bg-rose-50/40",
-        status === "pending" && current && "border-primary-300 ring-2 ring-primary-100",
+        status === "approved" && "border-success/30 bg-success-bg/30",
+        status === "rejected" && "border-error/30 bg-error-bg/30",
+        status === "pending" && current && "border-accent-300 ring-2 ring-accent-100",
         status === "pending" && !current && "border-slate-200 opacity-60",
       )}
     >
@@ -145,12 +145,19 @@ function ApprovalStep({
 
           {canAct && !open ? (
             <div className="mt-2 flex gap-2">
-              <Button size="sm" onClick={() => setOpen(true)} disabled={pending}>
+              <Button
+                size="sm"
+                variant="navy"
+                className="bg-success text-white hover:bg-success/90"
+                onClick={() => setOpen(true)}
+                disabled={pending}
+              >
                 {t.action.approve}
               </Button>
               <Button
                 size="sm"
                 variant="outline"
+                className="border-error/40 text-error-fg hover:bg-error-bg/50"
                 onClick={() => {
                   setOpen(true);
                 }}
@@ -172,7 +179,13 @@ function ApprovalStep({
                 lang="vi"
               />
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" onClick={() => submit("approved")} disabled={pending}>
+                <Button
+                  size="sm"
+                  variant="navy"
+                  className="bg-success text-white hover:bg-success/90"
+                  onClick={() => submit("approved")}
+                  disabled={pending}
+                >
                   {pending && decision === "approved" ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                   ) : null}
@@ -181,6 +194,7 @@ function ApprovalStep({
                 <Button
                   size="sm"
                   variant="outline"
+                  className="border-error/40 text-error-fg hover:bg-error-bg/50"
                   onClick={() => submit("rejected")}
                   disabled={pending}
                 >
@@ -210,25 +224,32 @@ function ApprovalStep({
 }
 
 function StepIcon({ status, current }: { status: ApprovalRow["status"]; current: boolean }) {
+  // Completed = navy check; rejected = danger; current = gold with a subtle
+  // pulse ring (opacity-only, disabled under prefers-reduced-motion); future = slate.
   if (status === "approved")
     return (
-      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-500 text-white">
+      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-700 text-white">
         <Check className="h-3.5 w-3.5" aria-hidden />
       </span>
     );
   if (status === "rejected")
     return (
-      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-rose-500 text-white">
+      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-error text-white">
         <X className="h-3.5 w-3.5" aria-hidden />
       </span>
     );
+  if (current)
+    return (
+      <span className="relative grid h-6 w-6 shrink-0 place-items-center rounded-full bg-accent-100 text-accent-700">
+        <span
+          className="absolute inset-0 rounded-full ring-2 ring-accent-400/70 motion-safe:animate-pulse"
+          aria-hidden
+        />
+        <Circle className="h-3 w-3" aria-hidden />
+      </span>
+    );
   return (
-    <span
-      className={cn(
-        "grid h-6 w-6 shrink-0 place-items-center rounded-full",
-        current ? "bg-primary-100 text-primary-700" : "bg-slate-100 text-slate-400",
-      )}
-    >
+    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400">
       <Circle className="h-3 w-3" aria-hidden />
     </span>
   );

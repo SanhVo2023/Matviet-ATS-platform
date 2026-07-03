@@ -101,10 +101,10 @@ export function InviteForm({ departments }: { departments: Department[] }) {
       {tempPassword && (
         <div
           role="status"
-          className="rounded-md border border-warning/30 bg-warning-bg/40 px-3 py-2 text-sm"
+          className="rounded-md border border-accent-200 bg-accent-50 px-3 py-2 text-sm"
         >
-          <p className="font-medium">Mật khẩu tạm (chỉ hiển thị một lần):</p>
-          <code className="mt-1 block select-all rounded bg-white px-2 py-1 font-mono text-base">
+          <p className="font-medium text-brand-900">Mật khẩu tạm (chỉ hiển thị một lần):</p>
+          <code className="mt-1 block select-all rounded border border-accent-200 bg-white px-2 py-1 font-mono text-base text-brand-900">
             {tempPassword}
           </code>
           <p className="mt-1 text-xs text-slate-500">

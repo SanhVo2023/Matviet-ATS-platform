@@ -14,6 +14,10 @@ import type { ApprovalRow } from "@/server/approvals/repository";
 import type { Database } from "@/types/db";
 import { t } from "@/lib/i18n";
 
+/** Quiet segmented-bar look for the detail tabs (visual only — Radix Tabs stays in charge). */
+const TAB_TRIGGER_CLASS =
+  "rounded-full px-4 text-slate-500 hover:text-slate-700 data-[state=active]:text-brand-900 data-[state=active]:font-semibold";
+
 interface Props {
   candidate: CandidateRow;
   job: JobRow | null;
@@ -82,13 +86,25 @@ export function CandidateTabs({
 
   return (
     <Tabs defaultValue={defaultTab} className="w-full">
-      <TabsList className="overflow-x-auto">
-        <TabsTrigger value="cv">CV</TabsTrigger>
-        <TabsTrigger value="ai">Phân tích AI</TabsTrigger>
-        <TabsTrigger value="interviews">{t.nav.interviews}</TabsTrigger>
-        <TabsTrigger value="approvals">{t.nav.approvals}</TabsTrigger>
-        <TabsTrigger value="tests">{t.nav.tests}</TabsTrigger>
-        <TabsTrigger value="emails">{t.nav.emails}</TabsTrigger>
+      <TabsList className="h-auto max-w-full justify-start overflow-x-auto rounded-full border-0 bg-slate-100 p-1">
+        <TabsTrigger value="cv" className={TAB_TRIGGER_CLASS}>
+          CV
+        </TabsTrigger>
+        <TabsTrigger value="ai" className={TAB_TRIGGER_CLASS}>
+          Phân tích AI
+        </TabsTrigger>
+        <TabsTrigger value="interviews" className={TAB_TRIGGER_CLASS}>
+          {t.nav.interviews}
+        </TabsTrigger>
+        <TabsTrigger value="approvals" className={TAB_TRIGGER_CLASS}>
+          {t.nav.approvals}
+        </TabsTrigger>
+        <TabsTrigger value="tests" className={TAB_TRIGGER_CLASS}>
+          {t.nav.tests}
+        </TabsTrigger>
+        <TabsTrigger value="emails" className={TAB_TRIGGER_CLASS}>
+          {t.nav.emails}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="cv">

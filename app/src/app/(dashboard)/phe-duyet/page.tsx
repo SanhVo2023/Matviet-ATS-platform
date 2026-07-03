@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { listPendingApprovalsForUser } from "@/server/approvals/repository";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/primitives/PageHeader";
 import { t } from "@/lib/i18n";
 import { STEP_LABEL_VI } from "@/server/approvals/presets";
 import { formatRelative } from "@/lib/vi-format";
@@ -19,18 +20,16 @@ export default async function ApprovalsInboxPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-6 lg:p-8">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-slate-900">{t.nav.approvals}</h1>
-        <p className="text-sm text-slate-500">
-          CÃ¡c bÆ°á»›c duyá»‡t Ä‘ang chá» báº¡n xá»­ lÃ½. Báº¥m vÃ o á»©ng viÃªn Ä‘á»ƒ má»Ÿ chi
-          tiáº¿t vÃ  quyáº¿t Ä‘á»‹nh.
-        </p>
-      </header>
+      <PageHeader
+        icon={CheckCircle2}
+        title={t.nav.approvals}
+        subtitle="Các bước duyệt đang chờ bạn xử lý. Bấm vào ứng viên để mở chi tiết và quyết định."
+      />
 
       {pending.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
-            <CheckCircle2 className="h-8 w-8 text-emerald-300" aria-hidden />
+            <CheckCircle2 className="h-8 w-8 text-success/50" aria-hidden />
             <p className="text-sm font-medium text-slate-700">{t.empty.approvals}</p>
           </CardContent>
         </Card>
@@ -44,10 +43,10 @@ export default async function ApprovalsInboxPage() {
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-slate-900">
-                    {row.candidate_name ?? "â€”"}
+                    {row.candidate_name ?? "—"}
                   </p>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    {row.job_title ?? "â€”"} Â·{" "}
+                    {row.job_title ?? "—"} ·{" "}
                     <span className="font-medium text-slate-700">
                       {STEP_LABEL_VI[row.step_kind]}
                     </span>

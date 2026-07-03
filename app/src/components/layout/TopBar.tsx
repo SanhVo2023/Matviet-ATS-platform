@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { t } from "@/lib/i18n";
 import { initials } from "@/lib/vi-format";
-import { MobileNav } from "./MobileNav";
 import type { Database } from "@/types/db";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
@@ -17,6 +16,10 @@ interface TopBarProps {
   role: UserRole;
 }
 
+/**
+ * Top bar — white raised surface. Mobile navigation lives in BottomTabs
+ * (its "Menu" tab opens the drawer), so there is no hamburger here.
+ */
 export function TopBar({ fullName, email, role }: TopBarProps) {
   const router = useRouter();
 
@@ -28,12 +31,11 @@ export function TopBar({ fullName, email, role }: TopBarProps) {
 
   return (
     <header
-      className="flex h-16 items-center gap-4 border-b border-slate-200 bg-white px-6"
+      className="flex h-16 items-center gap-4 border-b border-slate-200 bg-surface-raised px-4 shadow-sm sm:px-6"
       role="banner"
     >
-      <MobileNav role={role} />
       <div className="flex flex-1 items-center gap-3">
-        <div className="relative hidden w-full max-w-md sm:block">
+        <div className="relative hidden w-full max-w-md md:block">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
             aria-hidden
@@ -48,17 +50,23 @@ export function TopBar({ fullName, email, role }: TopBarProps) {
         </div>
       </div>
 
-      <Button variant="ghost" size="icon" aria-label="Thông báo" disabled>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Thông báo"
+        disabled
+        className="hidden md:inline-flex"
+      >
         <Bell className="h-4 w-4" aria-hidden />
       </Button>
 
       <div className="flex items-center gap-3">
         <div className="text-right">
-          <p className="text-sm font-medium text-slate-700">{fullName}</p>
+          <p className="text-sm font-semibold text-brand-900">{fullName}</p>
           <p className="text-xs text-slate-500">{t.userRole[role]}</p>
         </div>
         <div
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-100 text-sm font-semibold text-primary-800"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-900 text-sm font-semibold text-accent-400"
           aria-label={`Avatar ${fullName}`}
           title={email}
         >

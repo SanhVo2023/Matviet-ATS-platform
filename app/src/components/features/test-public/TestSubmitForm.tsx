@@ -45,7 +45,7 @@ export function TestSubmitForm({ token }: { token: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-base font-semibold text-slate-900">Tải lên bài làm</h2>
+      <h2 className="text-base font-semibold text-brand-900">Tải lên bài làm</h2>
 
       <div className="space-y-2">
         <Label htmlFor="answer-file">{t.assessment.publicUploadLabel}</Label>
@@ -60,12 +60,15 @@ export function TestSubmitForm({ token }: { token: string }) {
       </div>
 
       {error && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+        <div
+          role="alert"
+          className="rounded-md border border-error/30 bg-error-bg/60 px-3 py-2 text-sm text-error-fg"
+        >
           {error}
         </div>
       )}
 
-      <Button type="submit" disabled={submitting || !file} className="w-full gap-2">
+      <Button type="submit" variant="navy" disabled={submitting || !file} className="w-full gap-2">
         <Upload className="h-4 w-4" aria-hidden />
         {submitting ? "Đang nộp…" : t.assessment.publicSubmit}
       </Button>

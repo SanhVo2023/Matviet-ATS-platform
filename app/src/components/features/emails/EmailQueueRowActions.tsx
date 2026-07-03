@@ -118,7 +118,7 @@ export function EmailQueueRowActions({ id, status }: Props) {
           variant="outline"
           onClick={handleCancel}
           disabled={busy}
-          className="h-7 gap-1 text-rose-600 hover:bg-rose-50"
+          className="h-7 gap-1 text-error-fg hover:bg-error-bg/60"
         >
           <X className="h-3.5 w-3.5" aria-hidden /> {t.emails.action.cancel}
         </Button>

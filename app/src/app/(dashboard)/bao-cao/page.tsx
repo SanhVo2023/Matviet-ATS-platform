@@ -13,8 +13,11 @@ import { ScoreDistributionChart } from "@/components/features/reports/ScoreDistr
 import { StageConversionChart } from "@/components/features/reports/StageConversionChart";
 import { HiresPerMonthChart } from "@/components/features/reports/HiresPerMonthChart";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/primitives/PageHeader";
+import { Stagger, StaggerItem } from "@/components/motion";
 import { t } from "@/lib/i18n";
 import { formatDate } from "@/lib/vi-format";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -48,24 +51,20 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-4 p-6 lg:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="rounded-md bg-primary-100 p-2 text-primary-700">
-            <BarChart3 className="h-5 w-5" aria-hidden />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">{t.nav.reports}</h1>
-            <p className="text-sm text-slate-500">
-              {usingDefaults
-                ? "30 ngày gần nhất · tất cả vị trí"
-                : `${formatDate(filter.from)} — ${formatDate(filter.to)}`}
-              {filter.job_id && ` · 1 vị trí`}
-              {filter.role_family && ` · nhóm ${filter.role_family}`}
-            </p>
-          </div>
-        </div>
-        <ExportButtons />
-      </header>
+      <PageHeader
+        icon={BarChart3}
+        title={t.nav.reports}
+        subtitle={
+          <>
+            {usingDefaults
+              ? "30 ngày gần nhất · tất cả vị trí"
+              : `${formatDate(filter.from)} — ${formatDate(filter.to)}`}
+            {filter.job_id && ` · 1 vị trí`}
+            {filter.role_family && ` · nhóm ${filter.role_family}`}
+          </>
+        }
+        action={<ExportButtons />}
+      />
 
       <ReportFilters
         jobs={jobs.map((j) => ({ id: j.id, title: j.title }))}
@@ -86,26 +85,38 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <ChartCard>
-            <FunnelChart data={payload.funnel} />
-          </ChartCard>
-          <ChartCard>
-            <TimeToHireChart data={payload.time_to_hire} />
-          </ChartCard>
-          <ChartCard>
-            <SourceEffectivenessTable rows={payload.source_effectiveness} />
-          </ChartCard>
-          <ChartCard>
-            <ScoreDistributionChart data={payload.score_distribution} />
-          </ChartCard>
-          <ChartCard className="lg:col-span-2">
-            <StageConversionChart data={payload.stage_conversion} />
-          </ChartCard>
-          <ChartCard className="lg:col-span-2">
-            <HiresPerMonthChart data={payload.hires_per_month} />
-          </ChartCard>
-        </div>
+        <Stagger className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <StaggerItem>
+            <ChartCard>
+              <FunnelChart data={payload.funnel} />
+            </ChartCard>
+          </StaggerItem>
+          <StaggerItem>
+            <ChartCard>
+              <TimeToHireChart data={payload.time_to_hire} />
+            </ChartCard>
+          </StaggerItem>
+          <StaggerItem>
+            <ChartCard>
+              <SourceEffectivenessTable rows={payload.source_effectiveness} />
+            </ChartCard>
+          </StaggerItem>
+          <StaggerItem>
+            <ChartCard>
+              <ScoreDistributionChart data={payload.score_distribution} />
+            </ChartCard>
+          </StaggerItem>
+          <StaggerItem className="lg:col-span-2">
+            <ChartCard>
+              <StageConversionChart data={payload.stage_conversion} />
+            </ChartCard>
+          </StaggerItem>
+          <StaggerItem className="lg:col-span-2">
+            <ChartCard>
+              <HiresPerMonthChart data={payload.hires_per_month} />
+            </ChartCard>
+          </StaggerItem>
+        </Stagger>
       )}
     </div>
   );
@@ -113,7 +124,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
 
 function ChartCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <Card className={className}>
+    <Card className={cn("h-full", className)}>
       <CardContent className="p-4">{children}</CardContent>
     </Card>
   );

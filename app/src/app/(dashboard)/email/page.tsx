@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Mail } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { listEmailsForQueuePage } from "@/server/email/repository";
 import { listActiveTemplates } from "@/server/email/templates";
@@ -7,6 +8,7 @@ import { ComposeEmailButton } from "@/components/features/emails/ComposeEmailBut
 import { EmailStatusPill } from "@/components/features/emails/EmailStatusPill";
 import { EmailQueueFilter } from "@/components/features/emails/EmailQueueFilter";
 import { EmailQueueRowActions } from "@/components/features/emails/EmailQueueRowActions";
+import { PageHeader } from "@/components/primitives/PageHeader";
 import { t } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/vi-format";
 import type { Database } from "@/types/db";
@@ -42,15 +44,16 @@ export default async function EmailQueuePage({
 
   return (
     <div className="mx-auto max-w-[1400px] p-6 lg:p-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{t.emails.queue.title}</h1>
-          <p className="mt-1 text-sm text-slate-500">{t.emails.queue.subtitle}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <EmailQueueFilter />
-          <ComposeEmailButton templates={templates} />
-        </div>
+      <PageHeader
+        icon={Mail}
+        title={t.emails.queue.title}
+        subtitle={t.emails.queue.subtitle}
+        action={<ComposeEmailButton templates={templates} />}
+        className="mb-4"
+      />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <EmailQueueFilter />
       </div>
 
       {rows.length === 0 ? (
@@ -92,7 +95,7 @@ export default async function EmailQueuePage({
                   <td className="px-4 py-3 align-top">
                     <p className="line-clamp-2 max-w-md text-slate-900">{r.subject}</p>
                     {r.error && (
-                      <p className="mt-1 line-clamp-2 max-w-md text-xs text-rose-700">{r.error}</p>
+                      <p className="mt-1 line-clamp-2 max-w-md text-xs text-error-fg">{r.error}</p>
                     )}
                   </td>
                   <td className="px-4 py-3 align-top text-xs text-slate-600">

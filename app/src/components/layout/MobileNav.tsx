@@ -15,13 +15,30 @@ type UserRole = Database["public"]["Enums"]["user_role"];
 
 const GROUP_ORDER: ModuleGroup[] = ["recruiting", "hris", "system"];
 
+interface MobileNavProps {
+  role: UserRole;
+  /** Controlled open state — pass together with `onOpenChange`. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Hide the built-in hamburger trigger when opened from elsewhere (BottomTabs). */
+  showTrigger?: boolean;
+}
+
 /**
  * Mobile drawer navigation (< lg). Same module registry as the desktop
  * sidebar; radix Dialog provides the focus trap, Esc handling, and aria
- * wiring. Closes on navigation.
+ * wiring. Closes on navigation. Can run uncontrolled (own hamburger trigger)
+ * or controlled (opened by BottomTabs' "Menu" tab).
  */
-export function MobileNav({ role }: { role: UserRole }) {
-  const [open, setOpen] = useState(false);
+export function MobileNav({
+  role,
+  open: openProp,
+  onOpenChange,
+  showTrigger = true,
+}: MobileNavProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   const pathname = usePathname();
   const items = modulesForRole(role);
   const groups = GROUP_ORDER.map((g) => ({
@@ -33,15 +50,17 @@ export function MobileNav({ role }: { role: UserRole }) {
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
-      <Dialog.Trigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 lg:hidden"
-          aria-label="Mở menu điều hướng"
-        >
-          <Menu className="h-5 w-5" aria-hidden />
-        </button>
-      </Dialog.Trigger>
+      {showTrigger && (
+        <Dialog.Trigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 lg:hidden"
+            aria-label="Mở menu điều hướng"
+          >
+            <Menu className="h-5 w-5" aria-hidden />
+          </button>
+        </Dialog.Trigger>
+      )}
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-slate-950/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 lg:hidden" />
         <Dialog.Content

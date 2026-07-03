@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Calendar } from "lucide-react";
+import { Calendar, MapPin, Phone, Video } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { listInterviews } from "@/server/interviews/repository";
 import { getCandidate } from "@/server/candidates/repository";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/primitives/PageHeader";
 import { t } from "@/lib/i18n";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
+
+const TYPE_ICON = { in_person: MapPin, phone: Phone, video: Video } as const;
 
 export const dynamic = "force-dynamic";
 
@@ -30,16 +33,15 @@ export default async function InterviewsPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-6 lg:p-8">
-      <header className="flex items-baseline justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">{t.nav.interviews}</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {profile.role === "hiring_manager"
-              ? "Lịch phỏng vấn bạn được mời tham dự."
-              : "Toàn bộ lịch phỏng vấn sắp tới."}
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        icon={Calendar}
+        title={t.nav.interviews}
+        subtitle={
+          profile.role === "hiring_manager"
+            ? "Lịch phỏng vấn bạn được mời tham dự."
+            : "Toàn bộ lịch phỏng vấn sắp tới."
+        }
+      />
 
       {upcoming.length === 0 ? (
         <Card>
@@ -55,18 +57,21 @@ export default async function InterviewsPage() {
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
           {upcoming.map((iv) => {
             const c = candidateById.get(iv.candidate_id);
+            const TypeIcon = TYPE_ICON[iv.type] ?? Calendar;
+            const isTeams = iv.type === "video" && !!iv.location_or_link;
             return (
               <li key={iv.id}>
                 <Link
                   href={`/phong-van/${iv.id}`}
                   className="flex items-start gap-4 px-4 py-3 transition-colors hover:bg-slate-50"
                 >
-                  <div className="w-32 shrink-0 text-left">
-                    <p className="font-mono text-sm font-semibold text-slate-900">
+                  <div className="w-32 shrink-0 border-r border-slate-100 pr-4 text-left">
+                    <p className="text-sm font-bold tabular-nums text-brand-900">
                       {formatDateTime(iv.scheduled_at)}
                     </p>
-                    <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                      {iv.duration_min} phút · {t.interviewType[iv.type]}
+                    <p className="mt-0.5 flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
+                      <TypeIcon className="h-3 w-3 shrink-0" aria-hidden />
+                      {iv.duration_min} phút
                     </p>
                   </div>
                   <div className="min-w-0 flex-1">
@@ -74,11 +79,17 @@ export default async function InterviewsPage() {
                       {c?.full_name ?? "—"}{" "}
                       <span className="text-xs font-normal text-slate-500">· {c?.email ?? ""}</span>
                     </p>
-                    {iv.location_or_link ? (
+                    {isTeams ? (
+                      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent-100 px-2 py-0.5 text-xs font-medium text-accent-700">
+                        <Video className="h-3 w-3" aria-hidden /> {t.interviewType.video}
+                      </span>
+                    ) : iv.location_or_link ? (
                       <p className="mt-0.5 truncate text-xs text-slate-500">
                         {iv.location_or_link}
                       </p>
-                    ) : null}
+                    ) : (
+                      <p className="mt-0.5 text-xs text-slate-500">{t.interviewType[iv.type]}</p>
+                    )}
                   </div>
                   <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400">
                     {formatRelative(iv.scheduled_at)}

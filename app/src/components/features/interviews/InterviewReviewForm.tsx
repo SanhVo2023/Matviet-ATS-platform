@@ -33,11 +33,11 @@ const CRIT_LABEL: Record<ReviewCriterion, string> = {
 const REC_LABEL: Record<(typeof RECOMMENDATIONS)[number], { label: string; tone: string }> = {
   strong_yes: {
     label: t.recommendation.strong_yes,
-    tone: "bg-emerald-100 text-emerald-800 ring-emerald-300",
+    tone: "bg-success-bg text-success-fg ring-success/50",
   },
-  yes: { label: t.recommendation.yes, tone: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
-  maybe: { label: t.recommendation.maybe, tone: "bg-amber-50 text-amber-800 ring-amber-200" },
-  no: { label: t.recommendation.no, tone: "bg-rose-50 text-rose-700 ring-rose-200" },
+  yes: { label: t.recommendation.yes, tone: "bg-success-bg/60 text-success-fg ring-success/30" },
+  maybe: { label: t.recommendation.maybe, tone: "bg-warning-bg text-warning-fg ring-warning/40" },
+  no: { label: t.recommendation.no, tone: "bg-error-bg text-error-fg ring-error/40" },
 };
 
 const DEFAULT_SCORE = 70;
@@ -114,7 +114,7 @@ export function InterviewReviewForm({ interviewId, candidateId, existing }: Prop
           <h2 className="text-base font-semibold text-slate-900">Đánh giá phỏng vấn</h2>
           <p className="text-xs text-slate-500">
             Trung bình:{" "}
-            <span className="font-mono text-base font-semibold text-slate-900">{overall}</span>
+            <span className="text-base font-bold tabular-nums text-brand-900">{overall}</span>
             <span className="text-slate-400"> /100</span>
           </p>
         </div>
