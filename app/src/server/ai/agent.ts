@@ -24,21 +24,56 @@ import { getHrDashboardData } from "@/server/dashboard/queries";
 import { setJobStatus } from "@/server/jobs/service";
 import { parseReportFilter } from "@/server/reports/filter";
 import { buildReportPayload } from "@/server/reports/queries";
-import type { SessionProfile } from "@/lib/auth";
+import { ALL_STAGES, allowedNextStages, type Stage } from "@/lib/validation/candidate";
+import type { SessionProfile, UserRole } from "@/lib/auth";
 
 /**
  * Trợ lý Mắt Việt HR — the staff agent (ADR 0013 §agent).
  *
- * Safety model:
+ * Safety model (STRICT — the agent has exactly the caller's authority, never more):
  *  - Available to admin/hr only (enforced at the API route AND here).
- *  - Every tool runs server-side against the caller's own profile; tools are
- *    the same service functions the UI buttons call — no privileged bypass.
+ *  - TOOL_POLICY maps every tool to the roles allowed to use it. Enforced
+ *    TWICE: the tool list handed to the model is pre-filtered by role, and
+ *    the executor re-checks before running (defense in depth — the model
+ *    can't call what the user couldn't click).
+ *  - Every tool runs server-side against the caller's own session profile;
+ *    tools reuse the same service functions the UI buttons call.
+ *  - Stage moves obey the same transition rules as the UI dropdown
+ *    (allowedNextStages) — no agent-only shortcuts to hired/rejected.
+ *  - Mutations require in-chat confirmation (confirmed=true, server-refused
+ *    otherwise) for jobs, interview cancellation, and terminal stage moves.
+ *  - Every mutation writes audit_log with the caller as actor + {via:'agent'}.
  *  - Outward-facing actions are NEVER direct: emails land as pending_approval
- *    drafts. Pipeline moves + interview scheduling are internal and match
- *    what the caller could do by hand in the UI.
+ *    drafts; email/approval sign-off stays UI-only.
  */
 
-const TOOLS: AiToolDef[] = [
+/** Who may use which tool. Single source of truth for agent authority. */
+const HR_ADMIN: UserRole[] = ["admin", "hr"];
+export const TOOL_POLICY: Record<string, { roles: UserRole[]; mutates: boolean }> = {
+  search_candidates: { roles: HR_ADMIN, mutates: false },
+  get_candidate: { roles: HR_ADMIN, mutates: false },
+  pipeline_summary: { roles: HR_ADMIN, mutates: false },
+  list_today_interviews: { roles: HR_ADMIN, mutates: false },
+  move_candidate_stage: { roles: HR_ADMIN, mutates: true },
+  draft_email: { roles: HR_ADMIN, mutates: true },
+  schedule_interview: { roles: HR_ADMIN, mutates: true },
+  start_approval: { roles: HR_ADMIN, mutates: true },
+  list_jobs: { roles: HR_ADMIN, mutates: false },
+  get_job: { roles: HR_ADMIN, mutates: false },
+  create_job: { roles: HR_ADMIN, mutates: true },
+  update_job: { roles: HR_ADMIN, mutates: true },
+  set_job_status: { roles: HR_ADMIN, mutates: true },
+  search_cv_content: { roles: HR_ADMIN, mutates: false },
+  compare_candidates: { roles: HR_ADMIN, mutates: false },
+  candidate_timeline: { roles: HR_ADMIN, mutates: false },
+  report_snapshot: { roles: HR_ADMIN, mutates: false },
+  email_queue_status: { roles: HR_ADMIN, mutates: false },
+  suggest_past_candidates: { roles: HR_ADMIN, mutates: false },
+  add_candidate_note: { roles: HR_ADMIN, mutates: true },
+  cancel_interview: { roles: HR_ADMIN, mutates: true },
+};
+
+export const TOOLS: AiToolDef[] = [
   {
     name: "search_candidates",
     description:
@@ -80,12 +115,16 @@ const TOOLS: AiToolDef[] = [
   {
     name: "move_candidate_stage",
     description:
-      "Chuyển ứng viên sang giai đoạn pipeline khác. Các giai đoạn hợp lệ: new, screening, screened, interview_scheduled, interviewed, test_sent, test_done, recommended, salary_deal, bod_review, tap_doan_review, offer_sent, offer_accepted, hired, rejected, withdrew.",
+      "Chuyển ứng viên sang giai đoạn pipeline khác (theo đúng luật chuyển của hệ thống). Giai đoạn: new, screening, screened, interview_scheduled, interviewed, test_sent, test_done, recommended, salary_deal, bod_review, tap_doan_review, offer_sent, offer_accepted, hired, rejected, withdrew. Với hired/rejected/withdrew (không đảo ngược được): BẮT BUỘC hỏi xác nhận trước, chỉ gọi với confirmed=true.",
     parameters: {
       type: "object",
       properties: {
         name_or_id: { type: "string" },
         stage: { type: "string", description: "Giai đoạn đích (giá trị enum tiếng Anh ở trên)" },
+        confirmed: {
+          type: "boolean",
+          description: "Bắt buộc true khi chuyển sang hired/rejected/withdrew",
+        },
       },
       required: ["name_or_id", "stage"],
     },
@@ -413,6 +452,15 @@ const daysSince = (iso: string | null) =>
 
 function makeExecutor(profile: SessionProfile) {
   return async (name: string, args: Record<string, unknown>): Promise<unknown> => {
+    // STRICT authority gate: the tool must exist in the policy AND the
+    // caller's role must be allowed — even if the model hallucinated a call.
+    const policy = TOOL_POLICY[name];
+    if (!policy) return { error: `Công cụ không tồn tại: ${name}` };
+    if (!policy.roles.includes(profile.role)) {
+      return {
+        error: `Vai trò "${profile.role}" không có quyền dùng công cụ ${name}. Báo người dùng thao tác này ngoài thẩm quyền của họ.`,
+      };
+    }
     const db = await getDb();
     switch (name) {
       case "search_candidates": {
@@ -482,8 +530,26 @@ function makeExecutor(profile: SessionProfile) {
       }
       case "move_candidate_stage": {
         const c = await resolveCandidate(String(args.name_or_id ?? ""));
-        const stage = String(args.stage ?? "");
-        await changeStage(c.id, stage as never);
+        const stage = String(args.stage ?? "") as Stage;
+        // Same rules as the UI dropdown — the agent gets no shortcut moves.
+        if (!(ALL_STAGES as readonly string[]).includes(stage)) {
+          return { error: `Giai đoạn không hợp lệ: "${stage}".` };
+        }
+        const allowed = allowedNextStages(c.current_stage as Stage);
+        if (!allowed.includes(stage)) {
+          return {
+            error: `Không được chuyển từ "${c.current_stage}" sang "${stage}". Các giai đoạn hợp lệ: ${allowed.join(", ") || "(không còn — hồ sơ đã đóng)"}.`,
+          };
+        }
+        // Terminal moves are irreversible for HR — require in-chat confirmation.
+        if (["hired", "rejected", "withdrew"].includes(stage) && args.confirmed !== true) {
+          return NOT_CONFIRMED;
+        }
+        await changeStage(c.id, stage);
+        await auditAgent(profile, "candidates", c.id, "agent_stage_move", {
+          from: c.current_stage,
+          to: stage,
+        });
         return { ok: true, message: `Đã chuyển ${c.full_name} sang giai đoạn ${stage}.` };
       }
       case "draft_email": {
@@ -517,6 +583,10 @@ function makeExecutor(profile: SessionProfile) {
           bodyHtml,
           requiresApproval: true, // agent emails ALWAYS wait for human approval
           createdBy: profile.id,
+        });
+        await auditAgent(profile, "email_messages", id, "agent_draft", {
+          candidate: c.full_name,
+          subject,
         });
         return {
           ok: true,
@@ -556,6 +626,11 @@ function makeExecutor(profile: SessionProfile) {
         const inviteNote = row?.graph_event_id
           ? "lời mời Outlook đã gửi cho ứng viên và bạn"
           : "KHÔNG gửi được lời mời Outlook — báo ứng viên qua kênh khác hoặc đặt lại lịch";
+        await auditAgent(profile, "interviews", r.id, "agent_schedule", {
+          candidate: c.full_name,
+          scheduled_at: scheduledAt.toISOString(),
+          type,
+        });
         return {
           ok: true,
           message: `Đã đặt lịch phỏng vấn ${type === "video" ? "online (Teams)" : type === "phone" ? "điện thoại" : "trực tiếp"} cho ${c.full_name} lúc ${scheduledAt.toISOString()} (${inviteNote}).`,
@@ -565,6 +640,10 @@ function makeExecutor(profile: SessionProfile) {
       case "start_approval": {
         const c = await resolveCandidate(String(args.name_or_id ?? ""));
         const r = await startApproval(c.id);
+        await auditAgent(profile, "approvals", c.id, "agent_start_approval", {
+          candidate: c.full_name,
+          steps: r.approval_ids.length,
+        });
         return {
           ok: true,
           message: `Đã tạo quy trình duyệt cho ${c.full_name} (${r.approval_ids.length} bước).`,
@@ -993,6 +1072,7 @@ function makeExecutor(profile: SessionProfile) {
         }).format(new Date());
         const appended = `${c.notes ? `${c.notes}\n` : ""}[${stamp} — Trợ lý AI] ${note.slice(0, 500)}`;
         await db.update(candidates).set({ notes: appended }).where(eq(candidates.id, c.id));
+        await auditAgent(profile, "candidates", c.id, "agent_note", { note: note.slice(0, 200) });
         return { ok: true, message: `Đã thêm ghi chú vào hồ sơ ${c.full_name}.` };
       }
       case "cancel_interview": {
@@ -1048,8 +1128,9 @@ function systemPrompt(profile: SessionProfile): string {
 Người dùng hiện tại: ${profile.full_name ?? "—"} (vai trò: ${profile.role}). Bây giờ là ${nowVn} (giờ Việt Nam).
 
 Nguyên tắc:
+- Bạn hành động DƯỚI DANH NGHĨA và TRONG PHẠM VI QUYỀN của người dùng hiện tại — không hơn. Nếu công cụ báo ngoài thẩm quyền, nói thẳng cho người dùng, đừng tìm cách vòng qua. Mọi thao tác đều được ghi nhật ký với tên người dùng.
 - Dùng công cụ để LÀM việc thay vì chỉ mô tả. Sau khi làm xong, tóm tắt kết quả 1-2 câu kèm đường dẫn nếu có.
-- XÁC NHẬN TRƯỚC KHI THAY ĐỔI: với create_job / update_job / set_job_status / cancel_interview, luôn tóm tắt việc định làm và hỏi người dùng đồng ý không. Chỉ khi họ trả lời đồng ý mới gọi công cụ với confirmed=true. Không bao giờ tự đặt confirmed=true khi chưa được đồng ý trong hội thoại.
+- XÁC NHẬN TRƯỚC KHI THAY ĐỔI: với create_job / update_job / set_job_status / cancel_interview / move_candidate_stage sang hired-rejected-withdrew, luôn tóm tắt việc định làm và hỏi người dùng đồng ý không. Chỉ khi họ trả lời đồng ý mới gọi công cụ với confirmed=true. Không bao giờ tự đặt confirmed=true khi chưa được đồng ý trong hội thoại.
 - Tin tuyển dụng tạo mới luôn là NHÁP — muốn hiện lên trang tuyển dụng công khai phải set_job_status → open (một lần xác nhận riêng).
 - Khi so sánh ứng viên hoặc liệt kê nhiều dòng dữ liệu, trình bày bằng BẢNG Markdown gọn (cột tiếng Việt).
 - Ngày giờ người dùng nói (ví dụ "thứ Năm 2 giờ chiều") phải đổi sang ISO 8601 với múi giờ +07:00 trước khi gọi schedule_interview.
@@ -1076,9 +1157,12 @@ export async function runAgentTurn(
     { role: "system", content: systemPrompt(profile) },
     ...history.slice(-12).map((m) => ({ role: m.role, content: m.content.slice(0, 4000) })),
   ];
+  // The model only ever SEES the tools this user's role may use (and the
+  // executor re-checks — belt and braces).
+  const visibleTools = TOOLS.filter((t) => TOOL_POLICY[t.name]?.roles.includes(profile.role));
   const { text, executions } = await aiWithTools({
     messages,
-    tools: TOOLS,
+    tools: visibleTools,
     execute: makeExecutor(profile),
     maxIterations: 6,
     feature: "agent",

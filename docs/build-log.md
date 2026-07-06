@@ -174,3 +174,9 @@ pm run dev (localhost baseURL) or rebuild without the env override.
 - **Insight**: search_cv_content (tìm trong nội dung CV, fold dấu, kèm snippet), compare_candidates (điểm từng tiêu chí — render bảng), candidate_timeline, report_snapshot (tái dùng buildReportPayload), email_queue_status (read-only — duyệt vẫn ở UI), suggest_past_candidates (cùng role_family, điểm ≥55, chưa hired — preview G14).
 - **Actions nhỏ**: add_candidate_note (đóng dấu thời gian + "Trợ lý AI"), cancel_interview (ask-first, hủy cả Outlook; >1 buổi thì hỏi lại).
 - **Cố tình KHÔNG cấp**: duyệt email / duyệt bước hồ sơ từ chat (giữ human gate ở UI), xóa dữ liệu (chỉ archive). search_candidates thêm lọc theo tin + sort điểm. System prompt thêm luật xác nhận + trình bày bảng; suggestion chips mới trong dock.
+
+## 2026-07-06 (tiếp) — Siết thẩm quyền agent (chỉ thị Sanh: "agent gets the authority of the user, be strictly")
+- **TOOL_POLICY**: bảng role-per-tool duy nhất, enforced 2 lớp — danh sách tool đưa cho model lọc theo role TRƯỚC, executor re-check SAU (model không gọi được thứ user không bấm được trong UI). Fail-closed: tool thiếu policy = vô hình + bị từ chối.
+- **move_candidate_stage hết đường tắt**: validate enum + `allowedNextStages` (đúng luật dropdown UI — hired chỉ còn withdrew, rejected/withdrew khóa hẳn); chuyển sang hired/rejected/withdrew (không đảo ngược) đòi confirmed=true.
+- **Audit phủ 100% mutation**: stage move, draft email, schedule/cancel interview, start approval, note, jobs CRUD — tất cả ghi audit_log actor=user + meta {via:'agent'}.
+- **Test guard mới** `agent.policy.test.ts` (4 test): parity TOOLS↔TOOL_POLICY, không role ngoài admin/hr, tool cần confirm phải dạy model "xác nhận" trong description. 88 test pass.
