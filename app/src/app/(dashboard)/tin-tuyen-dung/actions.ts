@@ -169,3 +169,101 @@ export async function archiveJobAction(id: string): Promise<ActionResult> {
   revalidatePath("/tin-tuyen-dung");
   redirect("/tin-tuyen-dung");
 }
+
+const SuggestWeightsSchema = z.object({
+  title: z.string().trim().min(2, "Nhập chức danh trước khi dùng AI").max(200),
+  role_family: z.enum(ROLE_FAMILIES),
+  description: z.string().trim().max(4000).optional().nullable(),
+});
+
+const WeightsAiZod = z.object({
+  industry_fit: z.number().min(0).max(100),
+  professional_skills: z.number().min(0).max(100),
+  work_experience: z.number().min(0).max(100),
+  years_experience: z.number().min(0).max(100),
+  education: z.number().min(0).max(100),
+  location: z.number().min(0).max(100),
+  reasoning: z.string().max(400),
+});
+
+/**
+ * AI-suggest scoring weights from the job's title/description (G-polish,
+ * Sanh 2026-07-06: "more intelligence for trọng số"). Returns fractions
+ * summing to exactly 1 (largest-remainder rounding) — the editor applies
+ * them directly to the sliders; HR can still adjust.
+ */
+export async function suggestWeightsAction(
+  input: unknown,
+): Promise<ActionResult<{ weights: Record<string, number>; reasoning: string }>> {
+  const profile = await requireRole(["admin", "hr"]);
+  const parsed = SuggestWeightsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ" };
+  }
+  const { title, role_family, description } = parsed.data;
+  try {
+    const { aiJson } = await import("@/lib/ai/workers-ai");
+    const { data } = await aiJson({
+      system:
+        "Bạn là chuyên gia tuyển dụng cho Mắt Việt — chuỗi cửa hàng mắt kính bán lẻ Việt Nam. " +
+        "Phân bổ trọng số chấm CV cho 6 tiêu chí (industry_fit, professional_skills, work_experience, years_experience, education, location), " +
+        "mỗi tiêu chí 0-100, TỔNG ĐÚNG 100. Cân nhắc thực tế: vị trí bán hàng đề cao phù hợp ngành + địa điểm; " +
+        "khúc xạ viên đề cao kỹ năng chuyên môn + học vấn; quản lý đề cao kinh nghiệm. " +
+        "Kèm 'reasoning' 1-2 câu tiếng Việt giải thích.",
+      user: `Chức danh: ${title}. Nhóm vị trí: ${role_family}.${description ? ` Mô tả: ${description.slice(0, 1500)}` : ""}`,
+      jsonSchema: {
+        type: "object",
+        properties: {
+          industry_fit: { type: "number" },
+          professional_skills: { type: "number" },
+          work_experience: { type: "number" },
+          years_experience: { type: "number" },
+          education: { type: "number" },
+          location: { type: "number" },
+          reasoning: { type: "string" },
+        },
+        required: [
+          "industry_fit",
+          "professional_skills",
+          "work_experience",
+          "years_experience",
+          "education",
+          "location",
+          "reasoning",
+        ],
+      },
+      zod: WeightsAiZod,
+      maxTokens: 4096,
+      temperature: 0.3,
+      feature: "jd_generate",
+      userId: profile.id,
+    });
+
+    // Normalize to EXACTLY 100 with largest-remainder rounding, then to fractions.
+    const codes = [
+      "industry_fit",
+      "professional_skills",
+      "work_experience",
+      "years_experience",
+      "education",
+      "location",
+    ] as const;
+    const raw = codes.map((c) => Math.max(0, data[c]));
+    const total = raw.reduce((a, b) => a + b, 0);
+    if (total <= 0) return { ok: false, error: "AI trả về trọng số không hợp lệ — thử lại." };
+    const scaled = raw.map((v) => (v * 100) / total);
+    const floors = scaled.map(Math.floor);
+    let leftover = 100 - floors.reduce((a, b) => a + b, 0);
+    const order = [...codes.keys()].sort((a, b) => (scaled[b]! % 1) - (scaled[a]! % 1));
+    for (const i of order) {
+      if (leftover <= 0) break;
+      floors[i]!++;
+      leftover--;
+    }
+    const weights = Object.fromEntries(codes.map((c, i) => [c, floors[i]! / 100]));
+    return { ok: true, data: { weights, reasoning: data.reasoning } };
+  } catch (err) {
+    console.error("[suggestWeights]", err);
+    return { ok: false, error: "AI chưa đề xuất được — thử lại sau." };
+  }
+}
