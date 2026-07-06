@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireRole } from "@/lib/auth";
 import { aiChat } from "@/lib/ai/workers-ai";
 import "@/server/ai/runtime";
+import "@/server/ai/runtime";
 import {
   approveAndQueue,
   cancel,
@@ -128,7 +129,7 @@ export async function draftEmailAction(
             ` Ký tên: ${profile.full_name ?? "Phòng Nhân sự"} — Phòng Nhân sự Mắt Việt.`,
         },
       ],
-      { maxTokens: 700, temperature: 0.5 },
+      { maxTokens: 3072, temperature: 0.5, feature: "email_draft" },
     );
     const m = text.match(/SUBJECT:\s*(.+)\s*BODY:\s*([\s\S]+)/);
     const subject = m?.[1]?.trim() ?? `Mắt Việt — ${v.purpose}`;

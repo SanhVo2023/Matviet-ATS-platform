@@ -15,6 +15,7 @@ import { getCandidate } from "@/server/candidates/repository";
 import { getJob } from "@/server/jobs/repository";
 import { aiChat } from "@/lib/ai/workers-ai";
 import "@/server/ai/runtime";
+import "@/server/ai/runtime";
 
 export type ActionResult<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
 
@@ -131,7 +132,7 @@ export async function generateInterviewQuestionsAction(
             (breakdown ? `Kết quả chấm điểm AI theo tiêu chí (JSON):\n${breakdown}` : ""),
         },
       ],
-      { maxTokens: 1200, temperature: 0.5 },
+      { maxTokens: 3072, temperature: 0.5, feature: "interview_questions" },
     );
 
     const questions = text

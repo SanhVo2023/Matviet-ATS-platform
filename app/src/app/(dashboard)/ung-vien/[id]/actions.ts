@@ -9,6 +9,7 @@ import { getCandidate } from "@/server/candidates/repository";
 import { getJob } from "@/server/jobs/repository";
 import { aiChat } from "@/lib/ai/workers-ai";
 import "@/server/ai/runtime";
+import "@/server/ai/runtime";
 import { t } from "@/lib/i18n";
 import { CRITERION_CODES, type CriterionCode } from "@/lib/ai/gemini/types";
 import {
@@ -201,7 +202,7 @@ export async function summarizeCandidateAction(
             (breakdown ? `Chi tiết chấm điểm AI theo tiêu chí (JSON):\n${breakdown}` : ""),
         },
       ],
-      { maxTokens: 500, temperature: 0.4 },
+      { maxTokens: 2048, temperature: 0.4, feature: "candidate_summary" },
     );
     const summary = text.trim();
     if (!summary) return { ok: false, error: "AI trả về rỗng — vui lòng thử lại." };

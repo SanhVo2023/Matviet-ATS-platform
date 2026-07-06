@@ -158,3 +158,7 @@ pm run dev (localhost baseURL) or rebuild without the env override.
 - **Nudge CV tồn**: cron sweep thông báo "N CV chờ xử lý quá 3 ngày" 1 lần/ngày/user.
 - **Ranh giới build/buy chốt trong ADR 0014**: sở hữu hire-to-contract; KHÔNG BAO GIỜ build payroll/BHXH/chấm công (MISA + máy chấm công lo) — chỉ export dữ liệu nhân sự. Roadmap: G13 onboarding MVP, G14 talent pool + referrals.
 - Type widening: `enqueueScoring`/`createdBy` nhận null (hệ thống tự gửi, không có user). Migration 0003 gồm data-update thêm CTA `{{offer_link}}` vào template offer (idempotent, NOT LIKE guard).
+
+## 2026-07-06 (tiếp) — Fix: 4 nút "AI everywhere" chết vì token starvation (Kimi)
+- Sanh báo "AI không chạy". Chẩn đoán prod: scoring + agent OK server-side (queue 0 kẹt, agent trả lời tốt qua API). Thủ phạm: 4 action aiChat giữ trần token cũ từ thời Llama — summary 500, email draft 700, câu hỏi PV 1200, JD 1400. Kimi (reasoning) đốt sạch budget vào suy nghĩ → content rỗng → "AI trả về rỗng." từ ngày đổi model mặc định.
+- Fix tận gốc trong `aiChat`: default 1024→4096 + tự retry 1 lần với budget ×2 khi content rỗng (caller tương lai không thể dính lại). Call sites: JD 4096, summary 2048, câu hỏi PV 3072, draft 3072 + feature meta (jd_generate/candidate_summary/interview_questions/email_draft) + `import "@/server/ai/runtime"` — trước đây 4 action này BỎ QUA kill switch admin và không log usage.

@@ -211,24 +211,41 @@ function extractJson(text: string): unknown {
   return null;
 }
 
-/** Plain chat completion → final text. */
+/**
+ * Plain chat completion → final text.
+ *
+ * Reasoning models (Kimi/GLM/Nemotron) spend output tokens on
+ * reasoning_content BEFORE the answer — a tight max_tokens yields empty
+ * content, not a short answer. Default is therefore generous, and an empty
+ * response triggers ONE automatic retry at double the budget so no caller
+ * has to know about this failure mode (the bug that broke every "AI
+ * everywhere" button when the default model switched to Kimi K2.6).
+ */
 export async function aiChat(
   messages: ChatMessage[],
   opts?: { maxTokens?: number; temperature?: number } & AiCallMeta,
 ): Promise<{ text: string; usage: AiUsage }> {
-  const r = await run(
-    {
-      messages,
-      max_tokens: opts?.maxTokens ?? 1024,
-      temperature: opts?.temperature ?? 0.4,
-    },
-    opts,
-  );
-  const { content } = normalizeResponse(r);
-  const text =
-    typeof content === "string" ? content : content != null ? JSON.stringify(content) : "";
-  if (!text) throw new Error("AI trả về rỗng.");
-  return { text, usage: usageOf(r) };
+  let budget = opts?.maxTokens ?? 4096;
+  const totalUsage: AiUsage = { in: 0, out: 0 };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const r = await run(
+      {
+        messages,
+        max_tokens: budget,
+        temperature: opts?.temperature ?? 0.4,
+      },
+      opts,
+    );
+    const { content } = normalizeResponse(r);
+    const text =
+      typeof content === "string" ? content : content != null ? JSON.stringify(content) : "";
+    const usage = usageOf(r);
+    totalUsage.in += usage.in;
+    totalUsage.out += usage.out;
+    if (text) return { text, usage: totalUsage };
+    budget *= 2; // starved by reasoning — retry once with more headroom
+  }
+  throw new Error("AI trả về rỗng.");
 }
 
 /**

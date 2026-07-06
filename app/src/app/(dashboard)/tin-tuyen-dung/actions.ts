@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireRole } from "@/lib/auth";
 import { aiChat } from "@/lib/ai/workers-ai";
 import "@/server/ai/runtime";
+import "@/server/ai/runtime";
 import { t } from "@/lib/i18n";
 import {
   JobInputSchema,
@@ -128,7 +129,7 @@ export async function generateJobContentAction(
           content: `Chức danh: ${title}. Loại vị trí: ${t.roleFamily[role_family]}. Địa điểm làm việc: ${location?.trim() || "chưa xác định"}.`,
         },
       ],
-      { maxTokens: 1400, temperature: 0.5 },
+      { maxTokens: 4096, temperature: 0.5, feature: "jd_generate" },
     );
     const m = text.match(/MOTA:\s*([\s\S]*?)\s*YEUCAU:\s*([\s\S]+)/);
     if (!m || !m[1]?.trim() || !m[2]?.trim()) {
