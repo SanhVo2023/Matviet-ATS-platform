@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, Kanban, Briefcase } from "lucide-react";
+import { Pencil, Kanban, Briefcase, QrCode } from "lucide-react";
 import { eq, inArray } from "drizzle-orm";
 import { requireRole } from "@/lib/auth";
 import { getJob, getJobAssignments, listJobs } from "@/server/jobs/repository";
@@ -90,6 +90,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         }
         action={
           <>
+            <Button asChild variant="outline">
+              <Link href={`/tin-tuyen-dung/${job.id}/qr`}>
+                <QrCode className="h-4 w-4" aria-hidden /> Mã QR
+              </Link>
+            </Button>
             <Button asChild variant="outline">
               <Link href={`/tin-tuyen-dung/${job.id}/sua`}>
                 <Pencil className="h-4 w-4" aria-hidden /> {t.action.edit}

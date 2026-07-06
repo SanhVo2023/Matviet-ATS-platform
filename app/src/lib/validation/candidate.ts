@@ -18,7 +18,7 @@ export const CandidateUploadSchema = z.object({
     .or(z.literal("")),
   job_id: z.string().uuid("Vị trí ứng tuyển không hợp lệ"),
   source: z
-    .enum(["manual_upload", "email_inbox", "csv_import", "topcv_api", "referral"])
+    .enum(["manual_upload", "email_inbox", "csv_import", "topcv_api", "referral", "careers_page"])
     .default("manual_upload"),
   notes: z.string().max(2000).optional().or(z.literal("")),
 });

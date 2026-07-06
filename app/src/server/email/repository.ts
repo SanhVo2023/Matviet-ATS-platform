@@ -131,7 +131,7 @@ export interface EnqueueInput {
   inReplyTo?: string | null;
   conversationId?: string | null;
   scheduledSendAt?: Date | null;
-  createdBy: string;
+  createdBy: string | null;
 }
 
 /** Insert one outbound email_messages row in queued (or pending_approval) state. */

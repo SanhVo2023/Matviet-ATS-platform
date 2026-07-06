@@ -72,7 +72,8 @@ export async function jobManagerIds(jobId: string): Promise<string[]> {
  * Cron sweep (every minute, `/api/notifications/cron`):
  *  1. Remind attendees of interviews starting within the next 60 minutes
  *     (deduped per user via the idx_notifications_dedup lookup).
- *  2. Prune notifications older than 60 days.
+ *  2. Nudge HR about CVs sitting in 'new' for over 3 days (one per day).
+ *  3. Prune notifications older than 60 days.
  */
 export async function runNotificationSweep(): Promise<{ reminders: number }> {
   const db = await getDb();
@@ -124,6 +125,32 @@ export async function runNotificationSweep(): Promise<{ reminders: number }> {
         link,
       });
       reminders++;
+    }
+  }
+
+  // 2. Stale-CV nudge: one summary notification per user per calendar day
+  const staleCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const staleRows = await db
+    .select({ id: candidates.id })
+    .from(candidates)
+    .where(
+      and(
+        eq(candidates.current_stage, "new"),
+        eq(candidates.is_archived, false),
+        lte(candidates.created_at, staleCutoff),
+      ),
+    );
+  if (staleRows.length > 0) {
+    const today = nowIso.slice(0, 10);
+    const staleLink = `/ung-vien?nhac=${today}`;
+    for (const uid of await userIdsByRoles(["hr", "admin"])) {
+      if (await notificationExists(uid, "candidate_stale", staleLink)) continue;
+      await notifyUsers([uid], {
+        type: "candidate_stale",
+        title: `${staleRows.length} CV chờ xử lý quá 3 ngày`,
+        body: "Ứng viên chờ lâu dễ nhận việc nơi khác — mở danh sách để sàng lọc",
+        link: staleLink,
+      });
     }
   }
 

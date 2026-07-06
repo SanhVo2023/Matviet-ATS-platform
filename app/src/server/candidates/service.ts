@@ -72,12 +72,15 @@ async function upsertPerson(
  * Failure recovery: if a DB step fails after upload, we attempt to delete
  * the orphaned R2 object so storage doesn't accumulate junk. Best-effort.
  *
- * The calling Server Action MUST be guarded with requireRole(['admin','hr']).
+ * The calling Server Action MUST be guarded with requireRole(['admin','hr']) —
+ * EXCEPT the public careers-page path (G12), which passes uploadedBy=null and
+ * enforces its own rate-limit + consent in server/apply.
  */
 export async function uploadCandidateWithCv(
   input: CandidateUploadInput,
   file: UploadedFile,
-  uploadedBy: string,
+  uploadedBy: string | null,
+  extras?: { consent_at?: string; source_meta?: Record<string, string> },
 ): Promise<{ id: string; cv_file_id: string }> {
   if (!isAcceptedCvMime(file.mime)) {
     throw new Error("Loại file không hỗ trợ. Chỉ chấp nhận PDF.");
@@ -140,6 +143,8 @@ export async function uploadCandidateWithCv(
           phone,
           cv_file_id: cvFileId,
           source: input.source,
+          source_meta: extras?.source_meta ?? {},
+          consent_at: extras?.consent_at ?? null,
           notes: input.notes?.trim() || null,
           created_by: uploadedBy,
           current_stage: "new",

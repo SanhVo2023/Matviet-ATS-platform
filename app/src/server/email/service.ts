@@ -20,7 +20,8 @@ export interface ComposeFromTemplateInput {
   interviewId?: string | null;
   /** When true, bypass the template's `requires_approval` flag and queue immediately. */
   forceImmediate?: boolean;
-  createdBy: string;
+  /** Null for system-originated sends (public careers-page receipt). */
+  createdBy: string | null;
 }
 
 /**
@@ -31,7 +32,14 @@ export interface ComposeFromTemplateInput {
 export async function composeFromTemplate(
   input: ComposeFromTemplateInput,
 ): Promise<{ id: string }> {
-  const rendered = await renderFromTemplate(input.templateCode, input.vars);
+  const vars = { ...input.vars };
+  // G12: the offer template carries a magic accept/decline link — minted
+  // server-side so neither HR nor the agent can get it wrong.
+  if (input.templateCode === "offer" && input.candidateId) {
+    const { getOrCreateOfferToken } = await import("@/server/offers/service");
+    vars.offer_link = (await getOrCreateOfferToken(input.candidateId)).url;
+  }
+  const rendered = await renderFromTemplate(input.templateCode, vars);
   const requiresApproval = input.forceImmediate ? false : rendered.requires_approval;
   return enqueueOutbound({
     templateCode: rendered.code,

@@ -7,7 +7,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-const PUBLIC_ROUTES = ["/dang-nhap", "/dat-lai-mat-khau", "/test", "/api/auth"];
+const PUBLIC_ROUTES = [
+  "/dang-nhap",
+  "/dat-lai-mat-khau",
+  "/test",
+  "/api/auth",
+  // G12 candidate-facing surfaces — token/no-auth by design
+  "/tuyen-dung",
+  "/nhan-viec",
+];
 
 const isPublicRoute = (pathname: string) =>
   PUBLIC_ROUTES.some((p) => pathname === p || pathname.startsWith(`${p}/`));

@@ -48,7 +48,9 @@ export const CANDIDATE_SOURCES = [
   "csv_import",
   "topcv_api",
   "referral",
+  "careers_page",
 ] as const;
+export const OFFER_RESPONSES = ["accepted", "declined"] as const;
 export const AI_SCREENING_STATUSES = ["pending", "success", "failed"] as const;
 export const SCORING_JOB_STATUSES = [
   "queued",
@@ -319,12 +321,22 @@ export const candidates = sqliteTable(
       .default("pending"),
     ai_screening_error: text("ai_screening_error"),
     notes: text("notes"),
+    // --- offer magic link (G12): candidate accepts/declines via /nhan-viec/[token] ---
+    offer_token: text("offer_token"),
+    offer_token_expires_at: text("offer_token_expires_at"),
+    offer_response: text("offer_response", { enum: OFFER_RESPONSES }),
+    offer_responded_at: text("offer_responded_at"),
+    offer_response_note: text("offer_response_note"),
+    expected_start_date: text("expected_start_date"),
+    /** PDPD (Nghị định 13/2023) consent timestamp — set by the public apply form. */
+    consent_at: text("consent_at"),
     is_archived: integer("is_archived", { mode: "boolean" }).notNull().default(false),
     created_by: text("created_by").references(() => users.id),
     created_at: text("created_at").notNull().$defaultFn(nowIso),
     updated_at: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),
   },
   (t) => [
+    uniqueIndex("uq_candidates_offer_token").on(t.offer_token),
     index("idx_candidates_job").on(t.job_id),
     index("idx_candidates_stage").on(t.current_stage),
     index("idx_candidates_score").on(t.ai_score),
@@ -699,6 +711,9 @@ export const NOTIFICATION_TYPES = [
   "interview_created",
   "interview_reminder",
   "email_failed",
+  "candidate_new",
+  "candidate_stale",
+  "offer_response",
   "system",
 ] as const;
 

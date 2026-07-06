@@ -113,7 +113,10 @@ export function EmailComposerDialog({ open, onOpenChange, templates, defaults }:
 
   const renderedSubject = renderTemplate(subject, vars);
   const renderedBody = renderTemplate(body, vars);
-  const missing = findMissingPlaceholders(`${renderedSubject}\n${renderedBody}`);
+  // offer_link is minted server-side at queue time — never "missing"
+  const missing = findMissingPlaceholders(`${renderedSubject}\n${renderedBody}`).filter(
+    (m) => m !== "offer_link",
+  );
   const canSubmit =
     !submitting && to.trim().length > 0 && subject.trim().length > 0 && body.trim().length > 0;
 
@@ -238,19 +241,29 @@ export function EmailComposerDialog({ open, onOpenChange, templates, defaults }:
               <p className="text-xs font-medium text-slate-700">{t.emails.compose.varsHeader}</p>
               <p className="text-xs text-slate-500">{t.emails.compose.varHint}</p>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                {selectedTemplate.variables.map((name) => (
-                  <div key={name} className="space-y-1">
-                    <Label htmlFor={`var-${name}`} className="font-mono text-xs text-slate-600">
-                      {`{{${name}}}`}
-                    </Label>
-                    <Input
-                      id={`var-${name}`}
-                      value={vars[name] ?? ""}
-                      onChange={(e) => setVars((prev) => ({ ...prev, [name]: e.target.value }))}
-                      disabled={submitting}
-                    />
-                  </div>
-                ))}
+                {selectedTemplate.variables.map((name) =>
+                  name === "offer_link" ? (
+                    // Minted server-side when the email is queued (composeFromTemplate)
+                    <div key={name} className="space-y-1">
+                      <Label className="font-mono text-xs text-slate-600">{`{{${name}}}`}</Label>
+                      <p className="rounded-md border border-dashed border-slate-300 bg-white px-3 py-2 text-xs text-slate-500">
+                        Tạo tự động khi gửi — liên kết nhận việc có hiệu lực 7 ngày
+                      </p>
+                    </div>
+                  ) : (
+                    <div key={name} className="space-y-1">
+                      <Label htmlFor={`var-${name}`} className="font-mono text-xs text-slate-600">
+                        {`{{${name}}}`}
+                      </Label>
+                      <Input
+                        id={`var-${name}`}
+                        value={vars[name] ?? ""}
+                        onChange={(e) => setVars((prev) => ({ ...prev, [name]: e.target.value }))}
+                        disabled={submitting}
+                      />
+                    </div>
+                  ),
+                )}
               </div>
               {missing.length > 0 && (
                 <p className="text-xs text-amber-700">

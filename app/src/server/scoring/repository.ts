@@ -21,7 +21,7 @@ type AiScreeningInsert = TablesInsert<"ai_screenings">;
  */
 export async function enqueueScoring(
   candidateId: string,
-  triggeredBy: string,
+  triggeredBy: string | null,
 ): Promise<{ queue_id: string; created: boolean }> {
   const db = await getDb();
 

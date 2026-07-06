@@ -108,6 +108,7 @@ export const t = {
     csv_import: "Nhập từ CSV",
     topcv_api: "TopCV API",
     referral: "Giới thiệu nội bộ",
+    careers_page: "Trang tuyển dụng",
   },
 
   // Matches enum role_family

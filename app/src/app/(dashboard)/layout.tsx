@@ -19,21 +19,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <a href="#main-content" className="skip-link">
         Bỏ qua đến nội dung
       </a>
-      {/* Sidebar reserves its slim rail width itself; expansion overlays content */}
-      <Sidebar role={profile.role} />
+      {/* Sidebar reserves its slim rail width itself; expansion overlays content.
+          print:hidden wrappers keep the chrome out of printed pages (QR poster). */}
+      <div className="contents print:hidden">
+        <Sidebar role={profile.role} />
+      </div>
       <div className="flex min-h-screen flex-1 flex-col">
-        <TopBar
-          fullName={profile.full_name ?? profile.email ?? ""}
-          email={profile.email ?? ""}
-          role={profile.role}
-        />
+        <div className="contents print:hidden">
+          <TopBar
+            fullName={profile.full_name ?? profile.email ?? ""}
+            email={profile.email ?? ""}
+            role={profile.role}
+          />
+        </div>
         {/* pb-16 clears the fixed bottom tab bar on mobile */}
         <main id="main-content" className="flex-1 overflow-y-auto pb-16 lg:pb-0" tabIndex={-1}>
           {children}
         </main>
       </div>
-      <BottomTabs role={profile.role} />
-      <AgentDock role={profile.role} />
+      <div className="contents print:hidden">
+        <BottomTabs role={profile.role} />
+        <AgentDock role={profile.role} />
+      </div>
     </div>
   );
 }
