@@ -28,10 +28,12 @@ interface Msg {
 }
 
 const SUGGESTIONS = [
-  "Hôm nay có phỏng vấn nào?",
-  "Tìm ứng viên điểm AI cao nhất",
-  "Soạn email từ chối lịch sự cho ứng viên …",
-  "Đặt lịch phỏng vấn video với … ngày mai 14h",
+  "Tổng quan tuyển dụng của tin … đang thế nào?",
+  "So sánh 3 ứng viên điểm cao nhất trong một bảng",
+  "Tìm trong kho CV ai biết tiếng Anh",
+  "Tạo tin tuyển dụng Nhân viên bán kính tại …",
+  "Có ứng viên cũ nào phù hợp tin … không?",
+  "Nguồn CV nào hiệu quả nhất 90 ngày qua?",
 ];
 
 export function AgentDock({ role }: { role: UserRole }) {

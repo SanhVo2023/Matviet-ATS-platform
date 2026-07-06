@@ -1,14 +1,29 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne } from "drizzle-orm";
 import { getDb } from "@/db";
-import { candidates, jobs, interviews, approvals } from "@/db/schema";
+import {
+  candidates,
+  jobs,
+  interviews,
+  approvals,
+  stage_history,
+  email_messages,
+  weight_templates,
+  ai_screenings,
+  audit_log,
+  JOB_STATUSES,
+  ROLE_FAMILIES,
+} from "@/db/schema";
 import { aiWithTools, aiChat, type AiToolDef, type ChatMessage } from "@/lib/ai/workers-ai";
 import "@/server/ai/runtime";
 import { changeStage } from "@/server/candidates/service";
-import { scheduleInterview } from "@/server/interviews/service";
+import { scheduleInterview, cancelInterview } from "@/server/interviews/service";
 import { startApproval } from "@/server/approvals/engine";
 import { enqueueOutbound } from "@/server/email/repository";
 import { getHrDashboardData } from "@/server/dashboard/queries";
+import { setJobStatus } from "@/server/jobs/service";
+import { parseReportFilter } from "@/server/reports/filter";
+import { buildReportPayload } from "@/server/reports/queries";
 import type { SessionProfile } from "@/lib/auth";
 
 /**
@@ -27,7 +42,7 @@ const TOOLS: AiToolDef[] = [
   {
     name: "search_candidates",
     description:
-      "Tìm ứng viên theo tên (một phần cũng được) và/hoặc giai đoạn pipeline. Trả về danh sách gọn: id, tên, giai đoạn, vị trí, điểm AI.",
+      "Tìm ứng viên theo tên, giai đoạn pipeline và/hoặc tin tuyển dụng. Trả về: id, tên, giai đoạn, vị trí, điểm AI (sắp theo điểm giảm dần).",
     parameters: {
       type: "object",
       properties: {
@@ -36,6 +51,7 @@ const TOOLS: AiToolDef[] = [
           type: "string",
           description: "Giai đoạn pipeline, ví dụ: new, screened, interview_scheduled, recommended",
         },
+        job: { type: "string", description: "Tên (một phần) hoặc UUID tin tuyển dụng để lọc" },
       },
     },
   },
@@ -117,6 +133,169 @@ const TOOLS: AiToolDef[] = [
       required: ["name_or_id"],
     },
   },
+  // ------------------------- Tin tuyển dụng (jobs) -------------------------
+  {
+    name: "list_jobs",
+    description: "Liệt kê tin tuyển dụng: id, tiêu đề, trạng thái, địa điểm, số ứng viên.",
+    parameters: {
+      type: "object",
+      properties: {
+        status: { type: "string", description: "Lọc: draft, open, paused, closed, filled" },
+        query: { type: "string", description: "Một phần tiêu đề" },
+      },
+    },
+  },
+  {
+    name: "get_job",
+    description:
+      "Bức tranh toàn cảnh một tin tuyển dụng: chi tiết tin + funnel từng giai đoạn, đã tuyển/chỉ tiêu, điểm AI trung bình & cao nhất, ai đang chờ duyệt, lịch phỏng vấn sắp tới, giai đoạn đang kẹt lâu nhất.",
+    parameters: {
+      type: "object",
+      properties: { job: { type: "string", description: "Tiêu đề (một phần) hoặc UUID" } },
+      required: ["job"],
+    },
+  },
+  {
+    name: "create_job",
+    description:
+      "Tạo tin tuyển dụng MỚI ở trạng thái NHÁP. BẮT BUỘC hỏi người dùng xác nhận trước (tóm tắt tiêu đề/địa điểm/lương/mô tả), chỉ gọi với confirmed=true sau khi họ đồng ý. Muốn đăng công khai thì gọi tiếp set_job_status.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        role_family: {
+          type: "string",
+          enum: ["sales", "optician", "office", "manager", "custom"],
+          description: "sales=bán hàng, optician=khúc xạ, office=văn phòng, manager=quản lý",
+        },
+        location: { type: "string" },
+        description: { type: "string", description: "Mô tả công việc (HTML <p>/<ul> đơn giản)" },
+        headcount: { type: "number" },
+        salary_min: { type: "number", description: "VND/tháng" },
+        salary_max: { type: "number", description: "VND/tháng" },
+        confirmed: { type: "boolean", description: "true CHỈ KHI người dùng đã xác nhận" },
+      },
+      required: ["title", "role_family", "confirmed"],
+    },
+  },
+  {
+    name: "update_job",
+    description:
+      "Sửa tin tuyển dụng (tiêu đề, mô tả, địa điểm, chỉ tiêu, lương). BẮT BUỘC hỏi xác nhận trước; chỉ gọi với confirmed=true sau khi người dùng đồng ý.",
+    parameters: {
+      type: "object",
+      properties: {
+        job: { type: "string" },
+        title: { type: "string" },
+        description: { type: "string" },
+        location: { type: "string" },
+        headcount: { type: "number" },
+        salary_min: { type: "number" },
+        salary_max: { type: "number" },
+        confirmed: { type: "boolean" },
+      },
+      required: ["job", "confirmed"],
+    },
+  },
+  {
+    name: "set_job_status",
+    description:
+      "Đổi trạng thái tin: open (đăng công khai lên trang tuyển dụng), paused, closed, filled. BẮT BUỘC hỏi xác nhận trước; chỉ gọi với confirmed=true.",
+    parameters: {
+      type: "object",
+      properties: {
+        job: { type: "string" },
+        status: { type: "string", enum: ["draft", "open", "paused", "closed", "filled"] },
+        confirmed: { type: "boolean" },
+      },
+      required: ["job", "status", "confirmed"],
+    },
+  },
+  // ----------------------------- Insight tools -----------------------------
+  {
+    name: "search_cv_content",
+    description:
+      "Tìm TRONG NỘI DUNG CV của tất cả ứng viên (kỹ năng, công ty cũ, ngoại ngữ…). Trả về ứng viên khớp + đoạn trích ngữ cảnh.",
+    parameters: {
+      type: "object",
+      properties: { keyword: { type: "string", description: "Từ khóa, ví dụ 'tiếng Trung'" } },
+      required: ["keyword"],
+    },
+  },
+  {
+    name: "compare_candidates",
+    description:
+      "So sánh 2-5 ứng viên cạnh nhau: điểm AI theo từng tiêu chí, giai đoạn, vị trí. Trình bày kết quả dạng bảng Markdown.",
+    parameters: {
+      type: "object",
+      properties: {
+        names_or_ids: { type: "array", items: { type: "string" }, description: "2-5 tên/UUID" },
+      },
+      required: ["names_or_ids"],
+    },
+  },
+  {
+    name: "candidate_timeline",
+    description:
+      "Toàn bộ lịch sử một ứng viên theo thời gian: các lần chuyển giai đoạn, phỏng vấn, email đã gửi/chờ duyệt.",
+    parameters: {
+      type: "object",
+      properties: { name_or_id: { type: "string" } },
+      required: ["name_or_id"],
+    },
+  },
+  {
+    name: "report_snapshot",
+    description:
+      "Báo cáo nhanh trong chat: funnel tổng, time-to-hire, hiệu quả nguồn CV, tuyển theo tháng. Mặc định 90 ngày gần nhất.",
+    parameters: {
+      type: "object",
+      properties: { days: { type: "number", description: "Khoảng ngày nhìn lại (7-365)" } },
+    },
+  },
+  {
+    name: "email_queue_status",
+    description:
+      "Trạng thái hàng đợi email: đang chờ duyệt, đang chờ gửi, gửi lỗi. KHÔNG duyệt được từ chat — hướng người dùng vào trang Email.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "suggest_past_candidates",
+    description:
+      "Gợi ý ứng viên CŨ tiềm năng cho một tin: người từng ứng tuyển vị trí cùng nhóm, điểm AI cao nhưng chưa được tuyển.",
+    parameters: {
+      type: "object",
+      properties: { job: { type: "string" } },
+      required: ["job"],
+    },
+  },
+  // ----------------------------- Small actions -----------------------------
+  {
+    name: "add_candidate_note",
+    description: "Thêm ghi chú vào hồ sơ ứng viên (có dấu thời gian, ghi rõ do Trợ lý AI thêm).",
+    parameters: {
+      type: "object",
+      properties: {
+        name_or_id: { type: "string" },
+        note: { type: "string" },
+      },
+      required: ["name_or_id", "note"],
+    },
+  },
+  {
+    name: "cancel_interview",
+    description:
+      "Hủy buổi phỏng vấn sắp tới của ứng viên (hủy cả sự kiện Outlook). BẮT BUỘC hỏi xác nhận trước; chỉ gọi với confirmed=true.",
+    parameters: {
+      type: "object",
+      properties: {
+        name_or_id: { type: "string" },
+        reason: { type: "string" },
+        confirmed: { type: "boolean" },
+      },
+      required: ["name_or_id", "confirmed"],
+    },
+  },
 ];
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -162,6 +341,76 @@ async function jobTitleOf(jobId: string): Promise<string | null> {
   return j?.title ?? null;
 }
 
+async function resolveJob(titleOrId: string) {
+  const db = await getDb();
+  if (UUID_RE.test(titleOrId.trim())) {
+    const row = await db
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.id, titleOrId.trim()), eq(jobs.is_archived, false)))
+      .get();
+    if (!row) throw new Error(`Không tìm thấy tin tuyển dụng với id ${titleOrId}`);
+    return row;
+  }
+  const needle = fold(titleOrId);
+  const all = await db.select().from(jobs).where(eq(jobs.is_archived, false)).limit(100);
+  const matches = all.filter((j) => fold(j.title).includes(needle)).slice(0, 5);
+  if (matches.length === 0) throw new Error(`Không tìm thấy tin tuyển dụng "${titleOrId}"`);
+  if (matches.length > 1) {
+    throw new Error(
+      `Có ${matches.length} tin khớp "${titleOrId}": ` +
+        matches.map((m) => `${m.title} (${m.status}, ${m.id.slice(0, 8)})`).join(", ") +
+        ". Hỏi lại người dùng chọn tin nào, rồi gọi lại bằng UUID.",
+    );
+  }
+  return matches[0]!;
+}
+
+/** The ask-first gate: mutations run only after the model confirms the user said yes. */
+const NOT_CONFIRMED = {
+  error:
+    "CHƯA được xác nhận. Tóm tắt thay đổi định làm cho người dùng, hỏi họ đồng ý không, và CHỈ khi họ trả lời đồng ý mới gọi lại công cụ này với confirmed=true.",
+};
+
+/** Every agent write on jobs/interviews leaves an audit trail. */
+async function auditAgent(
+  profile: SessionProfile,
+  entity: string,
+  entityId: string,
+  action: string,
+  after: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.insert(audit_log).values({
+      entity,
+      entity_id: entityId,
+      action,
+      actor_user_id: profile.id,
+      after: after as never,
+      meta: { via: "agent" } as never,
+    });
+  } catch (err) {
+    console.warn("[agent] audit write failed:", err);
+  }
+}
+
+/** ±90 chars of context around the first match, for search_cv_content. */
+function snippetAround(text: string, foldedNeedle: string): string {
+  const idx = fold(text).indexOf(foldedNeedle);
+  if (idx < 0) return text.slice(0, 180);
+  const start = Math.max(0, idx - 90);
+  return (
+    (start > 0 ? "…" : "") +
+    text.slice(start, idx + foldedNeedle.length + 90).replace(/\s+/g, " ") +
+    "…"
+  );
+}
+
+const dayMs = 24 * 60 * 60 * 1000;
+const daysSince = (iso: string | null) =>
+  iso ? Math.round((Date.now() - new Date(iso).getTime()) / dayMs) : null;
+
 function makeExecutor(profile: SessionProfile) {
   return async (name: string, args: Record<string, unknown>): Promise<unknown> => {
     const db = await getDb();
@@ -170,6 +419,10 @@ function makeExecutor(profile: SessionProfile) {
         const conds = [eq(candidates.is_archived, false)];
         const stage = typeof args.stage === "string" ? args.stage.trim() : "";
         if (stage) conds.push(eq(candidates.current_stage, stage as never));
+        if (typeof args.job === "string" && args.job.trim()) {
+          const j = await resolveJob(args.job);
+          conds.push(eq(candidates.job_id, j.id));
+        }
         const rows = await db
           .select({
             id: candidates.id,
@@ -182,10 +435,9 @@ function makeExecutor(profile: SessionProfile) {
           .where(and(...conds))
           .limit(300);
         const q = typeof args.query === "string" ? fold(args.query) : "";
-        const filtered = (q ? rows.filter((r) => fold(r.full_name).includes(q)) : rows).slice(
-          0,
-          12,
-        );
+        const filtered = (q ? rows.filter((r) => fold(r.full_name).includes(q)) : rows)
+          .sort((a, b) => (b.ai_score ?? -1) - (a.ai_score ?? -1))
+          .slice(0, 15);
         return await Promise.all(
           filtered.map(async (r) => ({ ...r, job: await jobTitleOf(r.job_id) })),
         );
@@ -318,6 +570,468 @@ function makeExecutor(profile: SessionProfile) {
           message: `Đã tạo quy trình duyệt cho ${c.full_name} (${r.approval_ids.length} bước).`,
         };
       }
+      // ---------------------- Tin tuyển dụng (jobs) ----------------------
+      case "list_jobs": {
+        const conds = [eq(jobs.is_archived, false)];
+        const status = typeof args.status === "string" ? args.status.trim() : "";
+        if (status && (JOB_STATUSES as readonly string[]).includes(status)) {
+          conds.push(eq(jobs.status, status as never));
+        }
+        const rows = await db
+          .select({
+            id: jobs.id,
+            title: jobs.title,
+            status: jobs.status,
+            location: jobs.location,
+            headcount: jobs.headcount,
+            posted_at: jobs.posted_at,
+          })
+          .from(jobs)
+          .where(and(...conds))
+          .orderBy(desc(jobs.created_at))
+          .limit(50);
+        const q = typeof args.query === "string" ? fold(args.query) : "";
+        const filtered = (q ? rows.filter((r) => fold(r.title).includes(q)) : rows).slice(0, 20);
+        return await Promise.all(
+          filtered.map(async (r) => {
+            const cands = await db
+              .select({ id: candidates.id })
+              .from(candidates)
+              .where(and(eq(candidates.job_id, r.id), eq(candidates.is_archived, false)));
+            return { ...r, candidate_count: cands.length, days_open: daysSince(r.posted_at) };
+          }),
+        );
+      }
+      case "get_job": {
+        const j = await resolveJob(String(args.job ?? ""));
+        const cands = await db
+          .select({
+            id: candidates.id,
+            full_name: candidates.full_name,
+            current_stage: candidates.current_stage,
+            ai_score: candidates.ai_score,
+          })
+          .from(candidates)
+          .where(and(eq(candidates.job_id, j.id), eq(candidates.is_archived, false)));
+
+        // Funnel + dwell time per stage (from each candidate's last stage move)
+        const funnel: Record<string, number> = {};
+        for (const c of cands) funnel[c.current_stage] = (funnel[c.current_stage] ?? 0) + 1;
+        const candIds = cands.map((c) => c.id);
+        const lastMoves = candIds.length
+          ? await db
+              .select({
+                candidate_id: stage_history.candidate_id,
+                at: stage_history.at,
+                to_stage: stage_history.to_stage,
+              })
+              .from(stage_history)
+              .where(inArray(stage_history.candidate_id, candIds))
+              .orderBy(desc(stage_history.at))
+          : [];
+        const seen = new Set<string>();
+        const dwell: Record<string, { total: number; n: number; max: number }> = {};
+        for (const m of lastMoves) {
+          if (seen.has(m.candidate_id)) continue;
+          seen.add(m.candidate_id);
+          const d = daysSince(m.at) ?? 0;
+          const s = (dwell[m.to_stage] ??= { total: 0, n: 0, max: 0 });
+          s.total += d;
+          s.n++;
+          s.max = Math.max(s.max, d);
+        }
+        const TERMINAL = ["hired", "rejected", "withdrew"];
+        const stuck = Object.entries(dwell)
+          .filter(([stage]) => !TERMINAL.includes(stage))
+          .map(([stage, s]) => ({
+            stage,
+            candidates: s.n,
+            avg_days_waiting: Math.round(s.total / s.n),
+            max_days_waiting: s.max,
+          }))
+          .sort((a, b) => b.avg_days_waiting - a.avg_days_waiting);
+
+        const scores = cands.map((c) => c.ai_score).filter((v): v is number => v != null);
+        const pendingApprovals = candIds.length
+          ? await db
+              .select({ candidate_id: approvals.candidate_id, step_kind: approvals.step_kind })
+              .from(approvals)
+              .where(and(inArray(approvals.candidate_id, candIds), eq(approvals.status, "pending")))
+          : [];
+        const upcoming = await db
+          .select({
+            candidate_id: interviews.candidate_id,
+            scheduled_at: interviews.scheduled_at,
+            type: interviews.type,
+          })
+          .from(interviews)
+          .where(
+            and(
+              eq(interviews.job_id, j.id),
+              eq(interviews.status, "scheduled"),
+              gte(interviews.scheduled_at, new Date().toISOString()),
+            ),
+          )
+          .limit(10);
+        const nameOf = (id: string) => cands.find((c) => c.id === id)?.full_name ?? id.slice(0, 8);
+        return {
+          id: j.id,
+          title: j.title,
+          status: j.status,
+          location: j.location,
+          salary_min: j.salary_min,
+          salary_max: j.salary_max,
+          headcount: j.headcount,
+          days_open: daysSince(j.posted_at),
+          total_candidates: cands.length,
+          hired: funnel["hired"] ?? 0,
+          funnel,
+          ai_scores: scores.length
+            ? {
+                avg: Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10,
+                max: Math.max(...scores),
+                scored: scores.length,
+              }
+            : null,
+          waiting_by_stage: stuck.slice(0, 5),
+          pending_approvals: pendingApprovals.map((p) => ({
+            candidate: nameOf(p.candidate_id),
+            step: p.step_kind,
+          })),
+          upcoming_interviews: upcoming.map((i) => ({
+            candidate: nameOf(i.candidate_id),
+            at: i.scheduled_at,
+            type: i.type,
+          })),
+          public_url: `/tuyen-dung/${j.id}`,
+          admin_url: `/tin-tuyen-dung/${j.id}`,
+        };
+      }
+      case "create_job": {
+        if (args.confirmed !== true) return NOT_CONFIRMED;
+        const title = String(args.title ?? "").trim();
+        if (title.length < 3) return { error: "Thiếu tiêu đề tin tuyển dụng." };
+        const family = (ROLE_FAMILIES as readonly string[]).includes(String(args.role_family))
+          ? (String(args.role_family) as (typeof ROLE_FAMILIES)[number])
+          : "custom";
+        // Criteria weights come from the role family's template (same default
+        // the job form uses) so AI scoring works out of the box.
+        const template = await db
+          .select({ weights: weight_templates.weights })
+          .from(weight_templates)
+          .where(eq(weight_templates.family, family))
+          .get();
+        const inserted = await db
+          .insert(jobs)
+          .values({
+            title,
+            role_family: family,
+            location: typeof args.location === "string" ? args.location.trim() || null : null,
+            description:
+              typeof args.description === "string" ? args.description.trim() || null : null,
+            headcount:
+              typeof args.headcount === "number" && args.headcount >= 1
+                ? Math.floor(args.headcount)
+                : 1,
+            salary_min: typeof args.salary_min === "number" ? args.salary_min : null,
+            salary_max: typeof args.salary_max === "number" ? args.salary_max : null,
+            weights: (template?.weights ?? {}) as never,
+            status: "draft",
+            created_by: profile.id,
+          })
+          .returning({ id: jobs.id });
+        const jobId = inserted[0]!.id;
+        await auditAgent(profile, "jobs", jobId, "agent_create", { title, role_family: family });
+        return {
+          ok: true,
+          message: `Đã tạo tin NHÁP "${title}". Muốn đăng công khai, xác nhận rồi dùng set_job_status → open.`,
+          job_id: jobId,
+          admin_url: `/tin-tuyen-dung/${jobId}`,
+        };
+      }
+      case "update_job": {
+        if (args.confirmed !== true) return NOT_CONFIRMED;
+        const j = await resolveJob(String(args.job ?? ""));
+        const set: Record<string, unknown> = {};
+        if (typeof args.title === "string" && args.title.trim().length >= 3)
+          set.title = args.title.trim();
+        if (typeof args.description === "string") set.description = args.description.trim() || null;
+        if (typeof args.location === "string") set.location = args.location.trim() || null;
+        if (typeof args.headcount === "number" && args.headcount >= 1)
+          set.headcount = Math.floor(args.headcount);
+        if (typeof args.salary_min === "number") set.salary_min = args.salary_min;
+        if (typeof args.salary_max === "number") set.salary_max = args.salary_max;
+        if (Object.keys(set).length === 0)
+          return {
+            error: "Không có trường nào để sửa (title/description/location/headcount/salary).",
+          };
+        await db
+          .update(jobs)
+          .set(set as never)
+          .where(eq(jobs.id, j.id));
+        await auditAgent(profile, "jobs", j.id, "agent_update", set);
+        return {
+          ok: true,
+          message: `Đã cập nhật tin "${j.title}": ${Object.keys(set).join(", ")}.`,
+          admin_url: `/tin-tuyen-dung/${j.id}`,
+        };
+      }
+      case "set_job_status": {
+        if (args.confirmed !== true) return NOT_CONFIRMED;
+        const j = await resolveJob(String(args.job ?? ""));
+        const status = String(args.status ?? "");
+        if (!(JOB_STATUSES as readonly string[]).includes(status)) {
+          return { error: `Trạng thái không hợp lệ: ${status}` };
+        }
+        await setJobStatus(j.id, status as never);
+        await auditAgent(profile, "jobs", j.id, "agent_status", { from: j.status, to: status });
+        return {
+          ok: true,
+          message:
+            status === "open"
+              ? `Đã ĐĂNG CÔNG KHAI tin "${j.title}" — ứng viên nộp được tại /tuyen-dung/${j.id}.`
+              : `Đã đổi trạng thái tin "${j.title}": ${j.status} → ${status}.`,
+        };
+      }
+      // -------------------------- Insight tools --------------------------
+      case "search_cv_content": {
+        const keyword = String(args.keyword ?? "").trim();
+        if (keyword.length < 2) return { error: "Từ khóa quá ngắn." };
+        const needle = fold(keyword);
+        const rows = await db
+          .select({
+            id: candidates.id,
+            full_name: candidates.full_name,
+            current_stage: candidates.current_stage,
+            ai_score: candidates.ai_score,
+            job_id: candidates.job_id,
+            cv_text: candidates.cv_text,
+          })
+          .from(candidates)
+          .where(eq(candidates.is_archived, false))
+          .limit(500);
+        const hits = rows.filter((r) => r.cv_text && fold(r.cv_text).includes(needle)).slice(0, 10);
+        if (hits.length === 0)
+          return { message: `Không CV nào chứa "${keyword}" trong ${rows.length} hồ sơ.` };
+        return await Promise.all(
+          hits.map(async (r) => ({
+            id: r.id,
+            full_name: r.full_name,
+            stage: r.current_stage,
+            ai_score: r.ai_score,
+            job: await jobTitleOf(r.job_id),
+            snippet: snippetAround(r.cv_text!, needle),
+          })),
+        );
+      }
+      case "compare_candidates": {
+        const list = Array.isArray(args.names_or_ids) ? args.names_or_ids.slice(0, 5) : [];
+        if (list.length < 2) return { error: "Cần ít nhất 2 ứng viên để so sánh." };
+        const resolved = await Promise.all(list.map((v) => resolveCandidate(String(v))));
+        const screenings = await db
+          .select({
+            candidate_id: ai_screenings.candidate_id,
+            criteria: ai_screenings.criteria,
+            total: ai_screenings.total,
+            created_at: ai_screenings.created_at,
+          })
+          .from(ai_screenings)
+          .where(
+            inArray(
+              ai_screenings.candidate_id,
+              resolved.map((c) => c.id),
+            ),
+          )
+          .orderBy(desc(ai_screenings.created_at));
+        const latestByCand = new Map<string, (typeof screenings)[number]>();
+        for (const s of screenings)
+          if (!latestByCand.has(s.candidate_id)) latestByCand.set(s.candidate_id, s);
+        return await Promise.all(
+          resolved.map(async (c) => {
+            const s = latestByCand.get(c.id);
+            const crit = (s?.criteria ?? {}) as Record<string, { score?: number }>;
+            return {
+              full_name: c.full_name,
+              job: await jobTitleOf(c.job_id),
+              stage: c.current_stage,
+              total: s?.total ?? c.ai_score,
+              criteria_scores: Object.fromEntries(
+                Object.entries(crit).map(([k, v]) => [k, v?.score ?? null]),
+              ),
+              detail_url: `/ung-vien/${c.id}`,
+            };
+          }),
+        );
+      }
+      case "candidate_timeline": {
+        const c = await resolveCandidate(String(args.name_or_id ?? ""));
+        const [moves, ivs, mails] = await Promise.all([
+          db
+            .select({
+              at: stage_history.at,
+              from_stage: stage_history.from_stage,
+              to_stage: stage_history.to_stage,
+              notes: stage_history.notes,
+            })
+            .from(stage_history)
+            .where(eq(stage_history.candidate_id, c.id))
+            .orderBy(desc(stage_history.at))
+            .limit(20),
+          db
+            .select({
+              scheduled_at: interviews.scheduled_at,
+              type: interviews.type,
+              status: interviews.status,
+            })
+            .from(interviews)
+            .where(eq(interviews.candidate_id, c.id))
+            .limit(10),
+          db
+            .select({
+              created_at: email_messages.created_at,
+              subject: email_messages.subject,
+              status: email_messages.status,
+            })
+            .from(email_messages)
+            .where(eq(email_messages.candidate_id, c.id))
+            .orderBy(desc(email_messages.created_at))
+            .limit(10),
+        ]);
+        return {
+          candidate: c.full_name,
+          current_stage: c.current_stage,
+          stage_moves: moves,
+          interviews: ivs,
+          emails: mails,
+          detail_url: `/ung-vien/${c.id}`,
+        };
+      }
+      case "report_snapshot": {
+        const days = Math.min(365, Math.max(7, Number(args.days) || 90));
+        const to = new Date();
+        const from = new Date(Date.now() - days * dayMs);
+        const filter = parseReportFilter({
+          from: from.toISOString().slice(0, 10),
+          to: to.toISOString().slice(0, 10),
+        });
+        const p = await buildReportPayload(filter);
+        return {
+          period_days: days,
+          total_candidates: p.total_candidates,
+          funnel: p.funnel,
+          time_to_hire: p.time_to_hire,
+          source_effectiveness: p.source_effectiveness,
+          hires_per_month: p.hires_per_month,
+          report_url: "/bao-cao",
+        };
+      }
+      case "email_queue_status": {
+        const rows = await db
+          .select({
+            subject: email_messages.subject,
+            to_emails: email_messages.to_emails,
+            status: email_messages.status,
+            created_at: email_messages.created_at,
+            error: email_messages.error,
+          })
+          .from(email_messages)
+          .where(
+            inArray(email_messages.status, ["pending_approval", "queued", "failed"] as never[]),
+          )
+          .orderBy(desc(email_messages.created_at))
+          .limit(15);
+        return {
+          items: rows,
+          note: "Duyệt/hủy email tại trang Email (/email) — không duyệt được từ chat.",
+        };
+      }
+      case "suggest_past_candidates": {
+        const j = await resolveJob(String(args.job ?? ""));
+        const rows = await db
+          .select({
+            id: candidates.id,
+            full_name: candidates.full_name,
+            ai_score: candidates.ai_score,
+            current_stage: candidates.current_stage,
+            email: candidates.email,
+            phone: candidates.phone,
+            job_id: candidates.job_id,
+          })
+          .from(candidates)
+          .innerJoin(jobs, eq(jobs.id, candidates.job_id))
+          .where(
+            and(
+              eq(jobs.role_family, j.role_family),
+              ne(candidates.job_id, j.id),
+              ne(candidates.current_stage, "hired"),
+              gte(candidates.ai_score, 55),
+            ),
+          )
+          .orderBy(desc(candidates.ai_score))
+          .limit(6);
+        if (rows.length === 0)
+          return {
+            message: `Chưa có ứng viên cũ nào cùng nhóm "${j.role_family}" đạt điểm AI ≥ 55.`,
+          };
+        return await Promise.all(
+          rows.map(async (r) => ({
+            ...r,
+            previous_job: await jobTitleOf(r.job_id),
+            detail_url: `/ung-vien/${r.id}`,
+          })),
+        );
+      }
+      // -------------------------- Small actions --------------------------
+      case "add_candidate_note": {
+        const c = await resolveCandidate(String(args.name_or_id ?? ""));
+        const note = String(args.note ?? "").trim();
+        if (!note) return { error: "Ghi chú trống." };
+        const stamp = new Intl.DateTimeFormat("vi-VN", {
+          dateStyle: "short",
+          timeStyle: "short",
+          timeZone: "Asia/Ho_Chi_Minh",
+        }).format(new Date());
+        const appended = `${c.notes ? `${c.notes}\n` : ""}[${stamp} — Trợ lý AI] ${note.slice(0, 500)}`;
+        await db.update(candidates).set({ notes: appended }).where(eq(candidates.id, c.id));
+        return { ok: true, message: `Đã thêm ghi chú vào hồ sơ ${c.full_name}.` };
+      }
+      case "cancel_interview": {
+        const c = await resolveCandidate(String(args.name_or_id ?? ""));
+        const upcoming = await db
+          .select({
+            id: interviews.id,
+            scheduled_at: interviews.scheduled_at,
+            type: interviews.type,
+          })
+          .from(interviews)
+          .where(and(eq(interviews.candidate_id, c.id), eq(interviews.status, "scheduled")))
+          .orderBy(interviews.scheduled_at);
+        if (upcoming.length === 0)
+          return { error: `${c.full_name} không có buổi phỏng vấn nào đang được lên lịch.` };
+        if (upcoming.length > 1)
+          return {
+            error:
+              `${c.full_name} có ${upcoming.length} buổi phỏng vấn: ` +
+              upcoming.map((i) => `${i.scheduled_at} (${i.type})`).join(", ") +
+              ". Hỏi người dùng muốn hủy buổi nào (hiện chỉ hủy được khi còn đúng 1 buổi).",
+          };
+        if (args.confirmed !== true) return NOT_CONFIRMED;
+        const target = upcoming[0]!;
+        await cancelInterview(
+          target.id,
+          typeof args.reason === "string" && args.reason.trim()
+            ? args.reason.trim()
+            : "Hủy bởi Trợ lý AI theo yêu cầu người dùng",
+        );
+        await auditAgent(profile, "interviews", target.id, "agent_cancel", {
+          candidate: c.full_name,
+          scheduled_at: target.scheduled_at,
+        });
+        return {
+          ok: true,
+          message: `Đã hủy buổi phỏng vấn ${target.scheduled_at} của ${c.full_name} (kèm hủy sự kiện Outlook nếu có).`,
+        };
+      }
       default:
         return { error: `Công cụ không tồn tại: ${name}` };
     }
@@ -335,10 +1049,13 @@ Người dùng hiện tại: ${profile.full_name ?? "—"} (vai trò: ${profile.
 
 Nguyên tắc:
 - Dùng công cụ để LÀM việc thay vì chỉ mô tả. Sau khi làm xong, tóm tắt kết quả 1-2 câu kèm đường dẫn nếu có.
+- XÁC NHẬN TRƯỚC KHI THAY ĐỔI: với create_job / update_job / set_job_status / cancel_interview, luôn tóm tắt việc định làm và hỏi người dùng đồng ý không. Chỉ khi họ trả lời đồng ý mới gọi công cụ với confirmed=true. Không bao giờ tự đặt confirmed=true khi chưa được đồng ý trong hội thoại.
+- Tin tuyển dụng tạo mới luôn là NHÁP — muốn hiện lên trang tuyển dụng công khai phải set_job_status → open (một lần xác nhận riêng).
+- Khi so sánh ứng viên hoặc liệt kê nhiều dòng dữ liệu, trình bày bằng BẢNG Markdown gọn (cột tiếng Việt).
 - Ngày giờ người dùng nói (ví dụ "thứ Năm 2 giờ chiều") phải đổi sang ISO 8601 với múi giờ +07:00 trước khi gọi schedule_interview.
-- Email soạn ra LUÔN ở trạng thái chờ duyệt — nhắc người dùng vào trang Email để duyệt trước khi gửi.
+- Email soạn ra LUÔN ở trạng thái chờ duyệt — nhắc người dùng vào trang Email để duyệt trước khi gửi. Duyệt email và duyệt hồ sơ KHÔNG làm được từ chat.
 - Không bịa dữ liệu: nếu công cụ trả lỗi hoặc không thấy, nói thẳng và gợi ý cách khác.
-- Nếu trùng tên nhiều ứng viên, hỏi lại người dùng chọn ai.
+- Nếu trùng tên nhiều ứng viên/tin tuyển dụng, hỏi lại người dùng chọn cái nào.
 - Khi cần dùng công cụ, gọi qua cơ chế tool-calling thật — KHÔNG viết "[gọi công cụ …]" trong câu trả lời.
 - Tuyệt đối không thực hiện thao tác ngoài các công cụ được cấp.`;
 }
