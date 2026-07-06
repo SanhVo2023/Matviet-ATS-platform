@@ -15,13 +15,9 @@ interface Props {
   criteria: VerifiedCriteria;
   weights: Weights;
   summary?: string | null;
-  model: string;
   scoredAt: string;
-  costUsd?: number | null;
   /** Show "weights changed" hint above the card if the latest screening pre-dates a weight change. */
   weightsChanged?: boolean;
-  /** Restrict the cost line to admin role. */
-  showCost?: boolean;
 }
 
 export function ScoreCard({
@@ -30,11 +26,8 @@ export function ScoreCard({
   criteria,
   weights,
   summary,
-  model,
   scoredAt,
-  costUsd,
   weightsChanged,
-  showCost,
 }: Props) {
   const reduceMotion = useReducedMotion();
   return (
@@ -74,21 +67,12 @@ export function ScoreCard({
         ))}
       </div>
 
-      {/* Footer — meta */}
+      {/* Footer — meta. Model/token internals live in Cài đặt → Hệ thống,
+          not in front of HR (Sanh, 2026-07-06). */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
-        <div className="flex flex-wrap gap-3">
-          <span>
-            {t.score.model}: <span className="font-mono text-slate-700">{model}</span>
-          </span>
-          <span>
-            {t.score.scoredAt}: <time dateTime={scoredAt}>{formatRelative(scoredAt)}</time>
-          </span>
-          {showCost && costUsd != null ? (
-            <span>
-              {t.score.cost}: <span className="font-mono">${costUsd.toFixed(4)}</span>
-            </span>
-          ) : null}
-        </div>
+        <span>
+          {t.score.scoredAt}: <time dateTime={scoredAt}>{formatRelative(scoredAt)}</time>
+        </span>
         <RescoreButton candidateId={candidateId} variant="rescore" />
       </div>
     </div>

@@ -17,7 +17,7 @@ interface Props {
     last_error: string | null;
     enqueued_at: string;
   } | null;
-  /** Admin / HR only: show cost. */
+  /** Kept for call-site compatibility — cost/model internals moved to Cài đặt → Hệ thống. */
   isAdmin?: boolean;
 }
 
@@ -32,7 +32,7 @@ const DOCX_REASON_RE = /docx|chuy[eểeé]n[\s-]?[đdĐD][oơôổ]i/i;
  * Server component — pulls everything from the parent's data fetch; no client-side
  * fetching. Polling re-runs the parent route via router.refresh().
  */
-export function ScoringTab({ candidate, job, latestScreening, queueStatus, isAdmin }: Props) {
+export function ScoringTab({ candidate, job, latestScreening, queueStatus }: Props) {
   const weights = jobWeights(job?.weights);
 
   if (candidate.ai_screening_status === "failed") {
@@ -69,11 +69,8 @@ export function ScoringTab({ candidate, job, latestScreening, queueStatus, isAdm
       criteria={criteria}
       weights={weights}
       summary={summary}
-      model={latestScreening.model}
       scoredAt={latestScreening.created_at}
-      costUsd={latestScreening.cost_usd ?? null}
       weightsChanged={weightsChanged}
-      showCost={isAdmin}
     />
   );
 }

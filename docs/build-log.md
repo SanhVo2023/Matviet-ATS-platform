@@ -162,3 +162,9 @@ pm run dev (localhost baseURL) or rebuild without the env override.
 ## 2026-07-06 (tiếp) — Fix: 4 nút "AI everywhere" chết vì token starvation (Kimi)
 - Sanh báo "AI không chạy". Chẩn đoán prod: scoring + agent OK server-side (queue 0 kẹt, agent trả lời tốt qua API). Thủ phạm: 4 action aiChat giữ trần token cũ từ thời Llama — summary 500, email draft 700, câu hỏi PV 1200, JD 1400. Kimi (reasoning) đốt sạch budget vào suy nghĩ → content rỗng → "AI trả về rỗng." từ ngày đổi model mặc định.
 - Fix tận gốc trong `aiChat`: default 1024→4096 + tự retry 1 lần với budget ×2 khi content rỗng (caller tương lai không thể dính lại). Call sites: JD 4096, summary 2048, câu hỏi PV 3072, draft 3072 + feature meta (jd_generate/candidate_summary/interview_questions/email_draft) + `import "@/server/ai/runtime"` — trước đây 4 action này BỎ QUA kill switch admin và không log usage.
+
+## 2026-07-06 (tiếp) — UI fix batch theo phản hồi Sanh
+- **Sidebar cố định**: shell dashboard chuyển sang `h-dvh overflow-hidden` — chỉ `<main>` cuộn, rail + topbar đứng yên (print vẫn flow tự nhiên cho áp phích QR).
+- **"Phân tích AI" gọn lại**: bỏ dòng model + chi phí khỏi ScoreCard — nội bộ kỹ thuật xem ở Cài đặt → Hệ thống. Trả lời câu hỏi của Sanh: MỌI tính năng AI resolve model qua `aiModelId()` = picker admin → env → default Kimi (4 nút AI-everywhere chỉ tuân theo từ fix sáng nay — trước đó bỏ qua cả kill switch).
+- **"Đang chấm" kẹt**: worker không bao giờ chuyển stage sau khi chấm xong. Fix: `advanceStageAfterScoring` — CHỈ `screening`→`screened` (+stage_history, actor null); giữ nguyên "Mới" (inbox chưa triage của HR) và mọi stage sau đó. Đã sửa tay 4 ứng viên tồn trên prod.
+- **Chatbot**: reply render Markdown/GFM (react-markdown + remark-gfm, lazy-load khi mở chat) — bảng có header navy, cuộn ngang trong bubble; thay "Đang xử lý…" bằng ThinkingIndicator (3 chấm nhún + câu trạng thái xoay vòng + đếm giây — Kimi reasoning 15-40s là bình thường).

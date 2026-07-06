@@ -52,7 +52,9 @@ export function Sidebar({ role }: SidebarProps) {
 
   return (
     // Spacer keeps the layout at rail width — the expansion overlays content.
-    <div className="relative hidden h-screen w-[72px] shrink-0 lg:block">
+    // h-full (not h-screen): the dashboard shell is a fixed-height flex row,
+    // so the rail stays pinned while <main> scrolls.
+    <div className="relative hidden h-full w-[72px] shrink-0 lg:block">
       <motion.aside
         aria-label="Điều hướng chính"
         initial={false}

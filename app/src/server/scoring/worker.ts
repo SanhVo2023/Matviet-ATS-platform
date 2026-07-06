@@ -20,7 +20,14 @@ import "server-only";
 import { and, asc, eq, lte, lt, or, sql } from "drizzle-orm";
 import { extractText, getDocumentProxy } from "unpdf";
 import { getDb } from "@/db";
-import { ai_screenings, candidates, cv_files, jobs, scoring_queue } from "@/db/schema";
+import {
+  ai_screenings,
+  candidates,
+  cv_files,
+  jobs,
+  scoring_queue,
+  stage_history,
+} from "@/db/schema";
 import { getFile } from "@/lib/r2";
 import { aiJson, aiModelId, computeAiCost } from "@/lib/ai/workers-ai";
 import { convertToMarkdown } from "@/lib/ai/to-markdown";
@@ -77,6 +84,7 @@ export async function runScoringJob(candidateId?: string): Promise<ScoringOutcom
       .update(scoring_queue)
       .set({ status: "succeeded", completed_at: new Date().toISOString(), last_error: null })
       .where(eq(scoring_queue.id, queueRow.id));
+    await advanceStageAfterScoring(queueRow.candidate_id);
     await notifyScoringOutcome(queueRow.candidate_id, screeningId);
     return {
       status: "succeeded",
@@ -378,6 +386,41 @@ async function markFailure(
       .where(eq(candidates.id, q.candidate_id));
   }
   return !nextRetry;
+}
+
+/**
+ * Scoring done → the pipeline stage advances out of "Đang chấm" by itself.
+ * ONLY the transient 'screening' stage moves (→ 'screened'). 'new' stays —
+ * "Mới" is HR's untriaged inbox, not an AI state — and anything further
+ * along (interview, offer, …) is never rolled back or touched.
+ * Best-effort: a failure here must not fail the completed scoring job.
+ */
+async function advanceStageAfterScoring(candidateId: string): Promise<void> {
+  try {
+    const db = await getDb();
+    const row = await db
+      .select({ current_stage: candidates.current_stage })
+      .from(candidates)
+      .where(eq(candidates.id, candidateId))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+    if (!row || row.current_stage !== "screening") return;
+    await db.batch([
+      db
+        .update(candidates)
+        .set({ current_stage: "screened" })
+        .where(eq(candidates.id, candidateId)),
+      db.insert(stage_history).values({
+        candidate_id: candidateId,
+        from_stage: row.current_stage,
+        to_stage: "screened",
+        actor_user_id: null,
+        notes: "AI chấm điểm xong — tự chuyển giai đoạn",
+      }),
+    ]);
+  } catch (err) {
+    console.warn("[scoring] stage advance failed:", err);
+  }
 }
 
 /**

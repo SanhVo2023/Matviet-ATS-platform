@@ -14,7 +14,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const profile = await requireSession();
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    // h-dvh + overflow-hidden pins the shell: sidebar + topbar stay put and
+    // only <main> scrolls. Print restores natural flow (QR poster page).
+    <div className="flex h-dvh overflow-hidden bg-slate-50 print:h-auto print:overflow-visible">
       {/* Skip link must be the FIRST focusable element, before the nav it skips */}
       <a href="#main-content" className="skip-link">
         Bỏ qua đến nội dung
@@ -24,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <div className="contents print:hidden">
         <Sidebar role={profile.role} />
       </div>
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex h-full min-h-0 flex-1 flex-col print:h-auto">
         <div className="contents print:hidden">
           <TopBar
             fullName={profile.full_name ?? profile.email ?? ""}
@@ -33,7 +35,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
           />
         </div>
         {/* pb-16 clears the fixed bottom tab bar on mobile */}
-        <main id="main-content" className="flex-1 overflow-y-auto pb-16 lg:pb-0" tabIndex={-1}>
+        <main
+          id="main-content"
+          className="flex-1 overflow-y-auto pb-16 lg:pb-0 print:overflow-visible"
+          tabIndex={-1}
+        >
           {children}
         </main>
       </div>

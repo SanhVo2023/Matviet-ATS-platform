@@ -7,10 +7,17 @@
  * always wait for human approval).
  */
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Sparkles, X, SendHorizontal, Loader2, Wrench } from "lucide-react";
+import { Sparkles, X, SendHorizontal, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/types/db";
+
+// Markdown parser ships only when the chat actually renders a reply.
+const AgentMarkdown = dynamic(() => import("./AgentMarkdown"), {
+  ssr: false,
+  loading: () => null,
+});
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 
@@ -138,13 +145,13 @@ export function AgentDock({ role }: { role: UserRole }) {
                 >
                   <div
                     className={cn(
-                      "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm",
+                      "max-w-[85%] rounded-2xl px-3 py-2 text-sm",
                       m.role === "user"
-                        ? "rounded-br-sm bg-brand-700 text-white"
+                        ? "whitespace-pre-wrap rounded-br-sm bg-brand-700 text-white"
                         : "rounded-bl-sm bg-slate-100 text-slate-900",
                     )}
                   >
-                    {m.content}
+                    {m.role === "assistant" ? <AgentMarkdown text={m.content} /> : m.content}
                     {m.actions && m.actions.length > 0 && (
                       <ul className="mt-2 space-y-1 border-t border-slate-200 pt-2">
                         {m.actions.map((a, j) => (
@@ -161,11 +168,7 @@ export function AgentDock({ role }: { role: UserRole }) {
                   </div>
                 </div>
               ))}
-              {busy && (
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Đang xử lý…
-                </div>
-              )}
+              {busy && <ThinkingIndicator />}
               {error && (
                 <p
                   role="alert"
@@ -204,5 +207,41 @@ export function AgentDock({ role }: { role: UserRole }) {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+/**
+ * Kimi is a reasoning model — 15-40s before the first token is normal.
+ * Rotating status lines + an elapsed counter tell the user the assistant is
+ * alive and working, not hung.
+ */
+function ThinkingIndicator() {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  const phase =
+    seconds < 6
+      ? "Đang suy nghĩ…"
+      : seconds < 15
+        ? "Đang tra cứu dữ liệu tuyển dụng…"
+        : seconds < 30
+          ? "Đang soạn câu trả lời…"
+          : "Câu hỏi khó — cần thêm chút thời gian…";
+  return (
+    <div className="flex w-fit items-center gap-2.5 rounded-2xl rounded-bl-sm bg-slate-100 px-3 py-2">
+      <span className="flex items-center gap-1" aria-hidden>
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand-700/70"
+            style={{ animationDelay: `${i * 0.15}s` }}
+          />
+        ))}
+      </span>
+      <span className="text-xs text-slate-500">{phase}</span>
+      <span className="text-[10px] tabular-nums text-slate-400">{seconds}s</span>
+    </div>
   );
 }
