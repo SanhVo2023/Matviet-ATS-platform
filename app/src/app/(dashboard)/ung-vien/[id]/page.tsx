@@ -16,6 +16,7 @@ import { listApprovalsForCandidate } from "@/server/approvals/repository";
 import { CandidateProfile } from "@/components/features/candidates/CandidateProfile";
 import { CandidateTabs } from "@/components/features/candidates/CandidateTabs";
 import { CandidateTimeline } from "@/components/features/candidates/CandidateTimeline";
+import { ApprovalProgress } from "@/components/features/approvals/ApprovalProgress";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +95,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
           />
         </div>
 
-        {/* Center column */}
+        {/* Center column — 3 merged tabs (ADR 0015 hierarchy pass) */}
         <div className="lg:col-span-6">
           <CandidateTabs
             candidate={candidate}
@@ -115,18 +116,25 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
             canSendAssessment={profile.role === "admin" || profile.role === "hr"}
             hrName={profile.full_name ?? "Phòng Nhân sự"}
             interviews={interviews}
-            approvals={approvals}
             interviewers={interviewers}
-            actorNames={actorNames}
             currentRole={profile.role}
             isAdmin={profile.role === "admin"}
-            currentUserOwnsManagerStep={currentUserOwnsManagerStep}
           />
         </div>
 
-        {/* Right rail */}
+        {/* Right rail — Lịch sử, then the approval progress right under it */}
         <div className="lg:col-span-3">
           <CandidateTimeline history={history} actorNames={actorNames} />
+          <ApprovalProgress
+            candidateId={candidate.id}
+            approvals={approvals}
+            currentRole={profile.role}
+            currentUserOwnsManagerStep={currentUserOwnsManagerStep}
+            actorNames={actorNames}
+            canStart={
+              profile.role === "admin" || profile.role === "hr" || profile.role === "hiring_manager"
+            }
+          />
         </div>
       </div>
     </div>

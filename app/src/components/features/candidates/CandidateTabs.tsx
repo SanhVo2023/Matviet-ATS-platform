@@ -5,13 +5,11 @@ import { ScoringTab } from "@/components/features/scoring/ScoringTab";
 import { AssessmentsTab } from "@/components/features/assessments/AssessmentsTab";
 import { CandidateEmailsTab } from "@/components/features/emails/CandidateEmailsTab";
 import { InterviewsTab } from "@/components/features/interviews/InterviewsTab";
-import { ApprovalsTab } from "@/components/features/approvals/ApprovalsTab";
 import type { CandidateRow } from "@/server/candidates/repository";
 import type { JobRow } from "@/server/jobs/repository";
 import type { AiScreeningRow } from "@/server/scoring/repository";
 import type { AssessmentRow, AssessmentSubmissionRow } from "@/server/assessments/repository";
 import type { InterviewRow } from "@/server/interviews/repository";
-import type { ApprovalRow } from "@/server/approvals/repository";
 import type { Database } from "@/types/db";
 import { t } from "@/lib/i18n";
 
@@ -39,22 +37,28 @@ interface Props {
   canSendAssessment: boolean;
   hrName: string;
   interviews: InterviewRow[];
-  approvals: ApprovalRow[];
   interviewers: Array<{ id: string; full_name: string | null; role: string }>;
-  actorNames: Record<string, string>;
   currentRole: Database["public"]["Enums"]["user_role"];
   isAdmin?: boolean;
-  /** Manager assignment lookup for the approval timeline. */
-  currentUserOwnsManagerStep?: boolean;
+}
+
+/** Gold-tick section label used inside merged tabs (design-language SectionLabel). */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <span className="h-3.5 w-1 shrink-0 rounded-full bg-accent-400" aria-hidden />
+      {children}
+    </h3>
+  );
 }
 
 /**
- * Center-column tabs on the candidate detail page.
- * G3: CV preview + History.
- * G4: AI scoring tab live.
- * G6: Emails tab live.
- * G8: Interviews + Approvals tabs live.
- * G9: Tests tab live.
+ * Center-column tabs — restructured per Sanh 2026-07-06: three tabs with a
+ * clear reading order instead of six.
+ *   1. "CV & Phân tích AI" — the AI verdict on top, the source document below
+ *   2. "Phỏng vấn & Bài test" — everything evaluative in one place
+ *   3. "Email" — correspondence
+ * Approvals moved to the right rail (ApprovalProgress, under Lịch sử).
  */
 export function CandidateTabs({
   candidate,
@@ -67,110 +71,87 @@ export function CandidateTabs({
   canSendAssessment,
   hrName,
   interviews,
-  approvals,
   interviewers,
-  actorNames,
   currentRole,
   isAdmin,
-  currentUserOwnsManagerStep,
 }: Props) {
-  // Default tab: prioritise pending approvals → AI scoring → CV
-  const defaultTab = approvals.some((a) => a.status === "pending")
-    ? "approvals"
-    : latestScreening || candidate.ai_screening_status !== "pending"
-      ? "ai"
-      : "cv";
-
   const canScheduleInterview = currentRole === "admin" || currentRole === "hr";
-  const canStartApproval =
-    currentRole === "admin" || currentRole === "hr" || currentRole === "hiring_manager";
 
   return (
-    <Tabs defaultValue={defaultTab} className="w-full">
+    <Tabs defaultValue="cv" className="w-full">
       <TabsList className="h-auto max-w-full justify-start overflow-x-auto rounded-full border-0 bg-slate-100 p-1">
         <TabsTrigger value="cv" className={TAB_TRIGGER_CLASS}>
-          CV
-        </TabsTrigger>
-        <TabsTrigger value="ai" className={TAB_TRIGGER_CLASS}>
-          Phân tích AI
+          CV & Phân tích AI
         </TabsTrigger>
         <TabsTrigger value="interviews" className={TAB_TRIGGER_CLASS}>
-          {t.nav.interviews}
-        </TabsTrigger>
-        <TabsTrigger value="approvals" className={TAB_TRIGGER_CLASS}>
-          {t.nav.approvals}
-        </TabsTrigger>
-        <TabsTrigger value="tests" className={TAB_TRIGGER_CLASS}>
-          {t.nav.tests}
+          Phỏng vấn & Bài test
         </TabsTrigger>
         <TabsTrigger value="emails" className={TAB_TRIGGER_CLASS}>
           {t.nav.emails}
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="cv">
-        {cv ? (
-          <CvPreview
-            signedUrl={cv.signedUrl}
-            mime={cv.mime}
-            originalName={cv.originalName}
-            actionSlot={
-              canSendAssessment ? <ChangeCvButton candidateId={candidate.id} /> : undefined
-            }
+      {/* 1 — the AI verdict first (synthesized signal), the raw CV below it */}
+      <TabsContent value="cv" className="space-y-6">
+        <div className="space-y-3">
+          <SectionLabel>Phân tích AI</SectionLabel>
+          <ScoringTab
+            candidate={candidate}
+            job={job}
+            latestScreening={latestScreening}
+            queueStatus={queueStatus}
+            isAdmin={isAdmin}
           />
-        ) : (
-          <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-            <p>Chưa có CV được đính kèm.</p>
-            {canSendAssessment && (
-              <div className="mt-4 flex justify-center">
-                <ChangeCvButton candidateId={candidate.id} label="Tải CV lên" />
-              </div>
-            )}
-          </div>
-        )}
+        </div>
+        <div className="space-y-3">
+          <SectionLabel>CV gốc</SectionLabel>
+          {cv ? (
+            <CvPreview
+              signedUrl={cv.signedUrl}
+              mime={cv.mime}
+              originalName={cv.originalName}
+              actionSlot={
+                canSendAssessment ? <ChangeCvButton candidateId={candidate.id} /> : undefined
+              }
+            />
+          ) : (
+            <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
+              <p>Chưa có CV được đính kèm.</p>
+              {canSendAssessment && (
+                <div className="mt-4 flex justify-center">
+                  <ChangeCvButton candidateId={candidate.id} label="Tải CV lên" />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </TabsContent>
 
-      <TabsContent value="ai">
-        <ScoringTab
-          candidate={candidate}
-          job={job}
-          latestScreening={latestScreening}
-          queueStatus={queueStatus}
-          isAdmin={isAdmin}
-        />
+      {/* 2 — everything evaluative: live interviews, then the written test */}
+      <TabsContent value="interviews" className="space-y-6">
+        <div className="space-y-3">
+          <SectionLabel>Phỏng vấn</SectionLabel>
+          <InterviewsTab
+            candidateId={candidate.id}
+            candidateName={candidate.full_name}
+            interviews={interviews}
+            interviewers={interviewers}
+            canSchedule={canScheduleInterview}
+          />
+        </div>
+        <div className="space-y-3">
+          <SectionLabel>Bài test</SectionLabel>
+          <AssessmentsTab
+            candidateId={candidate.id}
+            candidateName={candidate.full_name}
+            assessment={assessment}
+            submission={latestSubmission}
+            canSend={canSendAssessment}
+          />
+        </div>
       </TabsContent>
 
-      <TabsContent value="interviews">
-        <InterviewsTab
-          candidateId={candidate.id}
-          candidateName={candidate.full_name}
-          interviews={interviews}
-          interviewers={interviewers}
-          canSchedule={canScheduleInterview}
-        />
-      </TabsContent>
-
-      <TabsContent value="approvals">
-        <ApprovalsTab
-          candidateId={candidate.id}
-          approvals={approvals}
-          currentRole={currentRole}
-          currentUserOwnsManagerStep={currentUserOwnsManagerStep}
-          actorNames={actorNames}
-          canStart={canStartApproval}
-        />
-      </TabsContent>
-
-      <TabsContent value="tests">
-        <AssessmentsTab
-          candidateId={candidate.id}
-          candidateName={candidate.full_name}
-          assessment={assessment}
-          submission={latestSubmission}
-          canSend={canSendAssessment}
-        />
-      </TabsContent>
-
+      {/* 3 — correspondence */}
       <TabsContent value="emails">
         <CandidateEmailsTab
           candidateId={candidate.id}

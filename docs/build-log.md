@@ -184,3 +184,8 @@ pm run dev (localhost baseURL) or rebuild without the env override.
 ## 2026-07-06 (tiếp) — ADR 0015 "Tinh gọn toàn diện" (plan mode, Sanh duyệt)
 - Nguyên tắc: "HR xác nhận, AI gõ". 7 pillar cùng lúc: composer tự điền biến template (resolver composer-defaults.ts — giờ PV, lương, hạn, hội đồng PV…; biến đã điền gập thành 1 dòng ✓); thả CV → AI đọc + prefill tên/email/SĐT (extract-text.ts dùng chung với scoring, regex + 1 call AI, không bao giờ chặn upload); form tin = 3 trường + nút "AI soạn toàn bộ" (mô tả+yêu cầu+trọng số 1 click, phần còn lại gập "Nâng cao", bỏ bắt buộc phòng ban/trưởng phòng khi đăng); approval staff còn 1 bước (nút "Đề xuất tuyển" = đề xuất của HR, salary chốt lúc soạn offer), management 3 bước, phe-duyet có nút Duyệt/Từ chối ngay trong hàng; kanban 7 cột super-stage (DB giữ nguyên 16 — chỉ trình bày; thả vào "Phê duyệt" = tạo chuỗi duyệt, hired→Đóng map sang withdrew; badge sub-stage trên card; StageDropdown bảng vẫn đủ 16); dashboard mở đầu bằng "Hôm nay cần làm" (duyệt hồ sơ/email, PV hôm nay, offer chưa phản hồi, CV tồn); user admin đầy đủ thao tác + đổi mật khẩu tự phục vụ qua email (menu avatar).
 - Chuỗi duyệt cũ (hr_recommend/salary_deal đang chờ) vẫn hiển thị + duyệt được — không migrate dữ liệu.
+
+## 2026-07-06 (tiếp) — Trang ứng viên: 6 tab → 3 tab + progress Phê duyệt (Sanh)
+- Gộp "CV" + "Phân tích AI" thành 1 tab (kết luận AI trên, CV gốc dưới — đúng thứ tự đọc của HR); gộp "Phỏng vấn" + "Bài test" thành 1 tab; Email giữ nguyên.
+- "Phê duyệt" rời khỏi tab → thẻ tiến độ `ApprovalProgress` ở cột phải NGAY DƯỚI Lịch sử: thanh progress n/N bước (vàng đang chạy, xanh hoàn tất, đỏ từ chối) + nút Đề xuất tuyển / Duyệt-Từ chối tại chỗ (tái dùng ApprovalsTab).
+- Nhãn section gold-tick trong tab gộp giữ hierarchy rõ.
