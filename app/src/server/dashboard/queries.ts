@@ -1,7 +1,7 @@
 import "server-only";
-import { and, count, desc, eq, gte, lt } from "drizzle-orm";
+import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { approvals, candidates, interviews, jobs } from "@/db/schema";
+import { approvals, candidates, interviews, jobs, email_messages } from "@/db/schema";
 import {
   listPendingApprovalsForUser,
   type PendingApprovalRow,
@@ -168,4 +168,121 @@ export async function getExecQueueData(
   role: "bod" | "tap_doan",
 ): Promise<PendingApprovalRow[]> {
   return listPendingApprovalsForUser(userId, role);
+}
+
+// ---------------------------------------------------------------------------
+// "Hôm nay cần làm" action inbox (ADR 0015) — one list of everything that
+// needs a human decision today, each row one click from acting.
+// ---------------------------------------------------------------------------
+
+export interface ActionInboxItem {
+  key: string;
+  label: string;
+  detail: string | null;
+  href: string;
+  /** Sorting weight — decisions first, nudges last. */
+  priority: number;
+}
+
+export async function getActionInbox(): Promise<ActionInboxItem[]> {
+  const db = await getDb();
+  const items: ActionInboxItem[] = [];
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const { start, end } = vnDayBoundsUtc();
+
+  const [pendingApprovalsRow, pendingEmailsRow, staleNewRow, todayIvRow, offersWaitingRow] =
+    await Promise.all([
+      db.select({ n: count() }).from(approvals).where(eq(approvals.status, "pending")).get(),
+      db
+        .select({ n: count() })
+        .from(email_messages)
+        .where(eq(email_messages.status, "pending_approval"))
+        .get(),
+      db
+        .select({ n: count() })
+        .from(candidates)
+        .where(
+          and(
+            eq(candidates.is_archived, false),
+            eq(candidates.current_stage, "new"),
+            lt(candidates.created_at, threeDaysAgo),
+          ),
+        )
+        .get(),
+      db
+        .select({ n: count() })
+        .from(interviews)
+        .where(
+          and(
+            eq(interviews.status, "scheduled"),
+            gte(interviews.scheduled_at, start),
+            lt(interviews.scheduled_at, end),
+          ),
+        )
+        .get(),
+      db
+        .select({ n: count() })
+        .from(candidates)
+        .where(
+          and(
+            eq(candidates.is_archived, false),
+            eq(candidates.current_stage, "offer_sent"),
+            sql`${candidates.offer_responded_at} IS NULL`,
+          ),
+        )
+        .get(),
+    ]);
+
+  const approvalsN = Number(pendingApprovalsRow?.n ?? 0);
+  if (approvalsN > 0) {
+    items.push({
+      key: "approvals",
+      label: `${approvalsN} bước duyệt đang chờ quyết định`,
+      detail: "Duyệt/từ chối ngay trong hộp Phê duyệt",
+      href: "/phe-duyet",
+      priority: 1,
+    });
+  }
+  const emailsN = Number(pendingEmailsRow?.n ?? 0);
+  if (emailsN > 0) {
+    items.push({
+      key: "emails",
+      label: `${emailsN} email đang chờ bạn duyệt gửi`,
+      detail: "Ứng viên chưa nhận được thư cho tới khi bạn duyệt",
+      href: "/email",
+      priority: 2,
+    });
+  }
+  const ivN = Number(todayIvRow?.n ?? 0);
+  if (ivN > 0) {
+    items.push({
+      key: "interviews",
+      label: `${ivN} buổi phỏng vấn hôm nay`,
+      detail: "Xem lịch chi tiết bên dưới",
+      href: "/phong-van",
+      priority: 3,
+    });
+  }
+  const offersN = Number(offersWaitingRow?.n ?? 0);
+  if (offersN > 0) {
+    items.push({
+      key: "offers",
+      label: `${offersN} offer chưa được ứng viên phản hồi`,
+      detail: "Cân nhắc gọi điện nhắc trước khi liên kết hết hạn",
+      href: "/ung-vien",
+      priority: 4,
+    });
+  }
+  const staleN = Number(staleNewRow?.n ?? 0);
+  if (staleN > 0) {
+    items.push({
+      key: "stale",
+      label: `${staleN} CV mới chờ sàng lọc quá 3 ngày`,
+      detail: "Ứng viên chờ lâu dễ nhận việc nơi khác",
+      href: "/ung-vien",
+      priority: 5,
+    });
+  }
+
+  return items.sort((a, b) => a.priority - b.priority);
 }

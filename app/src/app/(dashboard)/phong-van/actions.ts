@@ -154,13 +154,15 @@ export async function generateInterviewQuestionsAction(
  * Lives in interviews actions because the natural trigger point in the UI is
  * after an interview review is filed.
  */
-export async function startApprovalAction(candidateId: string): Promise<ActionResult> {
+export async function startApprovalAction(
+  candidateId: string,
+): Promise<ActionResult<{ already_started: boolean }>> {
   await requireRole(["admin", "hr", "hiring_manager"]);
   try {
-    await startApproval(candidateId);
+    const r = await startApproval(candidateId);
     revalidatePath(`/ung-vien/${candidateId}`);
     revalidatePath("/phe-duyet");
-    return { ok: true };
+    return { ok: true, data: { already_started: r.already_started } };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Lỗi tạo quy trình duyệt" };
   }

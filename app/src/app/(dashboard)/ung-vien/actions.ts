@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
@@ -145,4 +146,86 @@ export async function updateCandidateContactAction(
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Lỗi cập nhật" };
   }
+}
+
+// ---------------------------------------------------------------------------
+// CV-drop prefill (ADR 0015 — "HR confirms, AI types")
+// ---------------------------------------------------------------------------
+
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+const VN_PHONE_RE = /(?:\+?84|0)(?:[\s.\-()]?\d){8,10}/;
+
+/**
+ * Extract name/email/phone from a dropped CV so HR confirms instead of
+ * typing. Regex catches email+phone instantly; one small AI call fills the
+ * name (and anything regex missed). Best-effort by contract — any failure
+ * returns whatever was found so the upload is never blocked.
+ */
+export async function prefillFromCvAction(
+  formData: FormData,
+): Promise<ActionResult<{ full_name?: string; email?: string; phone?: string }>> {
+  const profile = await requireRole(["admin", "hr"]);
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0 || file.size > CV_MAX_BYTES) {
+    return { ok: false, error: "File không hợp lệ" };
+  }
+  if (!isAcceptedCvMime(file.type)) {
+    return { ok: false, error: "Chỉ hỗ trợ PDF" };
+  }
+
+  const result: { full_name?: string; email?: string; phone?: string } = {};
+  try {
+    const { extractCvText } = await import("@/server/scoring/extract-text");
+    const text = await extractCvText(
+      file.name,
+      new Uint8Array(await file.arrayBuffer()),
+      file.type,
+    );
+    if (text.trim().length < 30) return { ok: true, data: result };
+
+    const emailMatch = text.match(EMAIL_RE);
+    if (emailMatch) result.email = emailMatch[0].toLowerCase();
+    const phoneMatch = text.match(VN_PHONE_RE);
+    if (phoneMatch) {
+      const digits = phoneMatch[0].replace(/\D/g, "").replace(/^84/, "0");
+      if (digits.length >= 9 && digits.length <= 11) result.phone = digits;
+    }
+
+    try {
+      const { aiJson } = await import("@/lib/ai/workers-ai");
+      const { data } = await aiJson({
+        system:
+          "Trích xuất thông tin liên hệ từ CV. Trả về JSON: full_name (họ tên ứng viên, đúng dấu tiếng Việt), email, phone. Không tìm thấy thì để chuỗi rỗng. KHÔNG bịa.",
+        user: text.slice(0, 3000),
+        jsonSchema: {
+          type: "object",
+          properties: {
+            full_name: { type: "string" },
+            email: { type: "string" },
+            phone: { type: "string" },
+          },
+          required: ["full_name", "email", "phone"],
+        },
+        zod: z.object({
+          full_name: z.string().max(120),
+          email: z.string().max(200),
+          phone: z.string().max(30),
+        }),
+        maxTokens: 2048,
+        temperature: 0,
+        feature: "candidate_summary",
+        userId: profile.id,
+      });
+      if (data.full_name.trim().length >= 2) result.full_name = data.full_name.trim();
+      if (!result.email && EMAIL_RE.test(data.email)) result.email = data.email.toLowerCase();
+      if (!result.phone && data.phone.replace(/\D/g, "").length >= 9) {
+        result.phone = data.phone.replace(/\D/g, "").replace(/^84/, "0");
+      }
+    } catch (aiErr) {
+      console.warn("[prefill] AI pass failed, regex-only result:", aiErr);
+    }
+  } catch (err) {
+    console.warn("[prefill] extraction failed:", err);
+  }
+  return { ok: true, data: result };
 }

@@ -11,18 +11,22 @@ export type FlowType = Database["public"]["Enums"]["flow_type"];
 export type StepKind = Database["public"]["Enums"]["approval_step_kind"];
 
 /**
- * Preset step orders.
+ * Preset step orders (streamlined per ADR 0015, Sanh 2026-07-06).
  *
- * staff (3 steps): HR proposes → manager proposes → HR negotiates salary
- *   → final offer is fired by HR after the salary_deal step approves.
+ * staff (1 step): clicking "Đề xuất tuyển" IS the HR recommendation — the
+ *   only real decision left is the manager's. Salary gets recorded when the
+ *   offer email is composed (composer auto-fills {{salary}}), not as an
+ *   approval step.
  *
- * management (4 steps): HR + manager → BOD → Tập đoàn → final offer.
- *   Salary negotiation is folded into the BOD/Tap đoàn discussion since
- *   management hires don't follow standard payband.
+ * management (3 steps): manager → BOD → Tập đoàn.
+ *
+ * `hr_recommend` and `salary_deal` remain in the enum/labels so legacy
+ * in-flight chains keep rendering and stay decidable — new chains simply
+ * never create them.
  */
 export const APPROVAL_PRESETS: Record<FlowType, StepKind[]> = {
-  staff: ["hr_recommend", "manager_recommend", "salary_deal"],
-  management: ["hr_recommend", "manager_recommend", "bod", "tap_doan"],
+  staff: ["manager_recommend"],
+  management: ["manager_recommend", "bod", "tap_doan"],
 };
 
 /** Vietnamese display label per step. Mirrors t.approvalStep but importable from server. */

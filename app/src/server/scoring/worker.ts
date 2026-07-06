@@ -18,7 +18,7 @@
  */
 import "server-only";
 import { and, asc, eq, lte, lt, or, sql } from "drizzle-orm";
-import { extractText, getDocumentProxy } from "unpdf";
+import { extractCvText } from "./extract-text";
 import { getDb } from "@/db";
 import {
   ai_screenings,
@@ -30,7 +30,6 @@ import {
 } from "@/db/schema";
 import { getFile } from "@/lib/r2";
 import { aiJson, aiModelId, computeAiCost } from "@/lib/ai/workers-ai";
-import { convertToMarkdown } from "@/lib/ai/to-markdown";
 import "@/server/ai/runtime";
 import {
   ParsedCvSchema,
@@ -178,18 +177,10 @@ async function processJob(q: QueueRow): Promise<string> {
   if (!obj) throw new Error(`Không tải được CV từ R2: ${filePath}`);
   const fileBytes = new Uint8Array(await obj.arrayBuffer());
 
-  // Document → Markdown via Workers AI toMarkdown (layout-aware: headings,
-  // lists, reading order on multi-column CVs). Fallback: raw pdf.js text.
-  // Evidence quotes verify against this ACTUAL document text either way.
-  let rawText = "";
-  try {
-    rawText = await convertToMarkdown(cvFile.original_name, fileBytes, fileMime);
-  } catch (err) {
-    console.warn("[scoring] toMarkdown failed, falling back to unpdf:", err);
-  }
-  if (rawText.trim().length < 50 && fileMime === PDF_MIME) {
-    rawText = await extractPdfText(fileBytes);
-  }
+  // Document → Markdown via Workers AI toMarkdown with pdf.js fallback
+  // (shared with the upload-prefill path — extract-text.ts). Evidence quotes
+  // verify against this ACTUAL document text either way.
+  const rawText = await extractCvText(cvFile.original_name, fileBytes, fileMime);
   if (rawText.trim().length < 50) {
     throw new NonRetriableError(
       "Không trích xuất được nội dung CV (có thể là bản scan mờ) — cần chấm điểm thủ công.",
@@ -277,18 +268,6 @@ function stripRawText(p: ParsedCv): Omit<ParsedCv, "_raw_text"> {
   const copy = { ...p } as Partial<ParsedCv>;
   delete copy._raw_text;
   return copy as Omit<ParsedCv, "_raw_text">;
-}
-
-async function extractPdfText(bytes: Uint8Array): Promise<string> {
-  try {
-    const doc = await getDocumentProxy(bytes);
-    const { text } = await extractText(doc, { mergePages: true });
-    return typeof text === "string" ? text : (text as string[]).join("\n");
-  } catch (err) {
-    throw new NonRetriableError(
-      `Không đọc được nội dung PDF: ${err instanceof Error ? err.message : "lỗi không rõ"}`,
-    );
-  }
 }
 
 // ---------- Workers AI calls (ADR 0013) ----------

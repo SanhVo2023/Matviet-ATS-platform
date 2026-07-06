@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CV_ACCEPTED_MIMES, CV_MAX_BYTES } from "@/lib/storage/paths";
-import { uploadCandidateAction } from "@/app/(dashboard)/ung-vien/actions";
+import { uploadCandidateAction, prefillFromCvAction } from "@/app/(dashboard)/ung-vien/actions";
 import { t } from "@/lib/i18n";
 
 interface JobOption {
@@ -41,14 +41,51 @@ export function CandidateUploadDialog({
   const [file, setFile] = React.useState<File | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // CV-drop prefill (ADR 0015): AI reads the dropped CV and fills the
+  // contact fields; HR confirms instead of typing.
+  const [fullName, setFullName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [prefilling, setPrefilling] = React.useState(false);
+  const [prefilled, setPrefilled] = React.useState(false);
+  const prefillSeq = React.useRef(0);
 
   // Reset form on open
   React.useEffect(() => {
     if (open) {
       setFile(null);
       setError(null);
+      setFullName("");
+      setEmail("");
+      setPhone("");
+      setPrefilled(false);
+      setPrefilling(false);
     }
   }, [open]);
+
+  const handleFileChange = (f: File | null) => {
+    setFile(f);
+    setPrefilled(false);
+    if (!f) return;
+    const seq = ++prefillSeq.current;
+    setPrefilling(true);
+    const fd = new FormData();
+    fd.set("file", f);
+    void prefillFromCvAction(fd)
+      .then((res) => {
+        if (seq !== prefillSeq.current) return; // a newer file replaced this one
+        if (res.ok && res.data) {
+          if (res.data.full_name) setFullName((v) => v || res.data!.full_name!);
+          if (res.data.email) setEmail((v) => v || res.data!.email!);
+          if (res.data.phone) setPhone((v) => v || res.data!.phone!);
+          if (res.data.full_name || res.data.email || res.data.phone) setPrefilled(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (seq === prefillSeq.current) setPrefilling(false);
+      });
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -100,10 +137,21 @@ export function CandidateUploadDialog({
                 accept={CV_ACCEPTED_MIMES}
                 maxBytes={CV_MAX_BYTES}
                 value={file}
-                onChange={setFile}
+                onChange={handleFileChange}
                 disabled={submitting}
                 hint="PDF, tối đa 10 MB."
               />
+              {prefilling && (
+                <p className="flex items-center gap-1.5 text-xs text-primary-700">
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden />✨ AI đang đọc CV để điền
+                  thông tin…
+                </p>
+              )}
+              {prefilled && !prefilling && (
+                <p className="rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-800">
+                  ✓ Đã tự điền từ CV — kiểm tra lại rồi bấm Tải lên.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -115,6 +163,8 @@ export function CandidateUploadDialog({
                   required
                   minLength={2}
                   disabled={submitting}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   placeholder="Vd: Nguyễn Văn A"
                 />
               </div>
@@ -147,6 +197,8 @@ export function CandidateUploadDialog({
                   name="email"
                   type="email"
                   disabled={submitting}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="vd@gmail.com"
                 />
               </div>
@@ -157,6 +209,8 @@ export function CandidateUploadDialog({
                   name="phone"
                   type="tel"
                   disabled={submitting}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   placeholder="0901 234 567"
                 />
               </div>

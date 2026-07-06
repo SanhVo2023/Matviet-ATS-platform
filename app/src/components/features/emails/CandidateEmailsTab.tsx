@@ -1,6 +1,7 @@
 import { Mail } from "lucide-react";
 import { listCandidateEmails } from "@/server/email/repository";
 import { listActiveTemplates } from "@/server/email/templates";
+import { getComposerVarDefaults } from "@/server/email/composer-defaults";
 import { t } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/vi-format";
 import { ComposeEmailButton } from "./ComposeEmailButton";
@@ -30,9 +31,10 @@ export async function CandidateEmailsTab({
   hrName,
   canCompose,
 }: Props) {
-  const [emails, templates] = await Promise.all([
+  const [emails, templates, autoVars] = await Promise.all([
     listCandidateEmails(candidateId),
     listActiveTemplates(),
+    getComposerVarDefaults(candidateId, hrName),
   ]);
 
   return (
@@ -50,6 +52,8 @@ export async function CandidateEmailsTab({
               jobId,
               to: [candidateEmail],
               vars: {
+                // Resolver first; the explicit values below stay as guaranteed fallbacks.
+                ...autoVars,
                 candidate_name: candidateName,
                 job_title: jobTitle ?? "",
                 hr_name: hrName,

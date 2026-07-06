@@ -8,12 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { t } from "@/lib/i18n";
 import { InviteForm } from "./InviteForm";
+import { UserRowActions } from "./UserRowActions";
 
 export const metadata: Metadata = { title: "Quản lý người dùng" };
 export const dynamic = "force-dynamic";
 
 export default async function UsersAdminPage() {
-  await requireRole(["admin"]);
+  const me = await requireRole(["admin"]);
 
   const db = await getDb();
   const [userRows, departmentRows] = await Promise.all([
@@ -60,6 +61,7 @@ export default async function UsersAdminPage() {
                     <th className="px-2 py-2 font-medium">Vai trò</th>
                     <th className="px-2 py-2 font-medium">Phòng ban</th>
                     <th className="px-2 py-2 font-medium">Trạng thái</th>
+                    <th className="px-2 py-2 text-right font-medium">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -81,6 +83,21 @@ export default async function UsersAdminPage() {
                               Vô hiệu
                             </span>
                           )}
+                        </td>
+                        <td className="px-2 py-2 text-right">
+                          <UserRowActions
+                            user={{
+                              id: u.id,
+                              name: u.name,
+                              email: u.email,
+                              role: u.role,
+                              departmentId: u.departmentId,
+                              phone: u.phone,
+                              isActive: u.isActive,
+                            }}
+                            departments={departmentRows}
+                            isSelf={u.id === me.id}
+                          />
                         </td>
                       </tr>
                     );

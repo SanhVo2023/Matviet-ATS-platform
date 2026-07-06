@@ -58,6 +58,8 @@ export function EmailComposerDialog({ open, onOpenChange, templates, defaults }:
   const [submitting, setSubmitting] = React.useState<boolean>(false);
   const [aiPurpose, setAiPurpose] = React.useState<string>("");
   const [drafting, setDrafting] = React.useState<boolean>(false);
+  // Auto-resolved vars stay collapsed until HR clicks "Sửa" (ADR 0015).
+  const [editVars, setEditVars] = React.useState<Set<string>>(new Set());
 
   // Reset when opening fresh
   React.useEffect(() => {
@@ -239,32 +241,66 @@ export function EmailComposerDialog({ open, onOpenChange, templates, defaults }:
           {selectedTemplate && selectedTemplate.variables.length > 0 && (
             <div className="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-3">
               <p className="text-xs font-medium text-slate-700">{t.emails.compose.varsHeader}</p>
-              <p className="text-xs text-slate-500">{t.emails.compose.varHint}</p>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                {selectedTemplate.variables.map((name) =>
-                  name === "offer_link" ? (
-                    // Minted server-side when the email is queued (composeFromTemplate)
-                    <div key={name} className="space-y-1">
-                      <Label className="font-mono text-xs text-slate-600">{`{{${name}}}`}</Label>
+              {(() => {
+                // ADR 0015: vars the system resolved itself collapse into a
+                // summary line — HR only types what the app can't know.
+                const prefilled = selectedTemplate.variables.filter(
+                  (n) =>
+                    n !== "offer_link" && !editVars.has(n) && (defaults?.vars?.[n] ?? "") !== "",
+                );
+                const manual = selectedTemplate.variables.filter(
+                  (n) => n !== "offer_link" && !prefilled.includes(n),
+                );
+                return (
+                  <>
+                    {prefilled.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-2 text-xs text-emerald-900">
+                        <span className="font-medium">✓ Đã tự điền:</span>
+                        {prefilled.map((n) => (
+                          <span key={n} className="rounded bg-white/70 px-1.5 py-0.5">
+                            {vars[n] || defaults?.vars?.[n]}
+                          </span>
+                        ))}
+                        <button
+                          type="button"
+                          className="ml-auto font-medium text-primary-700 hover:underline"
+                          onClick={() => setEditVars(new Set(selectedTemplate.variables))}
+                        >
+                          Sửa
+                        </button>
+                      </div>
+                    )}
+                    {manual.length > 0 && (
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                        {manual.map((name) => (
+                          <div key={name} className="space-y-1">
+                            <Label
+                              htmlFor={`var-${name}`}
+                              className="font-mono text-xs text-slate-600"
+                            >
+                              {`{{${name}}}`}
+                            </Label>
+                            <Input
+                              id={`var-${name}`}
+                              value={vars[name] ?? ""}
+                              onChange={(e) =>
+                                setVars((prev) => ({ ...prev, [name]: e.target.value }))
+                              }
+                              disabled={submitting}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {selectedTemplate.variables.includes("offer_link") && (
                       <p className="rounded-md border border-dashed border-slate-300 bg-white px-3 py-2 text-xs text-slate-500">
-                        Tạo tự động khi gửi — liên kết nhận việc có hiệu lực 7 ngày
+                        {"{{offer_link}}"} — tạo tự động khi gửi, liên kết nhận việc có hiệu lực 7
+                        ngày
                       </p>
-                    </div>
-                  ) : (
-                    <div key={name} className="space-y-1">
-                      <Label htmlFor={`var-${name}`} className="font-mono text-xs text-slate-600">
-                        {`{{${name}}}`}
-                      </Label>
-                      <Input
-                        id={`var-${name}`}
-                        value={vars[name] ?? ""}
-                        onChange={(e) => setVars((prev) => ({ ...prev, [name]: e.target.value }))}
-                        disabled={submitting}
-                      />
-                    </div>
-                  ),
-                )}
-              </div>
+                    )}
+                  </>
+                );
+              })()}
               {missing.length > 0 && (
                 <p className="text-xs text-amber-700">
                   {t.emails.compose.missingVars

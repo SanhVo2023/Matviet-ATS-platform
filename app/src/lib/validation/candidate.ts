@@ -60,3 +60,59 @@ export function allowedNextStages(current: Stage): Stage[] {
   if (current === "hired") return [...HIRED_NEXT];
   return ALL_STAGES.filter((s) => s !== current);
 }
+
+// ---------------------------------------------------------------------------
+// Super-stage groups (ADR 0015): the kanban BOARD shows 7 columns; the DB
+// keeps all 16 detailed stages (history, reports, agent untouched). Cards
+// display their detailed stage as a badge; the table StageDropdown still
+// reaches every sub-stage.
+// ---------------------------------------------------------------------------
+
+export interface StageGroup {
+  id: string;
+  label: string;
+  stages: readonly Stage[];
+  /** Stage a drop maps to; null = special handling (Phê duyệt starts a chain). */
+  canonical: Stage | null;
+}
+
+export const STAGE_GROUPS: readonly StageGroup[] = [
+  { id: "g_new", label: "Mới", stages: ["new"], canonical: "new" },
+  { id: "g_screen", label: "Sàng lọc", stages: ["screening", "screened"], canonical: "screened" },
+  {
+    id: "g_interview",
+    label: "Phỏng vấn & Test",
+    stages: ["interview_scheduled", "interviewed", "test_sent", "test_done"],
+    canonical: "interview_scheduled",
+  },
+  {
+    id: "g_approval",
+    label: "Phê duyệt",
+    stages: ["recommended", "salary_deal", "bod_review", "tap_doan_review"],
+    canonical: null,
+  },
+  {
+    id: "g_offer",
+    label: "Offer",
+    stages: ["offer_sent", "offer_accepted"],
+    canonical: "offer_sent",
+  },
+  { id: "g_hired", label: "Đã tuyển", stages: ["hired"], canonical: "hired" },
+  { id: "g_closed", label: "Đóng", stages: ["rejected", "withdrew"], canonical: "rejected" },
+] as const;
+
+export function groupOfStage(s: Stage): StageGroup {
+  return STAGE_GROUPS.find((g) => g.stages.includes(s)) ?? STAGE_GROUPS[0]!;
+}
+
+/**
+ * Which detailed stage a drop onto `group` maps to for a card currently in
+ * `current`. Falls back to the first *allowed* stage in the group so e.g.
+ * hired → Đóng lands on `withdrew` (rejected isn't reachable from hired).
+ * Null = the move is not allowed at all.
+ */
+export function resolveGroupTarget(current: Stage, group: StageGroup): Stage | null {
+  const allowed = allowedNextStages(current);
+  if (group.canonical && allowed.includes(group.canonical)) return group.canonical;
+  return group.stages.find((s) => allowed.includes(s)) ?? null;
+}

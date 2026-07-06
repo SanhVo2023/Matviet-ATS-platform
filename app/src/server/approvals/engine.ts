@@ -67,7 +67,7 @@ async function assertActorMayDecide(
  */
 export async function startApproval(
   candidateId: string,
-): Promise<{ approval_ids: string[]; first_step_kind: StepKind }> {
+): Promise<{ approval_ids: string[]; first_step_kind: StepKind; already_started: boolean }> {
   const db = await getDb();
 
   // Already started?
@@ -80,6 +80,7 @@ export async function startApproval(
     return {
       approval_ids: existing.map((r) => r.id),
       first_step_kind: APPROVAL_PRESETS["staff"][0]!, // placeholder; UI uses repository.listApprovalsForCandidate to render
+      already_started: true,
     };
   }
 
@@ -126,6 +127,7 @@ export async function startApproval(
   return {
     approval_ids: ins.map((r) => r.id),
     first_step_kind: firstStep,
+    already_started: false,
   };
 }
 

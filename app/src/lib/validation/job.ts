@@ -57,26 +57,19 @@ export const JobInputSchema = z.object({
 export type JobInput = z.infer<typeof JobInputSchema>;
 
 /**
- * Stricter check before moving from draft → open.
- * Must have a department, at least one hiring manager assigned, salary range
- * if both bounds set, and a non-empty description.
+ * Stricter check before moving from draft → open:
+ * non-empty description + coherent salary range (when both bounds set).
  */
-export const JobPublishSchema = JobInputSchema.refine((j) => !!j.department_id, {
-  message: "Phải chọn phòng ban",
-  path: ["department_id"],
-})
-  .refine((j) => j.hiring_manager_ids.length > 0, {
-    message: "Phải gán ít nhất một trưởng phòng phụ trách",
-    path: ["hiring_manager_ids"],
-  })
-  .refine((j) => j.description.trim().length > 0, {
-    message: "Mô tả công việc không được để trống",
-    path: ["description"],
-  })
-  .refine(
-    (j) => {
-      if (j.salary_min == null || j.salary_max == null) return true;
-      return j.salary_max >= j.salary_min;
-    },
-    { message: "Lương tối đa phải lớn hơn hoặc bằng lương tối thiểu", path: ["salary_max"] },
-  );
+// ADR 0015: department + hiring manager are no longer publish blockers —
+// notification fan-out falls back to hr+admin when no manager is assigned
+// (see jobManagerIds), and most stores hire without a department entry.
+export const JobPublishSchema = JobInputSchema.refine((j) => j.description.trim().length > 0, {
+  message: "Mô tả công việc không được để trống",
+  path: ["description"],
+}).refine(
+  (j) => {
+    if (j.salary_min == null || j.salary_max == null) return true;
+    return j.salary_max >= j.salary_min;
+  },
+  { message: "Lương tối đa phải lớn hơn hoặc bằng lương tối thiểu", path: ["salary_max"] },
+);

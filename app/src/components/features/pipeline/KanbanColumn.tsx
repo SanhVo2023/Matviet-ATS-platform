@@ -4,47 +4,36 @@ import * as React from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils";
-import { t } from "@/lib/i18n";
-import type { Stage } from "@/lib/validation/candidate";
+import type { StageGroup } from "@/lib/validation/candidate";
 import type { CandidateRow } from "@/server/candidates/repository";
 import { KanbanCard } from "./KanbanCard";
 
 interface Props {
-  stage: Stage;
+  group: StageGroup;
   candidates: CandidateRow[];
   /** When false, dropping onto this column is rejected client-side (validation) — visual cue only. */
   acceptsDrop: boolean;
-  /** Currently dragging-over this column? */
-  isOver?: boolean;
 }
 
-const STAGE_ACCENT: Record<string, string> = {
-  new: "border-slate-300",
-  screening: "border-primary-300",
-  screened: "border-primary-400",
-  interview_scheduled: "border-amber-300",
-  interviewed: "border-amber-400",
-  test_sent: "border-violet-300",
-  test_done: "border-violet-400",
-  recommended: "border-indigo-300",
-  salary_deal: "border-indigo-400",
-  bod_review: "border-indigo-500",
-  tap_doan_review: "border-indigo-600",
-  offer_sent: "border-emerald-400",
-  offer_accepted: "border-emerald-500",
-  hired: "border-emerald-600",
-  rejected: "border-rose-400",
-  withdrew: "border-zinc-400",
+/** One accent per super-column (ADR 0015). */
+const GROUP_ACCENT: Record<string, string> = {
+  g_new: "border-slate-300",
+  g_screen: "border-primary-400",
+  g_interview: "border-amber-400",
+  g_approval: "border-indigo-400",
+  g_offer: "border-emerald-400",
+  g_hired: "border-emerald-600",
+  g_closed: "border-rose-400",
 };
 
-export function KanbanColumn({ stage, candidates, acceptsDrop }: Props) {
+export function KanbanColumn({ group, candidates, acceptsDrop }: Props) {
   const { setNodeRef, isOver: dndIsOver } = useDroppable({
-    id: stage,
-    data: { type: "stage", stage },
+    id: group.id,
+    data: { type: "group", group: group.id },
     disabled: !acceptsDrop,
   });
 
-  const accent = STAGE_ACCENT[stage] ?? "border-slate-300";
+  const accent = GROUP_ACCENT[group.id] ?? "border-slate-300";
 
   return (
     <div
@@ -60,14 +49,14 @@ export function KanbanColumn({ stage, candidates, acceptsDrop }: Props) {
       {/* Column header */}
       <div className="flex items-center justify-between gap-2 px-3 py-2.5">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-          {t.stage[stage]}
+          {group.label}
         </p>
         <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold tabular-nums text-slate-600 shadow-sm">
           {candidates.length}
         </span>
       </div>
 
-      {/* Card list */}
+      {/* Card list — cards carry their detailed StageBadge */}
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-3 pt-1">
         <SortableContext items={candidates.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {candidates.length === 0 ? (

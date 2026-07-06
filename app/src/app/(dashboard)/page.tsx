@@ -13,7 +13,9 @@ import {
   getHrDashboardData,
   getManagerInboxData,
   getExecQueueData,
+  getActionInbox,
   type TodayInterviewItem,
+  type ActionInboxItem,
 } from "@/server/dashboard/queries";
 import type { PendingApprovalRow } from "@/server/approvals/repository";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,8 +41,8 @@ export default async function HomePage() {
     return <ManagerInbox name={profile.full_name ?? "anh/chị"} data={data} />;
   }
   if (isHr(profile.role)) {
-    const data = await getHrDashboardData();
-    return <HrDashboard name={profile.full_name ?? "chị Hương"} data={data} />;
+    const [data, inbox] = await Promise.all([getHrDashboardData(), getActionInbox()]);
+    return <HrDashboard name={profile.full_name ?? "chị Hương"} data={data} inbox={inbox} />;
   }
   const steps = await getExecQueueData(profile.id, profile.role as "bod" | "tap_doan");
   return <ExecApprovalQueue name={profile.full_name ?? "anh/chị"} steps={steps} />;
@@ -76,9 +78,11 @@ function InterviewTypeIcon({ type }: { type: TodayInterviewItem["type"] }) {
 function HrDashboard({
   name,
   data,
+  inbox,
 }: {
   name: string;
   data: Awaited<ReturnType<typeof getHrDashboardData>>;
+  inbox: ActionInboxItem[];
 }) {
   const stats = [
     {
@@ -111,6 +115,45 @@ function HrDashboard({
           </h1>
           <p className="mt-1 text-sm text-slate-500">{tf.greeting(name)}</p>
         </header>
+      </FadeIn>
+
+      {/* "Hôm nay cần làm" — every pending decision, one click from acting (ADR 0015) */}
+      <FadeIn>
+        <section aria-label="Hôm nay cần làm">
+          <Card className="rounded-lg border-accent-400/50 bg-surface-raised">
+            <CardContent className="pt-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                <SectionTitle>Hôm nay cần làm</SectionTitle>
+              </h2>
+              {inbox.length === 0 ? (
+                <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
+                  <CheckCircle2 className="h-4 w-4 text-success" aria-hidden />
+                  Không còn việc nào chờ — mọi thứ đã được xử lý. 🎉
+                </p>
+              ) : (
+                <ul className="mt-3 divide-y divide-slate-100">
+                  {inbox.map((item) => (
+                    <li key={item.key}>
+                      <Link
+                        href={item.href}
+                        className="group flex items-center justify-between gap-3 py-2.5 transition-opacity hover:opacity-75"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-brand-900">{item.label}</p>
+                          {item.detail && <p className="text-xs text-slate-500">{item.detail}</p>}
+                        </div>
+                        <ArrowRight
+                          className="h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-500"
+                          aria-hidden
+                        />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </section>
       </FadeIn>
 
       <section aria-label="Số liệu nhanh">

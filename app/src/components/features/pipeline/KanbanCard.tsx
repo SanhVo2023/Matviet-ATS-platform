@@ -88,12 +88,18 @@ export function KanbanCard({ candidate, overlay }: Props) {
           ) : null}
         </div>
 
-        <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <span className="inline-flex items-center gap-1 text-[10px] text-slate-400">
             <Calendar className="h-3 w-3" aria-hidden />
             {formatRelative(candidate.updated_at)}
           </span>
-          <ScoringStatusPill status={candidate.ai_screening_status} />
+          <span className="flex items-center gap-1.5">
+            {/* Detailed sub-stage — columns are super-groups (ADR 0015) */}
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+              {t.stage[candidate.current_stage]}
+            </span>
+            <ScoringStatusPill status={candidate.ai_screening_status} />
+          </span>
         </div>
 
         {/*

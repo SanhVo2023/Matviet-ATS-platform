@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/primitives/PageHeader";
 import { t } from "@/lib/i18n";
 import { STEP_LABEL_VI } from "@/server/approvals/presets";
 import { formatRelative } from "@/lib/vi-format";
+import { InlineDecide } from "./InlineDecide";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function ApprovalsInboxPage() {
       <PageHeader
         icon={CheckCircle2}
         title={t.nav.approvals}
-        subtitle="Các bước duyệt đang chờ bạn xử lý. Bấm vào ứng viên để mở chi tiết và quyết định."
+        subtitle="Các bước đang chờ bạn — duyệt/từ chối ngay tại đây, hoặc bấm tên để xem hồ sơ."
       />
 
       {pending.length === 0 ? (
@@ -36,26 +37,23 @@ export default async function ApprovalsInboxPage() {
       ) : (
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
           {pending.map((row) => (
-            <li key={row.id}>
+            <li
+              key={row.id}
+              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+            >
               <Link
                 href={`/ung-vien/${row.candidate_id}`}
-                className="flex items-start justify-between gap-4 px-4 py-3 transition-colors hover:bg-slate-50"
+                className="min-w-0 flex-1 transition-opacity hover:opacity-75"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {row.candidate_name ?? "—"}
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {row.job_title ?? "—"} ·{" "}
-                    <span className="font-medium text-slate-700">
-                      {STEP_LABEL_VI[row.step_kind]}
-                    </span>
-                  </p>
-                </div>
-                <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400">
-                  {formatRelative(row.created_at)}
-                </span>
+                <p className="text-sm font-semibold text-slate-900">{row.candidate_name ?? "—"}</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {row.job_title ?? "—"} ·{" "}
+                  <span className="font-medium text-slate-700">{STEP_LABEL_VI[row.step_kind]}</span>{" "}
+                  · {formatRelative(row.created_at)}
+                </p>
               </Link>
+              {/* One-tap decision in the row (ADR 0015) — detail stays 1 click away */}
+              <InlineDecide approvalId={row.id} candidateName={row.candidate_name ?? "ứng viên"} />
             </li>
           ))}
         </ul>

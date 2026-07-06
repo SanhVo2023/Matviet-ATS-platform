@@ -46,14 +46,15 @@ export function ApprovalsTab({
   if (approvals.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-        <p className="text-sm font-medium text-slate-700">Chưa có quy trình duyệt</p>
+        <p className="text-sm font-medium text-slate-700">Chưa có đề xuất tuyển</p>
         <p className="mt-1 text-xs text-slate-500">
-          Sau khi có ít nhất một đánh giá phỏng vấn, HR có thể đẩy ứng viên lên quy trình duyệt.
+          Bấm nút bên dưới chính là đề xuất của HR — chỉ còn Trưởng phòng (và BOD/Tập đoàn nếu là vị
+          trí quản lý) cần duyệt. Mức lương sẽ chốt khi soạn thư mời nhận việc.
         </p>
         {canStart ? (
           <Button onClick={onStart} disabled={pending} size="sm" variant="navy" className="mt-3">
             <Send className="h-3.5 w-3.5" aria-hidden />
-            {pending ? "Đang xử lý..." : "Đẩy lên duyệt"}
+            {pending ? "Đang xử lý..." : "Đề xuất tuyển"}
           </Button>
         ) : null}
       </div>
