@@ -80,7 +80,7 @@ export async function uploadCandidateWithCv(
   input: CandidateUploadInput,
   file: UploadedFile,
   uploadedBy: string | null,
-  extras?: { consent_at?: string; source_meta?: Record<string, string> },
+  extras?: { consent_at?: string; source_meta?: Record<string, string | number | boolean> },
 ): Promise<{ id: string; cv_file_id: string }> {
   if (!isAcceptedCvMime(file.mime)) {
     throw new Error("Loại file không hỗ trợ. Chỉ chấp nhận PDF.");

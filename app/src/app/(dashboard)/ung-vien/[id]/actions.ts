@@ -89,6 +89,15 @@ export async function changeCandidateCvAction(
       })
       .where(eq(candidates.id, candidateId));
 
+    // Discard the old CV's markdown cache (ADR 0017) — the new file gets its
+    // own conversion when scoring runs.
+    try {
+      const { cv_markdowns } = await import("@/db/schema");
+      await db.delete(cv_markdowns).where(eq(cv_markdowns.candidate_id, candidateId));
+    } catch (cacheErr) {
+      console.warn("[change-cv] cache discard failed:", cacheErr);
+    }
+
     await enqueueScoring(candidateId, profile.id);
     triggerEdgeFunction(candidateId);
     revalidatePath(`/ung-vien/${candidateId}`);
@@ -174,7 +183,13 @@ export async function summarizeCandidateAction(
   if (!candidate) return { ok: false, error: "Không tìm thấy ứng viên" };
   const job = await getJob(candidate.job_id);
 
-  const cvText = (candidate.cv_text ?? "").slice(0, 6000);
+  // Dossier view (ADR 0017): CV markdown + notes + interview evals + approvals
+  // — the AI reads the WHOLE journey, not just the CV.
+  const { buildCandidateDossier } = await import("@/server/candidates/dossier");
+  const dossier = ((await buildCandidateDossier(candidateId, { maxCvChars: 6000 })) ?? "").slice(
+    0,
+    14_000,
+  );
   const breakdown = candidate.ai_breakdown
     ? JSON.stringify(candidate.ai_breakdown).slice(0, 2500)
     : "";
@@ -193,13 +208,10 @@ export async function summarizeCandidateAction(
         {
           role: "user",
           content:
-            `Ứng viên: ${candidate.full_name}. Vị trí ứng tuyển: ${job?.title ?? "—"}. ` +
-            `Giai đoạn hiện tại: ${t.stage[candidate.current_stage] ?? candidate.current_stage}. ` +
-            (candidate.ai_score != null
-              ? `Điểm AI tổng: ${Math.round(candidate.ai_score)}/100. `
-              : "") +
-            (cvText ? `\nNội dung CV:\n${cvText}\n` : "\nCV chưa có nội dung trích xuất.\n") +
-            (breakdown ? `Chi tiết chấm điểm AI theo tiêu chí (JSON):\n${breakdown}` : ""),
+            (dossier
+              ? `Hồ sơ đầy đủ (Markdown):\n${dossier}\n`
+              : `Ứng viên: ${candidate.full_name}. Vị trí: ${job?.title ?? "—"}. Chưa có dữ liệu hồ sơ.\n`) +
+            (breakdown ? `\nChi tiết chấm điểm AI theo tiêu chí (JSON):\n${breakdown}` : ""),
         },
       ],
       { maxTokens: 2048, temperature: 0.4, feature: "candidate_summary" },

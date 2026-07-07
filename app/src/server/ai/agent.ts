@@ -66,6 +66,7 @@ export const TOOL_POLICY: Record<string, { roles: UserRole[]; mutates: boolean }
   search_cv_content: { roles: HR_ADMIN, mutates: false },
   compare_candidates: { roles: HR_ADMIN, mutates: false },
   candidate_timeline: { roles: HR_ADMIN, mutates: false },
+  get_candidate_dossier: { roles: HR_ADMIN, mutates: false },
   report_snapshot: { roles: HR_ADMIN, mutates: false },
   email_queue_status: { roles: HR_ADMIN, mutates: false },
   suggest_past_candidates: { roles: HR_ADMIN, mutates: false },
@@ -277,6 +278,16 @@ export const TOOLS: AiToolDef[] = [
     name: "candidate_timeline",
     description:
       "Toàn bộ lịch sử một ứng viên theo thời gian: các lần chuyển giai đoạn, phỏng vấn, email đã gửi/chờ duyệt.",
+    parameters: {
+      type: "object",
+      properties: { name_or_id: { type: "string" } },
+      required: ["name_or_id"],
+    },
+  },
+  {
+    name: "get_candidate_dossier",
+    description:
+      "HỒ SƠ ĐẦY ĐỦ một ứng viên dạng Markdown: nội dung CV + ghi chú HR + đánh giá phỏng vấn + điểm test + chuỗi duyệt (kèm lương chốt) + lịch sử. Dùng khi cần đọc sâu/tóm tắt/trả lời chi tiết về MỘT ứng viên.",
     parameters: {
       type: "object",
       properties: { name_or_id: { type: "string" } },
@@ -984,6 +995,13 @@ function makeExecutor(profile: SessionProfile) {
           emails: mails,
           detail_url: `/ung-vien/${c.id}`,
         };
+      }
+      case "get_candidate_dossier": {
+        const c = await resolveCandidate(String(args.name_or_id ?? ""));
+        const { buildCandidateDossier } = await import("@/server/candidates/dossier");
+        const md = await buildCandidateDossier(c.id, { maxCvChars: 12_000 });
+        if (!md) return { error: "Không tìm thấy ứng viên." };
+        return { dossier_markdown: md };
       }
       case "report_snapshot": {
         const days = Math.min(365, Math.max(7, Number(args.days) || 90));

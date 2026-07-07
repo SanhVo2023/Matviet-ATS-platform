@@ -18,7 +18,7 @@
  */
 import "server-only";
 import { and, asc, eq, lte, lt, or, sql } from "drizzle-orm";
-import { extractCvText } from "./extract-text";
+import { getOrCreateCvMarkdown } from "./extract-text";
 import { getDb } from "@/db";
 import {
   ai_screenings,
@@ -168,19 +168,22 @@ async function processJob(q: QueueRow): Promise<string> {
     .get();
   if (!cvFile) throw new NonRetriableError("Không tìm thấy file CV.");
 
-  // toMarkdown handles PDF *and* DOCX (and more) — prefer the converted PDF
-  // path when one exists, else the original file whatever its format.
-  const filePath = cvFile.pdf_storage_path ?? cvFile.storage_path;
-  const fileMime = cvFile.pdf_storage_path ? PDF_MIME : cvFile.mime;
-
-  const obj = await getFile(filePath);
-  if (!obj) throw new Error(`Không tải được CV từ R2: ${filePath}`);
-  const fileBytes = new Uint8Array(await obj.arrayBuffer());
-
-  // Document → Markdown via Workers AI toMarkdown with pdf.js fallback
-  // (shared with the upload-prefill path — extract-text.ts). Evidence quotes
-  // verify against this ACTUAL document text either way.
-  const rawText = await extractCvText(cvFile.original_name, fileBytes, fileMime);
+  // CV markdown — CACHE-FIRST (ADR 0017): one conversion per file, written
+  // at upload/prefill time when possible; otherwise converted here and
+  // stored for every later AI touch (agent search, dossier, re-score).
+  const rawText = await getOrCreateCvMarkdown(cvFile.id, candidate.id, async () => {
+    // toMarkdown handles PDF *and* DOCX (and more) — prefer the converted PDF
+    // path when one exists, else the original file whatever its format.
+    const filePath = cvFile.pdf_storage_path ?? cvFile.storage_path;
+    const fileMime = cvFile.pdf_storage_path ? PDF_MIME : cvFile.mime;
+    const obj = await getFile(filePath);
+    if (!obj) throw new Error(`Không tải được CV từ R2: ${filePath}`);
+    return {
+      name: cvFile.original_name,
+      bytes: new Uint8Array(await obj.arrayBuffer()),
+      mime: fileMime,
+    };
+  });
   if (rawText.trim().length < 50) {
     throw new NonRetriableError(
       "Không trích xuất được nội dung CV (có thể là bản scan mờ) — cần chấm điểm thủ công.",
@@ -261,7 +264,57 @@ async function processJob(q: QueueRow): Promise<string> {
     })
     .where(eq(candidates.id, q.candidate_id));
 
+  // Contact backfill (ADR 0017 bulk upload): AI fills what the CV knows,
+  // but ONLY into empty slots — never over HR-entered data. The name is
+  // special: bulk-created candidates carry name_pending=true in source_meta
+  // (their "name" is just the filename) and only those get renamed.
+  await backfillContactFields(q.candidate_id, passOne.parsed);
+
   return screeningId;
+}
+
+async function backfillContactFields(candidateId: string, parsed: ParsedCv): Promise<void> {
+  try {
+    const db = await getDb();
+    const row = await db
+      .select({
+        full_name: candidates.full_name,
+        email: candidates.email,
+        phone: candidates.phone,
+        source_meta: candidates.source_meta,
+      })
+      .from(candidates)
+      .where(eq(candidates.id, candidateId))
+      .get();
+    if (!row) return;
+
+    const meta = (row.source_meta ?? {}) as Record<string, unknown>;
+    const set: Record<string, unknown> = {};
+
+    const parsedName = parsed.personal?.full_name?.trim();
+    if (meta.name_pending === true && parsedName && parsedName.length >= 2) {
+      set.full_name = parsedName.slice(0, 120);
+      set.source_meta = { ...meta, name_pending: false } as never;
+    }
+    const parsedEmail = parsed.personal?.email?.trim();
+    if (!row.email && parsedEmail && parsedEmail.includes("@")) {
+      set.email = parsedEmail.slice(0, 200);
+    }
+    const parsedPhone = parsed.personal?.phone?.trim();
+    if (!row.phone && parsedPhone && parsedPhone.length >= 8) {
+      set.phone = parsedPhone.slice(0, 30);
+    }
+
+    if (Object.keys(set).length > 0) {
+      await db
+        .update(candidates)
+        .set(set as never)
+        .where(eq(candidates.id, candidateId));
+    }
+  } catch (err) {
+    // Backfill is best-effort — scoring already succeeded.
+    console.warn("[scoring] contact backfill failed:", err);
+  }
 }
 
 function stripRawText(p: ParsedCv): Omit<ParsedCv, "_raw_text"> {

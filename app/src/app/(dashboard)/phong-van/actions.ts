@@ -99,7 +99,13 @@ export async function generateInterviewQuestionsAction(
   ]);
   if (!candidate) return { ok: false, error: "Không tìm thấy ứng viên" };
 
-  const cvText = (candidate.cv_text ?? "").slice(0, 6000);
+  // Dossier view (ADR 0017): CV markdown + notes + PREVIOUS interview
+  // evaluations — round-2 questions can build on round-1 findings.
+  const { buildCandidateDossier } = await import("@/server/candidates/dossier");
+  const dossier = ((await buildCandidateDossier(candidate.id, { maxCvChars: 6000 })) ?? "").slice(
+    0,
+    14_000,
+  );
   const breakdown = candidate.ai_breakdown
     ? JSON.stringify(candidate.ai_breakdown).slice(0, 2500)
     : "";
@@ -127,8 +133,9 @@ export async function generateInterviewQuestionsAction(
             (requirementsHtml
               ? `Yêu cầu vị trí: ${stripHtml(requirementsHtml).slice(0, 1500)}\n`
               : "") +
-            `Ứng viên: ${candidate.full_name}.\n` +
-            (cvText ? `Nội dung CV:\n${cvText}\n` : "CV chưa có nội dung trích xuất.\n") +
+            (dossier
+              ? `Hồ sơ đầy đủ của ứng viên (Markdown):\n${dossier}\n`
+              : `Ứng viên: ${candidate.full_name}. CV chưa có nội dung trích xuất.\n`) +
             (breakdown ? `Kết quả chấm điểm AI theo tiêu chí (JSON):\n${breakdown}` : ""),
         },
       ],

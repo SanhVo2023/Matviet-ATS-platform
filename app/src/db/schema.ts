@@ -292,6 +292,35 @@ export const cv_files = sqliteTable("cv_files", {
   created_at: text("created_at").notNull().$defaultFn(nowIso),
 });
 
+/**
+ * CV → Markdown cache (ADR 0017): one conversion per FILE, shared by
+ * prefill, scoring, agent search and the dossier view. Keyed by cv_file_id —
+ * replacing a candidate's CV orphans the old row (cascade-deleted with the
+ * file) and the new file gets its own conversion.
+ */
+export const cv_markdowns = sqliteTable(
+  "cv_markdowns",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    cv_file_id: text("cv_file_id")
+      .notNull()
+      .references(() => cv_files.id, { onDelete: "cascade" }),
+    candidate_id: text("candidate_id"),
+    status: text("status", { enum: ["pending", "done", "failed"] })
+      .notNull()
+      .default("pending"),
+    md: text("md"),
+    engine: text("engine"),
+    error: text("error"),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+    updated_at: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),
+  },
+  (t) => [
+    uniqueIndex("uq_cv_markdowns_file").on(t.cv_file_id),
+    index("idx_cv_markdowns_candidate").on(t.candidate_id),
+  ],
+);
+
 export const candidates = sqliteTable(
   "candidates",
   {

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus } from "lucide-react";
+import { FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CandidateUploadDialog } from "./CandidateUploadDialog";
 
@@ -21,7 +21,7 @@ export function AddCandidateButton({ jobId, jobs }: { jobId: string; jobs: JobOp
   return (
     <>
       <Button onClick={() => setOpen(true)}>
-        <Plus className="h-4 w-4" aria-hidden /> Thêm ứng viên
+        <FileUp className="h-4 w-4" aria-hidden /> Tải CV lên
       </Button>
       <CandidateUploadDialog open={open} onOpenChange={setOpen} defaultJobId={jobId} jobs={jobs} />
     </>

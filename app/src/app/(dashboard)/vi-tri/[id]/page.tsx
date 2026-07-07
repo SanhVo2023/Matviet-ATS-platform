@@ -13,7 +13,6 @@ import { PageHeader } from "@/components/primitives/PageHeader";
 import { JobStatusBadge } from "@/components/primitives/StatusBadge";
 import { KanbanBoard } from "@/components/features/pipeline/KanbanBoard";
 import { AddCandidateButton } from "@/components/features/candidates/AddCandidateButton";
-import { CsvImportTrigger } from "@/components/features/csv-import/CsvImportTrigger";
 import { JobInfoPanel, JobInfoBody, type JobInfo } from "@/components/features/jobs/JobInfoPanel";
 import { t } from "@/lib/i18n";
 
@@ -120,7 +119,6 @@ export default async function JobWorkspacePage({ params }: { params: Promise<{ i
                 </Link>
               </Button>
               <JobInfoPanel job={jobInfo} canEdit={canManage} />
-              {canManage ? <CsvImportTrigger jobId={job.id} jobTitle={job.title} /> : null}
               {canManage ? (
                 <AddCandidateButton
                   jobId={job.id}
@@ -138,18 +136,9 @@ export default async function JobWorkspacePage({ params }: { params: Promise<{ i
           <JobInfoBody job={jobInfo} canEdit={false} />
         </div>
       ) : (
-        <>
-          {candidates.length === 0 ? (
-            <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-12 text-center">
-              <p className="text-sm font-medium text-slate-700">{t.empty.candidates}</p>
-              <p className="mt-1 text-xs text-slate-500">
-                Bấm “Thêm ứng viên” hoặc nhập CSV để bắt đầu chấm điểm + theo dõi pipeline.
-              </p>
-            </div>
-          ) : (
-            <KanbanBoard candidates={candidates} jobId={job.id} />
-          )}
-        </>
+        // Board renders even with zero candidates — the intake column's PDF
+        // drop target IS the start of the process (ADR 0017).
+        <KanbanBoard candidates={candidates} jobId={job.id} />
       )}
     </div>
   );

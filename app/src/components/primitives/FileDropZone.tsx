@@ -16,6 +16,10 @@ interface FileDropZoneProps {
   disabled?: boolean;
   /** ID for the underlying input — also receives focus from a wrapping <Label htmlFor>. */
   id?: string;
+  /** Allow selecting/dropping several files. When >1 valid files arrive,
+   * `onMultiple` fires instead of `onChange` (ADR 0017 bulk CV intake). */
+  multiple?: boolean;
+  onMultiple?: (files: File[]) => void;
 }
 
 /**
@@ -35,6 +39,8 @@ export function FileDropZone({
   hint,
   disabled,
   id = "file-drop-zone",
+  multiple,
+  onMultiple,
 }: FileDropZoneProps) {
   const [dragOver, setDragOver] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -49,6 +55,21 @@ export function FileDropZone({
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
+
+    if (multiple && onMultiple && fileList.length > 1) {
+      const all = Array.from(fileList);
+      const valid = all.filter((f) => !validate(f));
+      if (valid.length === 0) {
+        setError("Không file nào hợp lệ (chỉ PDF, tối đa 10 MB).");
+        return;
+      }
+      setError(
+        valid.length < all.length ? `Bỏ qua ${all.length - valid.length} file không hợp lệ.` : null,
+      );
+      onMultiple(valid);
+      return;
+    }
+
     const f = fileList[0]!;
     const err = validate(f);
     if (err) {
@@ -67,6 +88,7 @@ export function FileDropZone({
         id={id}
         type="file"
         accept={accept.join(",")}
+        multiple={multiple}
         className="sr-only"
         disabled={disabled}
         onChange={(e) => handleFiles(e.target.files)}

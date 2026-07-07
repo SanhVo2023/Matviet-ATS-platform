@@ -13,6 +13,8 @@ interface Props {
   candidates: CandidateRow[];
   /** When false, dropping onto this column is rejected client-side (validation) — visual cue only. */
   acceptsDrop: boolean;
+  /** Rendered at the top of the card list (the intake column's PDF drop target). */
+  headerSlot?: React.ReactNode;
 }
 
 /** One accent per business column (Sanh 2026-07-07). */
@@ -24,7 +26,7 @@ const GROUP_ACCENT: Record<string, string> = {
   g_closed: "border-rose-400",
 };
 
-export function KanbanColumn({ group, candidates, acceptsDrop }: Props) {
+export function KanbanColumn({ group, candidates, acceptsDrop, headerSlot }: Props) {
   const { setNodeRef, isOver: dndIsOver } = useDroppable({
     id: group.id,
     data: { type: "group", group: group.id },
@@ -64,6 +66,7 @@ export function KanbanColumn({ group, candidates, acceptsDrop }: Props) {
 
       {/* Card list — compact cards with readiness dots */}
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-3 pt-1">
+        {headerSlot}
         <SortableContext items={candidates.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {candidates.length === 0 ? (
             <p className="rounded border border-dashed border-slate-200 bg-white/60 py-4 text-center text-[11px] text-slate-400">

@@ -28,6 +28,7 @@ import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
+import { IntakeDropCard } from "./IntakeDropCard";
 
 interface Props {
   candidates: CandidateRow[];
@@ -54,7 +55,7 @@ function groupRows(rows: CandidateRow[]): Record<string, CandidateRow[]> {
   return out;
 }
 
-export function KanbanBoard({ candidates: initial }: Props) {
+export function KanbanBoard({ candidates: initial, jobId }: Props) {
   const router = useRouter();
   const [rows, setRows] = React.useState<CandidateRow[]>(initial);
   React.useEffect(() => setRows(initial), [initial]);
@@ -178,6 +179,9 @@ export function KanbanBoard({ candidates: initial }: Props) {
             group={g}
             candidates={grouped[g.id] ?? []}
             acceptsDrop={acceptsDropFor(g)}
+            headerSlot={
+              g.id === "g_intake" ? <IntakeDropCard key="intake-drop" jobId={jobId} /> : undefined
+            }
           />
         ))}
         {showClosed ? (
