@@ -189,3 +189,12 @@ pm run dev (localhost baseURL) or rebuild without the env override.
 - Gộp "CV" + "Phân tích AI" thành 1 tab (kết luận AI trên, CV gốc dưới — đúng thứ tự đọc của HR); gộp "Phỏng vấn" + "Bài test" thành 1 tab; Email giữ nguyên.
 - "Phê duyệt" rời khỏi tab → thẻ tiến độ `ApprovalProgress` ở cột phải NGAY DƯỚI Lịch sử: thanh progress n/N bước (vàng đang chạy, xanh hoàn tất, đỏ từ chối) + nút Đề xuất tuyển / Duyệt-Từ chối tại chỗ (tái dùng ApprovalsTab).
 - Nhãn section gold-tick trong tab gộp giữ hierarchy rõ.
+
+## 2026-07-07 — Astryx (Meta design system) + đổi tên "Vị trí" + workspace tuyển dụng (Sanh, ADR 0016)
+- Cài `@astryxdesign/core+theme-neutral+cli` PIN 0.1.3; `npx astryx init --features agents --agent claude` sinh `app/.claude/CLAUDE.md` (quy ước cho agent — đọc trước khi viết UI).
+- Theme `matviet` (src/styles/themes/matviet): accent = navy #263d78, CTA vàng qua override Button variant:primary, neutrals/status = đúng palette Tailwind hiện có, font qua biến next/font, radius 10/16px. Build bằng `astryx theme build` — app import bản BUILT (SSR-safe).
+- Quirk v0.1.3: theme compiler phát `.astryx-sidenav` nhưng component là `.astryx-side-nav` → mirror rule trong globals.css (NGOÀI @layer base vì Tailwind v3 tree-shake rule lạ trong @layer). Bỏ khi upstream sửa.
+- Shell: AppShell (height=auto — in QR giữ flow tự nhiên) + SideNav rail navy/gold + TopNav; bỏ ô search disabled chết; `#astryx-app-shell-main{min-width:0}` để kanban cuộn trong container thay vì banh trang.
+- Đổi tên toàn cục "Tin tuyển dụng" → "Vị trí" KÈM slug `/tin-tuyen-dung` → `/vi-tri` + redirect vĩnh viễn (bookmark/agent link cũ vẫn chạy); "Đăng tin" → "Đăng tuyển".
+- `/vi-tri/[id]` = WORKSPACE: kanban chính giữa + dải đếm giai đoạn; thông tin vị trí thành SlideOver `JobInfoPanel` (exec xem inline, không kanban); `[id]/pipeline` → redirect; danh sách vị trí thêm cột Ứng viên (đang xử lý · đã tuyển/chỉ tiêu) qua `countCandidatesByJob()`.
+- Nhãn flowType cập nhật theo preset ADR 0015: "Nhân viên (1 bước duyệt)" / "Cấp quản lý (3 bước duyệt)".
