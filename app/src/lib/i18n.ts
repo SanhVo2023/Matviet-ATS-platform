@@ -252,8 +252,8 @@ export const t = {
     roleFamily: "Loại vị trí",
     flowType: {
       label: "Quy trình duyệt",
-      staff: "Nhân viên (3 bước)",
-      management: "Cấp quản lý (4 bước)",
+      staff: "Nhân viên (1 bước duyệt)",
+      management: "Cấp quản lý (3 bước duyệt)",
     },
     location: "Địa điểm làm việc",
     headcount: "Số lượng cần tuyển",

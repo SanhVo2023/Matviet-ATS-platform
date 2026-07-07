@@ -34,6 +34,14 @@
   --color-on-light: #f3f5fa;
 }
 
+/* AppShell content area is a flex item: without min-width:0 a wide child
+ * (the kanban board) expands it past the viewport instead of scrolling
+ * inside its own overflow-x container. */
+#astryx-app-shell-main {
+  min-width: 0;
+  max-width: 100%;
+}
+
 @layer base {
   :root {
     /* Design language v2 — navy + gold (docs/design-language.md) */
@@ -90,7 +98,8 @@
     .astryx-top-nav {
       display: none !important;
     }
-    main {
+    main,
+    #astryx-app-shell-main {
       overflow: visible !important;
     }
   }

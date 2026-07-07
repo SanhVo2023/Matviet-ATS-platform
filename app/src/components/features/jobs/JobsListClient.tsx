@@ -25,6 +25,8 @@ interface Props {
   initialJobs: JobRow[];
   departments: Department[];
   managerOptions: ManagerOption[];
+  /** Per-job candidate tallies keyed by job id (total / active / hired). */
+  candidateCounts?: Record<string, { total: number; active: number; hired: number }>;
   /** When true (route is /vi-tri/moi), the create form auto-opens. */
   forceCreateOpen?: boolean;
 }
@@ -35,6 +37,7 @@ export function JobsListClient({
   initialJobs,
   departments,
   managerOptions,
+  candidateCounts,
   forceCreateOpen,
 }: Props) {
   const router = useRouter();
@@ -134,12 +137,16 @@ export function JobsListClient({
             onChange={(e) => setSearch(e.target.value || null)}
             placeholder="Tìm tiêu đề"
             className="h-9 pl-9"
-            aria-label="Tìm tin"
+            aria-label="Tìm vị trí"
           />
         </div>
       </section>
 
-      <JobsTable jobs={filtered} onCreate={() => setCreateOpen(true)} />
+      <JobsTable
+        jobs={filtered}
+        candidateCounts={candidateCounts}
+        onCreate={() => setCreateOpen(true)}
+      />
 
       <JobForm
         open={createOpen}

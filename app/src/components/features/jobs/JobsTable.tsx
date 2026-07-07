@@ -26,10 +26,11 @@ type JobStatus = Database["public"]["Enums"]["job_status"];
 
 interface Props {
   jobs: JobRow[];
+  candidateCounts?: Record<string, { total: number; active: number; hired: number }>;
   onCreate: () => void;
 }
 
-export function JobsTable({ jobs, onCreate }: Props) {
+export function JobsTable({ jobs, candidateCounts, onCreate }: Props) {
   const router = useRouter();
 
   const columns = React.useMemo<ColumnDef<JobRow>[]>(
@@ -47,9 +48,23 @@ export function JobsTable({ jobs, onCreate }: Props) {
         ),
       },
       {
-        accessorKey: "headcount",
-        header: () => <span>{t.jobForm.headcount}</span>,
-        cell: ({ row }) => row.original.headcount,
+        id: "candidates",
+        header: () => <span>{t.nav.candidates}</span>,
+        cell: ({ row }) => {
+          const c = candidateCounts?.[row.original.id];
+          if (!c || c.total === 0) return <span className="text-slate-400">—</span>;
+          return (
+            <span className="text-sm text-slate-700">
+              <span className="font-semibold tabular-nums">{c.active}</span> đang xử lý
+              <span className="text-slate-400"> · </span>
+              <span className="tabular-nums">
+                {c.hired}/{row.original.headcount}
+              </span>{" "}
+              đã tuyển
+            </span>
+          );
+        },
+        enableSorting: false,
       },
       {
         accessorKey: "status",
@@ -68,7 +83,7 @@ export function JobsTable({ jobs, onCreate }: Props) {
         enableSorting: false,
       },
     ],
-    [],
+    [candidateCounts],
   );
 
   if (jobs.length === 0) {
@@ -146,7 +161,7 @@ function RowActions({ job }: { job: JobRow }) {
         )}
         {(job.status === "open" || job.status === "paused" || job.status === "draft") && (
           <DropdownMenuItem onSelect={() => setStatus("closed")}>
-            <X className="mr-2 h-3.5 w-3.5" aria-hidden /> Đóng tin
+            <X className="mr-2 h-3.5 w-3.5" aria-hidden /> Đóng tuyển
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
