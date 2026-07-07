@@ -73,7 +73,7 @@ export function JobsListClient({
       <PageHeader
         icon={Briefcase}
         title={t.nav.jobs}
-        subtitle={`${filtered.length} / ${initialJobs.length} tin đang hiển thị`}
+        subtitle={`${filtered.length} / ${initialJobs.length} vị trí đang hiển thị`}
         action={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" aria-hidden /> Tạo vị trí mới

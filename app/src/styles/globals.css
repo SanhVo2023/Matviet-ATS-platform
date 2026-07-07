@@ -5,6 +5,35 @@
 /* Mắt Việt HR — light-only theme (no dark mode v1).
  * shadcn/ui consumes CSS variables; brand colors live in tailwind.config.ts. */
 
+/* Mắt Việt navy rail — mirrors the theme's `sidenav` component override.
+ * Astryx v0.1.3 quirk: the theme compiler emits `.astryx-sidenav` while the
+ * shipped component class is `.astryx-side-nav`, so the built rule never
+ * matches. Kept OUTSIDE @layer base: Tailwind v3 tree-shakes custom rules
+ * inside @layer directives whose selectors never appear in content files.
+ * Keep in sync with matviet.css / matvietTheme.ts; drop when upstream fixes
+ * the registry key (ADR 0016). */
+[data-astryx-theme="matviet"] .astryx-side-nav {
+  background-color: #0b1430;
+  /* The rail inherits body ink otherwise — flip the whole subtree light */
+  color: var(--color-text-primary);
+  --color-text-primary: #f3f5fa;
+  --color-text-secondary: #9aa4c0;
+  --color-icon-primary: #e6e9f2;
+  --color-icon-secondary: #9aa4c0;
+  --color-text-accent: #fbc312;
+  --color-icon-accent: #fbc312;
+  --color-accent: #fbc312;
+  --color-accent-muted: #ffffff14;
+  --color-overlay-hover: #ffffff0d;
+  --color-overlay-pressed: #ffffff1a;
+  --color-border: #ffffff1a;
+  --color-background-surface: #0b1430;
+  --color-background-muted: #ffffff0d;
+  --color-on-accent: #0b1430;
+  /* Item labels use on-light (the stock rail is light); on navy it must flip */
+  --color-on-light: #f3f5fa;
+}
+
 @layer base {
   :root {
     /* Design language v2 — navy + gold (docs/design-language.md) */
@@ -51,6 +80,19 @@
     @apply bg-surface font-sans text-foreground;
     font-feature-settings: "cv11", "ss01";
     font-variation-settings: normal;
+  }
+
+  /* Print (QR poster): hide app chrome, restore natural flow. The AppShell
+   * slots are wrapped in print:hidden divs in the dashboard layout; these
+   * rules catch the shell's own nav containers + any sticky positioning. */
+  @media print {
+    .astryx-side-nav,
+    .astryx-top-nav {
+      display: none !important;
+    }
+    main {
+      overflow: visible !important;
+    }
   }
 
   /* Honor reduced-motion preference per docs/ui-ux.md §6 */

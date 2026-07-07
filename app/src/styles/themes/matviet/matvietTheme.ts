@@ -405,6 +405,30 @@ export const matvietTheme = defineTheme({
       },
     },
 
+    // =========================================================================
+    // SideNav — the Mắt Việt navy rail: brand-900 surface, ink-light text,
+    // GOLD selected/accent marks (scoped token redirects, not raw CSS hacks).
+    // =========================================================================
+    sidenav: {
+      base: {
+        backgroundColor: "#0b1430",
+        "--color-text-primary": "#f3f5fa",
+        "--color-text-secondary": "#9aa4c0",
+        "--color-icon-primary": "#e6e9f2",
+        "--color-icon-secondary": "#9aa4c0",
+        "--color-text-accent": "#fbc312",
+        "--color-icon-accent": "#fbc312",
+        "--color-accent": "#fbc312",
+        "--color-accent-muted": "#FFFFFF14",
+        "--color-overlay-hover": "#FFFFFF0D",
+        "--color-overlay-pressed": "#FFFFFF1A",
+        "--color-border": "#FFFFFF1A",
+        "--color-background-surface": "#0b1430",
+        "--color-background-muted": "#FFFFFF0D",
+        "--color-on-accent": "#0b1430",
+      },
+    },
+
     // Card / Section — tighter padding (kept from Neutral)
     card: {
       base: {

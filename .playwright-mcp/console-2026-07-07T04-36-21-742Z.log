@@ -1,0 +1,26 @@
+[     146ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js:196
+[    8251ms] [LOG] [Fast Refresh] done in 8105ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/dev/report-hmr-latency.js:13
+[   14166ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/vi-tri:0
+[   15148ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(pages-dir-browser)/./node_modules/react-dom/cjs/react-dom-client.development.js:24594
+[   15267ms] Error: ENOENT: no such file or directory, open 'E:\NEW APP\HR imrovement\Mắt Việt HR\app\.next\server\app-paths-manifest.json'
+    at readFileSync (node:fs:442:20)
+    at loadManifest (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\load-manifest.external.js:41:41)
+    at getMaybePagePath (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\require.js:51:67)
+    at getPagePath (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\require.js:86:22)
+    at requirePage (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\require.js:93:22)
+    at loadComponentsImpl (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\load-components.js:132:57)
+    at async DevServer.findPageComponentsImpl (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\next-server.js:900:36)
+    at async DevServer.findPageComponents (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\dev\next-dev-server.js:706:16)
+    at async DevServer.renderPageComponent (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\base-server.js:1468:24)
+    at async DevServer.renderToResponseImpl (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\base-server.js:1522:32)
+    at async DevServer.pipeImpl (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\base-server.js:1026:25)
+    at async NextNodeServer.handleCatchallRenderRequest (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\next-server.js:394:17)
+    at async DevServer.handleRequestImpl (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\base-server.js:917:17)
+    at async (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\dev\next-dev-server.js:400:20)
+    at async Span.traceAsyncFn (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\trace\trace.js:157:20)
+    at async DevServer.handleRequest (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\dev\next-dev-server.js:396:24)
+    at async invokeRender (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\lib\router-server.js:240:21)
+    at async handleRequest (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\lib\router-server.js:437:24)
+    at async requestHandlerImpl (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\lib\router-server.js:485:13)
+    at async Server.requestListener (file://E:\NEW APP\HR imrovement\Mắt Việt HR\app\node_modules\next\dist\server\lib\start-server.js:226:13)
+[   15266ms] [LOG] [HMR] connected @ webpack-internal:///(pages-dir-browser)/./node_modules/next/dist/client/dev/hot-reloader/pages/websocket.js:45

@@ -1,0 +1,33 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - link "Bỏ qua đến nội dung" [ref=e4] [cursor=pointer]:
+      - /url: "#auth-card"
+    - generic [ref=e5]:
+      - img "Mắt Việt HR — Hệ thống quản lý tuyển dụng thông minh" [ref=e7]
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - heading "Đăng nhập" [level=2] [ref=e12]
+          - paragraph [ref=e13]: Hệ thống quản lý tuyển dụng nội bộ
+        - generic [ref=e15]:
+          - generic [ref=e16]:
+            - text: Email
+            - textbox "Email" [disabled] [ref=e17]:
+              - /placeholder: ten@matviet.com.vn
+              - text: huong.demo@matviet.test
+          - generic [ref=e18]:
+            - generic [ref=e19]:
+              - generic [ref=e20]: Mật khẩu
+              - link "Quên mật khẩu?" [ref=e21] [cursor=pointer]:
+                - /url: /dat-lai-mat-khau
+            - generic [ref=e22]:
+              - textbox "Mật khẩu" [disabled] [ref=e23]: MatViet@2026
+              - button "Hiển thị" [ref=e24] [cursor=pointer]:
+                - img [ref=e25]
+          - button "Đang đăng nhập..." [disabled]:
+            - img
+            - text: Đang đăng nhập...
+      - paragraph [ref=e29]: Hệ thống tuyển dụng nội bộ — Mắt Việt
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e35] [cursor=pointer]:
+    - img [ref=e36]
+  - alert [ref=e39]

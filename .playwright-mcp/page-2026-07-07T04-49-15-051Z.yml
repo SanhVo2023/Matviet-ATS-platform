@@ -1,0 +1,155 @@
+- generic [active] [ref=f13e1]:
+  - generic [ref=f13e3]:
+    - link "Skip to content" [ref=f13e4] [cursor=pointer]:
+      - /url: "#astryx-app-shell-main"
+    - generic [ref=f13e6]:
+      - navigation "Thanh công cụ" [ref=f13e11]:
+        - generic [ref=f13e13]:
+          - button "Thông báo" [ref=f13e14] [cursor=pointer]:
+            - img [ref=f13e15]
+          - generic [ref=f13e18]:
+            - paragraph [ref=f13e19]: Bùi Thị Hương (Demo)
+            - paragraph [ref=f13e20]: Nhân sự
+          - 'button "Tài khoản: Bùi Thị Hương (Demo)" [ref=f13e21] [cursor=pointer]': H(
+      - generic [ref=f13e22]:
+        - navigation "Side navigation" [ref=f13e26]:
+          - link "Mắt Việt HR" [ref=f13e28] [cursor=pointer]:
+            - /url: /
+            - generic [ref=f13e30]: MV
+            - generic [ref=f13e33]: Mắt Việt HR
+          - group "Tuyển dụng" [ref=f13e35]:
+            - generic [ref=f13e38]: Tuyển dụng
+            - generic [ref=f13e39]:
+              - link "Tổng quan" [ref=f13e41] [cursor=pointer]:
+                - /url: /
+                - img [ref=f13e42]
+                - generic [ref=f13e47]: Tổng quan
+              - link "Vị trí" [ref=f13e49] [cursor=pointer]:
+                - /url: /vi-tri
+                - img [ref=f13e50]
+                - generic [ref=f13e53]: Vị trí
+              - link "Ứng viên" [ref=f13e55] [cursor=pointer]:
+                - /url: /ung-vien
+                - img [ref=f13e56]
+                - generic [ref=f13e61]: Ứng viên
+              - link "Phỏng vấn" [ref=f13e63] [cursor=pointer]:
+                - /url: /phong-van
+                - img [ref=f13e64]
+                - generic [ref=f13e66]: Phỏng vấn
+              - link "Phê duyệt" [ref=f13e68] [cursor=pointer]:
+                - /url: /phe-duyet
+                - img [ref=f13e69]
+                - generic [ref=f13e72]: Phê duyệt
+              - link "Email" [ref=f13e74] [cursor=pointer]:
+                - /url: /email
+                - img [ref=f13e75]
+                - generic [ref=f13e78]: Email
+              - link "Bài test" [ref=f13e80] [cursor=pointer]:
+                - /url: /cai-dat/bai-test
+                - img [ref=f13e81]
+                - generic [ref=f13e85]: Bài test
+              - link "Báo cáo" [ref=f13e87] [cursor=pointer]:
+                - /url: /bao-cao
+                - img [ref=f13e88]
+                - generic [ref=f13e90]: Báo cáo
+          - button "Collapse sidebar" [ref=f13e93] [cursor=pointer]:
+            - img [ref=f13e97]
+            - status
+        - main [ref=f13e101]:
+          - generic [ref=f13e104]:
+            - generic [ref=f13e105]:
+              - generic [ref=f13e106]:
+                - img [ref=f13e108]
+                - generic [ref=f13e111]:
+                  - heading "Vị trí" [level=1] [ref=f13e112]
+                  - paragraph [ref=f13e113]: 4 / 4 tin đang hiển thị
+              - button "Tạo vị trí mới" [ref=f13e115] [cursor=pointer]:
+                - img [ref=f13e116]
+                - text: Tạo vị trí mới
+            - region "Lọc danh sách" [ref=f13e117]:
+              - generic [ref=f13e118]:
+                - button "Tất cả" [pressed] [ref=f13e119] [cursor=pointer]
+                - button "Bản nháp" [ref=f13e120] [cursor=pointer]
+                - button "Đang mở" [ref=f13e121] [cursor=pointer]
+                - button "Tạm dừng" [ref=f13e122] [cursor=pointer]
+                - button "Đã đóng" [ref=f13e123] [cursor=pointer]
+                - button "Đã tuyển đủ" [ref=f13e124] [cursor=pointer]
+              - combobox "Phòng ban" [ref=f13e126]:
+                - option "Tất cả phòng ban" [selected]
+                - option "Bán lẻ"
+                - option "Kỹ thuật quang học"
+                - option "Marketing"
+                - option "Nhân sự"
+                - option "Văn phòng"
+              - generic [ref=f13e127]:
+                - img
+                - searchbox "Tìm tin" [ref=f13e128]
+            - table [ref=f13e131]:
+              - rowgroup [ref=f13e132]:
+                - row "Tiêu đề công việc Loại vị trí Số lượng cần tuyển Trạng thái Đăng ngày Hành động" [ref=f13e133]:
+                  - columnheader "Tiêu đề công việc" [ref=f13e134] [cursor=pointer]:
+                    - generic [ref=f13e135]:
+                      - generic [ref=f13e136]: Tiêu đề công việc
+                      - img [ref=f13e137]
+                  - columnheader "Loại vị trí" [ref=f13e140] [cursor=pointer]:
+                    - generic [ref=f13e141]:
+                      - generic [ref=f13e142]: Loại vị trí
+                      - img [ref=f13e143]
+                  - columnheader "Số lượng cần tuyển" [ref=f13e146] [cursor=pointer]:
+                    - generic [ref=f13e147]:
+                      - generic [ref=f13e148]: Số lượng cần tuyển
+                      - img [ref=f13e149]
+                  - columnheader "Trạng thái" [ref=f13e152] [cursor=pointer]:
+                    - generic [ref=f13e153]:
+                      - generic [ref=f13e154]: Trạng thái
+                      - img [ref=f13e155]
+                  - columnheader "Đăng ngày" [ref=f13e158] [cursor=pointer]:
+                    - generic [ref=f13e159]:
+                      - generic [ref=f13e160]: Đăng ngày
+                      - img [ref=f13e161]
+                  - columnheader "Hành động" [ref=f13e163]:
+                    - generic [ref=f13e164]: Hành động
+              - rowgroup [ref=f13e165]:
+                - button "Nhân viên tư vấn bán kính (Demo) Bán hàng 2 Đang mở 13/06/2026 Thao tác khác" [ref=f13e166] [cursor=pointer]:
+                  - cell "Nhân viên tư vấn bán kính (Demo)" [ref=f13e167]
+                  - cell "Bán hàng" [ref=f13e168]
+                  - cell "2" [ref=f13e169]
+                  - cell "Đang mở" [ref=f13e170]:
+                    - generic [ref=f13e171]: Đang mở
+                  - cell "13/06/2026" [ref=f13e172]
+                  - cell "Thao tác khác" [ref=f13e173]:
+                    - button "Thao tác khác" [ref=f13e174]:
+                      - img [ref=f13e175]
+                - button "Cửa hàng trưởng khu vực (Demo) Cấp quản lý 1 Đang mở 03/06/2026 Thao tác khác" [ref=f13e179] [cursor=pointer]:
+                  - cell "Cửa hàng trưởng khu vực (Demo)" [ref=f13e180]
+                  - cell "Cấp quản lý" [ref=f13e181]
+                  - cell "1" [ref=f13e182]
+                  - cell "Đang mở" [ref=f13e183]:
+                    - generic [ref=f13e184]: Đang mở
+                  - cell "03/06/2026" [ref=f13e185]
+                  - cell "Thao tác khác" [ref=f13e186]:
+                    - button "Thao tác khác" [ref=f13e187]:
+                      - img [ref=f13e188]
+                - button "Kỹ thuật viên đo khúc xạ (Demo) Kỹ thuật viên quang học 1 Bản nháp — Thao tác khác" [ref=f13e192] [cursor=pointer]:
+                  - cell "Kỹ thuật viên đo khúc xạ (Demo)" [ref=f13e193]
+                  - cell "Kỹ thuật viên quang học" [ref=f13e194]
+                  - cell "1" [ref=f13e195]
+                  - cell "Bản nháp" [ref=f13e196]:
+                    - generic [ref=f13e197]: Bản nháp
+                  - cell "—" [ref=f13e198]
+                  - cell "Thao tác khác" [ref=f13e199]:
+                    - button "Thao tác khác" [ref=f13e200]:
+                      - img [ref=f13e201]
+                - button "Nhân viên tư vấn bán kính Bán hàng 2 Đang mở 03/07/2026 Thao tác khác" [ref=f13e205] [cursor=pointer]:
+                  - cell "Nhân viên tư vấn bán kính" [ref=f13e206]
+                  - cell "Bán hàng" [ref=f13e207]
+                  - cell "2" [ref=f13e208]
+                  - cell "Đang mở" [ref=f13e209]:
+                    - generic [ref=f13e210]: Đang mở
+                  - cell "03/07/2026" [ref=f13e211]
+                  - cell "Thao tác khác" [ref=f13e212]:
+                    - button "Thao tác khác" [ref=f13e213]:
+                      - img [ref=f13e214]
+          - button "Mở Trợ lý AI" [ref=f13e219] [cursor=pointer]:
+            - img [ref=f13e220]
+  - region "Notifications alt+T"
