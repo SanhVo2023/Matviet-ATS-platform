@@ -401,7 +401,12 @@ async function markFailure(
   }
   void attempts;
 
-  await db
+  // OWNERSHIP GUARD: only fail the row if it's still the run WE claimed
+  // (status 'running' at our attempt count). A 3046-style AI hang can outlive
+  // the 3-min stale threshold — the cron reclaims the row, a second worker
+  // SUCCEEDS, and then the original worker's late timeout must NOT clobber
+  // that success (observed live 2026-07-07).
+  const owned = await db
     .update(scoring_queue)
     .set({
       status: "failed",
@@ -409,7 +414,18 @@ async function markFailure(
       next_retry_at: nextRetry,
       completed_at: nextRetry ? null : new Date().toISOString(),
     })
-    .where(eq(scoring_queue.id, q.id));
+    .where(
+      and(
+        eq(scoring_queue.id, q.id),
+        eq(scoring_queue.status, "running"),
+        eq(scoring_queue.attempts, q.attempts),
+      ),
+    )
+    .returning({ id: scoring_queue.id });
+  if (owned.length === 0) {
+    console.warn("[scoring] stale worker lost ownership — skipping failure write:", q.id);
+    return false;
+  }
 
   if (!nextRetry) {
     await db

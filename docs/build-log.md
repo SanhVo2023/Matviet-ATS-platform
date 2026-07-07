@@ -223,3 +223,8 @@ pm run dev (localhost baseURL) or rebuild without the env override.
 - Bulk 1-20 PDF: tạo ứng viên NGAY (tên = tên file, source_meta.name_pending), worker backfill tên/email/SĐT vào Ô TRỐNG (không ghi đè tay HR). `IntakeDropCard` "Thả CV vào đây — bắt đầu quy trình" ngay đầu cột Tiếp nhận; board render cả khi 0 ứng viên; nút "Tải CV lên".
 - Xóa hẳn module csv-import (UI + server + validation + 14 tests — CSV không có PDF nên không chấm AI được, ngược triết lý pipeline). Suite còn 74 tests.
 - Đổi CV → xóa cache cv_markdowns theo candidate + re-enqueue.
+
+## 2026-07-07 (tiếp 5) — Fix race stale-recovery trong scoring (bắt được live khi test ADR 0017)
+- Kịch bản tái hiện trên prod: worker 1 bị Workers AI treo (3046 timeout mất >3 phút) → cron coi row là stale, worker 2 claim lại và chấm THÀNH CÔNG (điểm + backfill ghi xong) → worker 1 tỉnh dậy nhận timeout và ghi đè `ai_screening_status='failed'` LÊN SAU thành công.
+- Fix: `markFailure` giờ có ownership guard — UPDATE queue row chỉ khi vẫn `running` đúng attempts mình claim; mất quyền sở hữu → bỏ qua, không đụng candidate. Success path giữ nguyên (success muộn ghi đè success mới là chấp nhận được — cả hai đều là điểm thật).
+- E2E ADR 0017 trên prod đã xong trọn: bulk 2 PDF → thẻ hiện ngay tên từ file → AI backfill email/SĐT thật từ CV → điểm 42/58 → cv_markdowns 2 rows done → retry sau timeout hoạt động. Dữ liệu test đã archive.
