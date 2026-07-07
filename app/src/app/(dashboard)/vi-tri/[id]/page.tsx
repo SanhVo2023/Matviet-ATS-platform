@@ -15,7 +15,6 @@ import { KanbanBoard } from "@/components/features/pipeline/KanbanBoard";
 import { AddCandidateButton } from "@/components/features/candidates/AddCandidateButton";
 import { CsvImportTrigger } from "@/components/features/csv-import/CsvImportTrigger";
 import { JobInfoPanel, JobInfoBody, type JobInfo } from "@/components/features/jobs/JobInfoPanel";
-import { STAGE_GROUPS, groupOfStage, type Stage } from "@/lib/validation/candidate";
 import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -94,14 +93,6 @@ export default async function JobWorkspacePage({ params }: { params: Promise<{ i
     managers,
   };
 
-  // Per-super-stage counts for the stats strip — derived from the already
-  // fetched candidates, no extra query.
-  const groupCounts = new Map<string, number>();
-  for (const c of candidates) {
-    const g = groupOfStage(c.current_stage as Stage);
-    groupCounts.set(g.id, (groupCounts.get(g.id) ?? 0) + 1);
-  }
-
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <PageHeader
@@ -148,26 +139,6 @@ export default async function JobWorkspacePage({ params }: { params: Promise<{ i
         </div>
       ) : (
         <>
-          {/* Stage stats strip */}
-          <div className="flex flex-wrap items-center gap-2">
-            {STAGE_GROUPS.map((g) => {
-              const n = groupCounts.get(g.id) ?? 0;
-              return (
-                <span
-                  key={g.id}
-                  className={
-                    n > 0
-                      ? "inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700"
-                      : "inline-flex items-center gap-1.5 rounded-full border border-dashed border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-400"
-                  }
-                >
-                  {g.label}
-                  <span className="font-mono font-semibold tabular-nums">{n}</span>
-                </span>
-              );
-            })}
-          </div>
-
           {candidates.length === 0 ? (
             <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-12 text-center">
               <p className="text-sm font-medium text-slate-700">{t.empty.candidates}</p>

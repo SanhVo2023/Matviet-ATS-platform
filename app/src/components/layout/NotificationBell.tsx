@@ -191,13 +191,18 @@ export function NotificationBell({ expanded = true }: { expanded?: boolean }) {
         <button
           type="button"
           aria-label="Thông báo"
-          className="flex w-full items-center gap-3 rounded-md p-1.5 text-left text-slate-200 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60"
+          title={expanded ? undefined : "Thông báo"}
+          className={
+            expanded
+              ? "flex w-full items-center gap-3 rounded-md p-1.5 text-left text-slate-200 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60"
+              : "flex h-10 w-10 items-center justify-center rounded-md text-slate-200 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60"
+          }
         >
-          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center">
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center">
             <Bell className="h-5 w-5" aria-hidden />
             {unread > 0 && (
               <span
-                className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
+                className="absolute -top-0.5 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
                 aria-label={`${unread} thông báo chưa đọc`}
               >
                 {unread > 9 ? "9+" : unread}

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Archive } from "lucide-react";
 import {
   DndContext,
   DragOverlay,
@@ -14,6 +15,7 @@ import {
 } from "@dnd-kit/core";
 import {
   STAGE_GROUPS,
+  CLOSED_GROUP,
   groupOfStage,
   resolveGroupTarget,
   type Stage,
@@ -23,6 +25,7 @@ import type { CandidateRow } from "@/server/candidates/repository";
 import { changeStageAction } from "@/app/(dashboard)/ung-vien/actions";
 import { startApprovalAction } from "@/app/(dashboard)/phong-van/actions";
 import { t } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
 
@@ -33,13 +36,18 @@ interface Props {
 }
 
 /**
- * 7 super-columns (ADR 0015) — the DB keeps all 16 detailed stages; this is
- * purely how the board displays. Cards show their detailed stage as a badge;
+ * 4 business columns (Sanh 2026-07-07) — the DB keeps all 16 detailed stages;
+ * this is purely how the board displays. Cards show a readiness dot+label;
  * the table view's StageDropdown still reaches every sub-stage. Dropping into
- * "Phê duyệt" starts the approval chain (the drag IS the intent).
+ * "Đề nghị làm việc" starts the approval chain (the drag IS the intent).
+ * Closed candidates (rejected/withdrew) hide behind the "Đã đóng" toggle —
+ * that column is never a drop target (rejecting is a consequential action,
+ * done from the detail page/table).
  */
 function groupRows(rows: CandidateRow[]): Record<string, CandidateRow[]> {
-  const out = Object.fromEntries(STAGE_GROUPS.map((g) => [g.id, [] as CandidateRow[]]));
+  const out = Object.fromEntries(
+    [...STAGE_GROUPS, CLOSED_GROUP].map((g) => [g.id, [] as CandidateRow[]]),
+  );
   for (const r of rows) {
     out[groupOfStage(r.current_stage as Stage).id]!.push(r);
   }
@@ -51,7 +59,10 @@ export function KanbanBoard({ candidates: initial }: Props) {
   const [rows, setRows] = React.useState<CandidateRow[]>(initial);
   React.useEffect(() => setRows(initial), [initial]);
 
+  const [showClosed, setShowClosed] = React.useState(false);
+
   const grouped = React.useMemo(() => groupRows(rows), [rows]);
+  const closedCount = grouped[CLOSED_GROUP.id]?.length ?? 0;
 
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const activeCard = React.useMemo(
@@ -71,7 +82,8 @@ export function KanbanBoard({ candidates: initial }: Props) {
     setActiveId(null);
     if (!over) return;
 
-    // Droppable ids are group ids ("g_*") — set in KanbanColumn.
+    // Droppable ids are group ids ("g_*") — set in KanbanColumn. The closed
+    // column is droppable-disabled, so it can never arrive here.
     const group = STAGE_GROUPS.find((g) => g.id === String(over.id));
     if (!group) return;
 
@@ -80,9 +92,9 @@ export function KanbanBoard({ candidates: initial }: Props) {
     const currentStage = card.current_stage as Stage;
     if (group.stages.includes(currentStage)) return; // dropped within own group — no-op
 
-    // "Phê duyệt" drop = start the approval chain (it bumps the stage itself
-    // via STAGE_FOR_PENDING_STEP and notifies the first decider).
-    if (group.id === "g_approval") {
+    // "Đề nghị làm việc" drop = start the approval chain (it bumps the stage
+    // itself via STAGE_FOR_PENDING_STEP and notifies the first decider).
+    if (group.id === "g_offer") {
       const prevRows = rows;
       setRows((cur) =>
         cur.map((r) => (r.id === card.id ? { ...r, current_stage: "recommended" } : r)),
@@ -126,15 +138,40 @@ export function KanbanBoard({ candidates: initial }: Props) {
   };
 
   const acceptsDropFor = (group: StageGroup): boolean => {
+    if (group.id === CLOSED_GROUP.id) return false; // never a drop target
     if (!activeCard) return true;
     const currentStage = activeCard.current_stage as Stage;
     if (group.stages.includes(currentStage)) return true; // own group = harmless no-op
+    if (group.id === "g_offer") {
+      // Starting an approval chain only makes sense moving FORWARD from
+      // intake/evaluation — not from onboarding or closed records.
+      const cur = groupOfStage(currentStage).id;
+      return cur === "g_intake" || cur === "g_eval";
+    }
     return resolveGroupTarget(currentStage, group) !== null;
   };
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex h-[calc(100vh-12rem)] gap-3 overflow-x-auto px-1 pb-3">
+      {/* Board toolbar — closed-records toggle */}
+      <div className="mb-2 flex items-center justify-end px-1">
+        <button
+          type="button"
+          onClick={() => setShowClosed((v) => !v)}
+          aria-pressed={showClosed}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+            showClosed
+              ? "border-rose-200 bg-rose-50 text-rose-700"
+              : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50",
+          )}
+        >
+          <Archive className="h-3.5 w-3.5" aria-hidden />
+          Đã đóng ({closedCount})
+        </button>
+      </div>
+
+      <div className="flex h-[calc(100vh-13rem)] gap-3 overflow-x-auto px-1 pb-3">
         {STAGE_GROUPS.map((g) => (
           <KanbanColumn
             key={g.id}
@@ -143,6 +180,13 @@ export function KanbanBoard({ candidates: initial }: Props) {
             acceptsDrop={acceptsDropFor(g)}
           />
         ))}
+        {showClosed ? (
+          <KanbanColumn
+            group={CLOSED_GROUP}
+            candidates={grouped[CLOSED_GROUP.id] ?? []}
+            acceptsDrop={false}
+          />
+        ) : null}
       </div>
 
       <DragOverlay dropAnimation={null}>

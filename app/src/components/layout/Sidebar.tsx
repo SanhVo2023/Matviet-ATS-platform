@@ -32,6 +32,24 @@ const GROUP_ORDER: ModuleGroup[] = ["recruiting", "hris", "system"];
 export function Sidebar({ role, fullName, email }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(true);
+  // Grace period before collapsing — brushing past the rail shouldn't flicker it.
+  const collapseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const expand = React.useCallback(() => {
+    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    collapseTimer.current = null;
+    setCollapsed(false);
+  }, []);
+  const collapseSoon = React.useCallback(() => {
+    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    collapseTimer.current = setTimeout(() => setCollapsed(true), 200);
+  }, []);
+  React.useEffect(
+    () => () => {
+      if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    },
+    [],
+  );
 
   const items = modulesForRole(role);
   const groups = GROUP_ORDER.map((g) => ({
@@ -42,13 +60,15 @@ export function Sidebar({ role, fullName, email }: SidebarProps) {
   const showHeaders = groups.length > 1;
 
   return (
+    // hidden lg:block — mobile navigation is BottomTabs; the rail would
+    // overlay content on phones otherwise.
     <div
-      className={cn("mv-side-rail h-full", !collapsed && "mv-side-rail-expanded")}
-      onMouseEnter={() => setCollapsed(false)}
-      onMouseLeave={() => setCollapsed(true)}
-      onFocusCapture={() => setCollapsed(false)}
+      className={cn("mv-side-rail hidden h-full lg:block", !collapsed && "mv-side-rail-expanded")}
+      onMouseEnter={expand}
+      onMouseLeave={collapseSoon}
+      onFocusCapture={expand}
       onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setCollapsed(true);
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) collapseSoon();
       }}
     >
       <SideNav
@@ -68,9 +88,14 @@ export function Sidebar({ role, fullName, email }: SidebarProps) {
         }
         collapsible={{ isCollapsed: collapsed, onCollapsedChange: setCollapsed, hasButton: false }}
         footer={
-          <div className="flex flex-col gap-1 px-1 pb-1">
+          <div
+            className={cn(
+              "flex flex-col gap-1 border-t border-white/10 pb-1 pt-2",
+              collapsed ? "items-center px-0" : "px-1",
+            )}
+          >
             <NotificationBell expanded={!collapsed} />
-            <AccountMenu fullName={fullName} email={email} role={role} />
+            <AccountMenu fullName={fullName} email={email} role={role} expanded={!collapsed} />
           </div>
         }
       >

@@ -24,6 +24,8 @@ interface Props {
   fullName: string;
   email: string;
   role: UserRole;
+  /** Mirrors the rail's hover state — collapsed renders an icon-only avatar. */
+  expanded?: boolean;
 }
 
 /**
@@ -31,7 +33,7 @@ interface Props {
  * now the SideNav footer (the top bar was pure chrome and got removed —
  * Sanh 2026-07-07). Đổi mật khẩu qua email + đăng xuất.
  */
-export function AccountMenu({ fullName, email, role }: Props) {
+export function AccountMenu({ fullName, email, role, expanded = true }: Props) {
   const router = useRouter();
   const [resetBusy, setResetBusy] = React.useState(false);
 
@@ -60,17 +62,29 @@ export function AccountMenu({ fullName, email, role }: Props) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex w-full items-center gap-3 rounded-md p-1.5 text-left transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60"
+          className={
+            expanded
+              ? "flex w-full items-center gap-3 rounded-md p-1.5 text-left transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60"
+              : "flex h-10 w-10 items-center justify-center rounded-md transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60"
+          }
           aria-label={`Tài khoản: ${fullName}`}
-          title={email}
+          title={expanded ? email : `${fullName} — ${email}`}
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-400 text-sm font-semibold text-brand-900">
+          <span
+            className={
+              expanded
+                ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-400 text-sm font-semibold text-brand-900"
+                : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-400 text-xs font-semibold text-brand-900"
+            }
+          >
             {initials(fullName || email)}
           </span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold text-slate-50">{fullName}</span>
-            <span className="block truncate text-xs text-slate-400">{t.userRole[role]}</span>
-          </span>
+          {expanded && (
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-slate-50">{fullName}</span>
+              <span className="block truncate text-xs text-slate-400">{t.userRole[role]}</span>
+            </span>
+          )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="right" className="w-64">

@@ -5,11 +5,9 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Mail, Phone, Calendar } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScoringStatusPill } from "@/components/features/scoring/ScoringStatusPill";
 import { cn } from "@/lib/utils";
-import { initials, formatRelative } from "@/lib/vi-format";
+import { formatRelative } from "@/lib/vi-format";
+import { stageReadiness, type Stage, type ReadinessTone } from "@/lib/validation/candidate";
 import { t } from "@/lib/i18n";
 import type { CandidateRow } from "@/server/candidates/repository";
 
@@ -19,6 +17,26 @@ interface Props {
   overlay?: boolean;
 }
 
+/** Status dot — ALWAYS paired with the label next to it (color-blind safe). */
+const DOT_CLASS: Record<ReadinessTone, string> = {
+  ready: "bg-emerald-500",
+  waiting: "bg-slate-300",
+  blocked: "bg-rose-500",
+  done: "bg-emerald-600 ring-2 ring-emerald-200",
+};
+
+const LABEL_CLASS: Record<ReadinessTone, string> = {
+  ready: "text-emerald-700",
+  waiting: "text-slate-500",
+  blocked: "text-rose-600",
+  done: "text-emerald-700",
+};
+
+/**
+ * Compact 2-line card (Sanh 2026-07-07): name + AI score, then the readiness
+ * dot + label + relative time. Contact details live on the detail page; the
+ * detailed sub-stage is the tooltip.
+ */
 export function KanbanCard({ candidate, overlay }: Props) {
   const reduceMotion = useReducedMotion();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -31,6 +49,8 @@ export function KanbanCard({ candidate, overlay }: Props) {
     transform: CSS.Translate.toString(transform),
     transition,
   };
+
+  const readiness = stageReadiness(candidate.current_stage as Stage, candidate.ai_screening_status);
 
   return (
     <div
@@ -47,24 +67,19 @@ export function KanbanCard({ candidate, overlay }: Props) {
       */}
       <motion.div
         whileHover={overlay || reduceMotion ? undefined : { y: -2 }}
+        title={`${candidate.full_name} — ${t.stage[candidate.current_stage]}`}
         className={cn(
-          "relative cursor-grab rounded-md border border-slate-200 bg-white p-3 text-left text-xs shadow-sm",
+          "relative cursor-grab rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-xs shadow-sm",
           "active:cursor-grabbing",
           overlay && "rotate-2 scale-[1.02] cursor-grabbing shadow-lg ring-2 ring-primary-300",
           !overlay && "transition-shadow hover:border-primary-300 hover:shadow-md",
         )}
       >
-        {/* Header — avatar + name + score */}
-        <div className="flex items-start gap-2">
-          <Avatar className="h-7 w-7 shrink-0">
-            <AvatarFallback className="text-[10px]">{initials(candidate.full_name)}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-brand-900">{candidate.full_name}</p>
-            <p className="truncate text-[10px] uppercase tracking-wide text-slate-500">
-              {t.source[candidate.source]}
-            </p>
-          </div>
+        {/* Line 1 — name + AI score */}
+        <div className="flex items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-[13px] font-semibold text-brand-900">
+            {candidate.full_name}
+          </p>
           {candidate.ai_score != null ? (
             <span className="inline-flex shrink-0 items-center rounded-full bg-brand-900 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-accent-400">
               {Math.round(candidate.ai_score)}
@@ -72,33 +87,22 @@ export function KanbanCard({ candidate, overlay }: Props) {
           ) : null}
         </div>
 
-        {/* Body — contact + scoring status */}
-        <div className="mt-2 space-y-1 text-[11px] text-slate-500">
-          {candidate.email ? (
-            <div className="flex items-center gap-1.5 truncate">
-              <Mail className="h-3 w-3 shrink-0" aria-hidden />
-              <span className="truncate">{candidate.email}</span>
-            </div>
-          ) : null}
-          {candidate.phone ? (
-            <div className="flex items-center gap-1.5 truncate">
-              <Phone className="h-3 w-3 shrink-0" aria-hidden />
-              <span className="truncate">{candidate.phone}</span>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1 text-[10px] text-slate-400">
-            <Calendar className="h-3 w-3" aria-hidden />
-            {formatRelative(candidate.updated_at)}
+        {/* Line 2 — readiness dot + label + relative time */}
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <span
+            className={cn("h-2 w-2 shrink-0 rounded-full", DOT_CLASS[readiness.tone])}
+            aria-hidden
+          />
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate text-[11px] font-medium",
+              LABEL_CLASS[readiness.tone],
+            )}
+          >
+            {readiness.label}
           </span>
-          <span className="flex items-center gap-1.5">
-            {/* Detailed sub-stage — columns are super-groups (ADR 0015) */}
-            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-              {t.stage[candidate.current_stage]}
-            </span>
-            <ScoringStatusPill status={candidate.ai_screening_status} />
+          <span className="shrink-0 text-[10px] text-slate-400">
+            {formatRelative(candidate.updated_at)}
           </span>
         </div>
 
