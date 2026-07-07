@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ClipboardCheck } from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { getJob } from "@/server/jobs/repository";
 import { getAssessmentForJob } from "@/server/assessments/repository";
@@ -39,14 +38,9 @@ export default async function JobAssessmentSettingsPage({
 
   return (
     <div className="mx-auto max-w-3xl p-6 lg:p-8">
-      <Link
-        href="/cai-dat/bai-test"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 transition-colors hover:text-slate-900"
-      >
-        <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Tất cả vị trí
-      </Link>
-
       <PageHeader
+        back="/cai-dat/bai-test"
+        backLabel="Tất cả vị trí"
         icon={ClipboardCheck}
         title={job.title}
         subtitle="Một vị trí chỉ có một bài test đang hoạt động. Tải file mới sẽ thay thế file cũ."

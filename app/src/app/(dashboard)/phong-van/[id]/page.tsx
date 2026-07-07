@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, MapPin, Calendar, Clock, Video } from "lucide-react";
+import { ExternalLink, MapPin, Calendar, Clock, Video } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import {
   getInterview,
@@ -12,7 +12,6 @@ import {
 import { getCandidate, lookupProfileNames } from "@/server/candidates/repository";
 import { getJob } from "@/server/jobs/repository";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { InterviewReviewForm } from "@/components/features/interviews/InterviewReviewForm";
@@ -63,18 +62,13 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6 lg:p-8">
-      <div className="space-y-3">
-        <Button asChild variant="ghost" size="sm" className="-ml-3">
-          <Link href="/phong-van">
-            <ArrowLeft className="h-4 w-4" aria-hidden /> {t.nav.interviews}
-          </Link>
-        </Button>
-        <PageHeader
-          icon={Calendar}
-          title={`Phỏng vấn — ${candidate?.full_name ?? "—"}`}
-          subtitle={`${formatDateTime(interview.scheduled_at)} · ${t.interviewType[interview.type]}`}
-        />
-      </div>
+      <PageHeader
+        back="/phong-van"
+        backLabel={t.nav.interviews}
+        icon={Calendar}
+        title={`Phỏng vấn — ${candidate?.full_name ?? "—"}`}
+        subtitle={`${formatDateTime(interview.scheduled_at)} · ${t.interviewType[interview.type]}`}
+      />
 
       <Card>
         <CardContent className="grid grid-cols-1 gap-4 pt-6 sm:grid-cols-2 lg:grid-cols-4">

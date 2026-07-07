@@ -74,7 +74,10 @@ export const MODULES: AppModule[] = [
     icon: Briefcase,
     roles: ["admin", "hr", "hiring_manager"],
     group: "recruiting",
-    enabled: true,
+    // Merged into the dashboard control center (Sanh 2026-07-07):
+    // positions render on "/" and /vi-tri redirects there. Workspace routes
+    // (/vi-tri/[id]…) stay live.
+    enabled: false,
   },
   {
     key: "candidates",

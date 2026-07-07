@@ -1,13 +1,5 @@
 import Link from "next/link";
-import {
-  Briefcase,
-  FileText,
-  Calendar,
-  CheckCircle2,
-  ArrowRight,
-  Video,
-  Phone,
-} from "lucide-react";
+import { FileText, Calendar, CheckCircle2, ArrowRight, Video, Phone, Plus } from "lucide-react";
 import { requireSession, isHr, isManager } from "@/lib/auth";
 import {
   getHrDashboardData,
@@ -17,9 +9,16 @@ import {
   type TodayInterviewItem,
   type ActionInboxItem,
 } from "@/server/dashboard/queries";
+import {
+  listJobs,
+  listJobsForManager,
+  countCandidatesByJob,
+  type JobRow,
+  type JobCandidateCounts,
+} from "@/server/jobs/repository";
 import type { PendingApprovalRow } from "@/server/approvals/repository";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { StageBadge } from "@/components/primitives/StatusBadge";
+import { StageBadge, JobStatusBadge } from "@/components/primitives/StatusBadge";
 import { CountUp } from "@/components/primitives/CountUp";
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
@@ -37,12 +36,36 @@ export default async function HomePage() {
   const profile = await requireSession();
 
   if (isManager(profile.role)) {
-    const data = await getManagerInboxData(profile.id, "hiring_manager");
-    return <ManagerInbox name={profile.full_name ?? "anh/chị"} data={data} />;
+    const [data, myJobs, counts] = await Promise.all([
+      getManagerInboxData(profile.id, "hiring_manager"),
+      listJobsForManager(profile.id),
+      countCandidatesByJob(),
+    ]);
+    return (
+      <ManagerInbox
+        name={profile.full_name ?? "anh/chị"}
+        data={data}
+        jobs={myJobs}
+        counts={Object.fromEntries(counts.map((c) => [c.job_id, c]))}
+      />
+    );
   }
   if (isHr(profile.role)) {
-    const [data, inbox] = await Promise.all([getHrDashboardData(), getActionInbox()]);
-    return <HrDashboard name={profile.full_name ?? "chị Hương"} data={data} inbox={inbox} />;
+    const [data, inbox, jobs, counts] = await Promise.all([
+      getHrDashboardData(),
+      getActionInbox(),
+      listJobs(),
+      countCandidatesByJob(),
+    ]);
+    return (
+      <HrDashboard
+        name={profile.full_name ?? "chị Hương"}
+        data={data}
+        inbox={inbox}
+        jobs={jobs}
+        counts={Object.fromEntries(counts.map((c) => [c.job_id, c]))}
+      />
+    );
   }
   const steps = await getExecQueueData(profile.id, profile.role as "bod" | "tap_doan");
   return <ExecApprovalQueue name={profile.full_name ?? "anh/chị"} steps={steps} />;
@@ -75,22 +98,89 @@ function InterviewTypeIcon({ type }: { type: TodayInterviewItem["type"] }) {
   return <Calendar className="h-3.5 w-3.5 text-slate-400" aria-hidden />;
 }
 
+type CountsByJob = Record<string, JobCandidateCounts>;
+
+/** Position card — the Vị trí list lives ON the dashboard now (control center). */
+function PositionCard({ job, counts }: { job: JobRow; counts?: JobCandidateCounts }) {
+  return (
+    <Link href={`/vi-tri/${job.id}`} className="group block h-full focus-visible:outline-none">
+      <Card className="h-full rounded-lg bg-surface-raised transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-primary-500">
+        <CardContent className="pt-5">
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 truncate text-sm font-semibold text-brand-900">{job.title}</p>
+            <JobStatusBadge status={job.status} />
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {t.roleFamily[job.role_family]}
+            {job.location ? ` · ${job.location}` : ""}
+          </p>
+          <p className="mt-3 text-sm text-slate-700">
+            {counts && counts.total > 0 ? (
+              <>
+                <span className="font-semibold tabular-nums">{counts.active}</span> đang xử lý
+                <span className="text-slate-400"> · </span>
+                <span className="tabular-nums">
+                  {counts.hired}/{job.headcount}
+                </span>{" "}
+                đã tuyển
+              </>
+            ) : (
+              <span className="text-slate-400">Chưa có ứng viên</span>
+            )}
+          </p>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+function PositionsSection({ jobs, counts }: { jobs: JobRow[]; counts: CountsByJob }) {
+  return (
+    <section aria-label={t.nav.jobs}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <SectionTitle>Vị trí đang tuyển</SectionTitle>
+        </h2>
+        <Link
+          href="/vi-tri/moi"
+          className="inline-flex items-center gap-1.5 rounded-md bg-accent-400 px-3 py-1.5 text-sm font-semibold text-brand-900 transition-colors hover:bg-accent-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        >
+          <Plus className="h-4 w-4" aria-hidden /> Tạo vị trí mới
+        </Link>
+      </div>
+      {jobs.length === 0 ? (
+        <Card>
+          <CardContent className="pt-5">
+            <EmptyLine text={t.empty.jobs} />
+          </CardContent>
+        </Card>
+      ) : (
+        <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {jobs.map((job) => (
+            <StaggerItem key={job.id} className="h-full">
+              <PositionCard job={job} counts={counts[job.id]} />
+            </StaggerItem>
+          ))}
+        </Stagger>
+      )}
+    </section>
+  );
+}
+
 function HrDashboard({
   name,
   data,
   inbox,
+  jobs,
+  counts,
 }: {
   name: string;
   data: Awaited<ReturnType<typeof getHrDashboardData>>;
   inbox: ActionInboxItem[];
+  jobs: JobRow[];
+  counts: CountsByJob;
 }) {
   const stats = [
-    {
-      label: t.dashboard.cards.openJobs,
-      value: data.openJobs,
-      href: "/vi-tri",
-      icon: Briefcase,
-    },
     { label: t.dashboard.cards.newCvs, value: data.newCvs7d, href: "/ung-vien", icon: FileText },
     {
       label: t.dashboard.cards.todayInterviews,
@@ -156,8 +246,13 @@ function HrDashboard({
         </section>
       </FadeIn>
 
+      {/* Vị trí merged into the dashboard (control center — Sanh 2026-07-07) */}
+      <FadeIn>
+        <PositionsSection jobs={jobs} counts={counts} />
+      </FadeIn>
+
       <section aria-label="Số liệu nhanh">
-        <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {stats.map(({ label, value, href, icon: Icon }) => (
             <StaggerItem key={href + label} className="h-full">
               <Link href={href} className="group block h-full focus-visible:outline-none">
@@ -277,9 +372,13 @@ function HrDashboard({
 function ManagerInbox({
   name,
   data,
+  jobs,
+  counts,
 }: {
   name: string;
   data: Awaited<ReturnType<typeof getManagerInboxData>>;
+  jobs: JobRow[];
+  counts: CountsByJob;
 }) {
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6 lg:p-8">
@@ -290,6 +389,20 @@ function ManagerInbox({
           </h1>
         </header>
       </FadeIn>
+
+      {/* Vị trí của tôi — the positions this manager owns, straight to the workspace */}
+      {jobs.length > 0 && (
+        <section aria-label={t.managerInbox.myJobs.title}>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <SectionTitle>{t.managerInbox.myJobs.title}</SectionTitle>
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {jobs.map((job) => (
+              <PositionCard key={job.id} job={job} counts={counts[job.id]} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">

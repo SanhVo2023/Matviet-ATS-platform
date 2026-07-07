@@ -1,15 +1,17 @@
 import { AppShell } from "@astryxdesign/core/AppShell";
 import { requireSession } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { TopBar } from "@/components/layout/TopBar";
 import { BottomTabs } from "@/components/layout/BottomTabs";
 import { AgentDock } from "@/components/features/agent/AgentDock";
 
 /**
  * Protected dashboard shell — Astryx AppShell (ADR 0016). Server-fetches the
  * session profile, redirects unauthenticated users to /dang-nhap (also
- * enforced by middleware), and renders the role-scoped shell: navy SideNav
- * rail + TopNav, with BottomTabs on mobile.
+ * enforced by middleware), and renders the role-scoped shell.
+ *
+ * No topNav (Sanh 2026-07-07 — it carried nothing but the profile chrome):
+ * the notification bell + account menu live in the SideNav footer, and the
+ * navy rail hover-expands as an overlay (see Sidebar).
  *
  * height="auto" (not "fill"): nav pins via sticky positioning while the BODY
  * scrolls naturally — same pinned-chrome UX, but printing (QR poster) keeps
@@ -27,15 +29,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
       mobileNav={false}
       sideNav={
         <div className="contents print:hidden">
-          <Sidebar role={profile.role} />
-        </div>
-      }
-      topNav={
-        <div className="contents print:hidden">
-          <TopBar
+          <Sidebar
+            role={profile.role}
             fullName={profile.full_name ?? profile.email ?? ""}
             email={profile.email ?? ""}
-            role={profile.role}
           />
         </div>
       }

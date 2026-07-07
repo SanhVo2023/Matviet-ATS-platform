@@ -105,6 +105,8 @@ export default async function JobWorkspacePage({ params }: { params: Promise<{ i
   return (
     <div className="space-y-4 p-4 lg:p-6">
       <PageHeader
+        back="/"
+        backLabel="Về Tổng quan"
         icon={Briefcase}
         title={job.title}
         subtitle={

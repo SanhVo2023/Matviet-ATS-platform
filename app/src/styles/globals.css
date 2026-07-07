@@ -42,6 +42,34 @@
   max-width: 100%;
 }
 
+/* Hover auto-collapse rail (Sanh 2026-07-07): the wrapper reserves the
+ * COLLAPSED rail width in the layout; the SideNav itself overlays on top,
+ * so hover-expanding never shifts the page content (same behavior as the
+ * pre-Astryx sidebar). Width transition comes from Astryx's own collapse
+ * animation. */
+.mv-side-rail {
+  position: relative;
+  width: 48px; /* Astryx collapsed rail width — keep in sync if tokens change */
+}
+.mv-side-rail .astryx-side-nav {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  z-index: 40;
+  height: 100%;
+}
+.mv-side-rail-expanded .astryx-side-nav {
+  box-shadow:
+    0 10px 24px rgba(11, 20, 48, 0.25),
+    0 4px 8px rgba(11, 20, 48, 0.15);
+}
+/* The AppShell sidenav panel (overflow:auto) and its wrapper (overflow:clip)
+ * would clip the hover-expanded overlay — open them up for the rail. */
+.astryx-app-shell-sidenav:has(.mv-side-rail),
+*:has(> .astryx-app-shell-sidenav .mv-side-rail) {
+  overflow: visible;
+}
+
 @layer base {
   :root {
     /* Design language v2 — navy + gold (docs/design-language.md) */

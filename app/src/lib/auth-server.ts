@@ -10,7 +10,7 @@ import { emailCtaButton } from "@/server/email/layout";
 /**
  * better-auth on D1 (ADR 0010).
  * - email/password only; public sign-up disabled (admin creates accounts)
- * - 8h sliding sessions (matches the locked security baseline)
+ * - 30-day sliding sessions (supersedes the old 8h baseline — see build-log 2026-07-07)
  * - `users` carries the old `profiles` fields as additionalFields
  * - password-reset email goes through the shared mail transport (Cloudflare
  *   Email Service first, MS Graph fallback — see server/email/transport.ts)
@@ -54,8 +54,12 @@ export async function getAuth() {
       resetPasswordTokenExpiresIn: 60 * 60,
     },
     session: {
-      expiresIn: 8 * 60 * 60, // 8h inactivity timeout
-      updateAge: 60 * 60, // slide the window at most hourly
+      // 30-day sliding sessions (Sanh 2026-07-07 — the original 8h baseline
+      // logged everyone out overnight; for a 5-user internal tool "stay
+      // logged in" wins. Deactivating a user still revokes their sessions
+      // instantly via setUserActive.)
+      expiresIn: 30 * 24 * 60 * 60,
+      updateAge: 24 * 60 * 60, // refresh the expiry at most daily while in use
       cookieCache: { enabled: true, maxAge: 5 * 60 },
     },
     user: {

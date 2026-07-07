@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 import { requireRole } from "@/lib/auth";
+import { t } from "@/lib/i18n";
 import {
   getCandidate,
   getCvFile,
@@ -85,6 +88,13 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-[1400px] p-6 lg:p-8">
+      {/* Back to the candidates table (every detail page gets a way back) */}
+      <Link
+        href="/ung-vien"
+        className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-slate-500 transition-colors hover:text-brand-900"
+      >
+        <ChevronLeft className="h-4 w-4" aria-hidden /> {t.nav.candidates}
+      </Link>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left rail */}
         <div className="lg:col-span-3">

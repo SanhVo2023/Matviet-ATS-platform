@@ -110,3 +110,15 @@ export async function countCandidatesByJob(): Promise<JobCandidateCounts[]> {
     .from(candidates)
     .groupBy(candidates.job_id);
 }
+
+/** Positions assigned to a hiring manager (dashboard "Vị trí của tôi"). */
+export async function listJobsForManager(userId: string): Promise<JobRow[]> {
+  const db = await getDb();
+  const rows = await db
+    .select({ job: jobs })
+    .from(jobs)
+    .innerJoin(job_assignments, eq(job_assignments.job_id, jobs.id))
+    .where(and(eq(job_assignments.manager_user_id, userId), eq(jobs.is_archived, false)))
+    .orderBy(desc(jobs.created_at));
+  return rows.map((r) => r.job);
+}

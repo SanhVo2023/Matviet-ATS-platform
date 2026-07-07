@@ -198,3 +198,11 @@ pm run dev (localhost baseURL) or rebuild without the env override.
 - Đổi tên toàn cục "Tin tuyển dụng" → "Vị trí" KÈM slug `/tin-tuyen-dung` → `/vi-tri` + redirect vĩnh viễn (bookmark/agent link cũ vẫn chạy); "Đăng tin" → "Đăng tuyển".
 - `/vi-tri/[id]` = WORKSPACE: kanban chính giữa + dải đếm giai đoạn; thông tin vị trí thành SlideOver `JobInfoPanel` (exec xem inline, không kanban); `[id]/pipeline` → redirect; danh sách vị trí thêm cột Ứng viên (đang xử lý · đã tuyển/chỉ tiêu) qua `countCandidatesByJob()`.
 - Nhãn flowType cập nhật theo preset ADR 0015: "Nhân viên (1 bước duyệt)" / "Cấp quản lý (3 bước duyệt)".
+
+## 2026-07-07 (tiếp) — Session 30 ngày + bỏ TopNav + rail hover + dashboard control center + nút back (Sanh)
+- **Auth fix:** session 8h → 30 ngày sliding (updateAge 24h) — baseline 8h cũ đăng xuất mỗi sáng, Sanh báo "không giữ đăng nhập". Cookie Max-Age=2592000 xác nhận. Vô hiệu hóa user vẫn thu hồi session ngay.
+- **Bỏ TopNav:** chỉ chứa chrome hồ sơ → chuông thông báo + menu tài khoản (AccountMenu mới) chuyển xuống footer của SideNav; nội dung được toàn bộ chiều cao màn hình.
+- **Rail hover auto-collapse trở lại:** mặc định thu 48px, hover/focus mở overlay (`.mv-side-rail` giữ chỗ, nav absolute — content không xô); mở khóa 2 lớp overflow clip của AppShell bằng :has().
+- **Dashboard = control center:** section "Vị trí đang tuyển" (PositionCard: trạng thái, đang xử lý · đã tuyển/chỉ tiêu, bấm vào workspace) + nút Tạo vị trí mới; bỏ card đếm "Vị trí đang mở" (trùng); nav item Vị trí disabled; /vi-tri redirect về "/" (route con giữ nguyên); /vi-tri/moi thành CreateJobClient mở form ngay (lưu → workspace mới, đóng → "/"); ManagerInbox thêm "Vị trí của tôi" (listJobsForManager).
+- **Nút back mọi trang chi tiết:** PageHeader nhận prop `back` (chevron chuẩn); áp dụng vi-tri/[id], phong-van/[id], cai-dat/bai-test/[jobId], cai-dat/nguoi-dung; ung-vien/[id] có link back trên grid.
+- Gotcha: trang redirect trong (dashboard) PHẢI `force-dynamic` — thiếu là Next prerender lúc build và treo 60s (requireSession không có Cloudflare context lúc build).

@@ -236,7 +236,7 @@ Chrome / Edge / Firefox / Safari latest 2 versions. No IE. No old Android stock 
 - CI (GitHub Actions on PR): `tsc --noEmit`, `vitest run`, `playwright test --project=chromium`, `axe-core` on 5 critical pages
   — **currently implemented:** typecheck + lint + build only (`.github/workflows/ci.yml`); vitest/playwright/axe in CI are a Group 11 task
 - CSP: strict per route; defined in `next.config.mjs` + `middleware.ts`
-- Auth session timeout: 8h inactivity; refresh token rotation enabled
+- Auth session: 30-day sliding expiry (updateAge 24h; superseded the 8h baseline 2026-07-07 — overnight logouts hostile for 5-user internal tool); deactivation revokes sessions instantly
 - Failed login rate limit: 5 attempts/15min per IP+email; 1h lockout
 
 ---

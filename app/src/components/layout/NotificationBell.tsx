@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, BellRing, BellOff, CheckCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -38,11 +37,13 @@ function urlBase64ToUint8Array(base64url: string): Uint8Array {
 }
 
 /**
- * TopBar bell — unread badge, dropdown list, mark-read, and the browser
+ * Notification bell — unread badge, dropdown list, mark-read, and the browser
  * push opt-in toggle. Polls /api/notifications every minute plus on tab
- * refocus; Web Push covers the closed-tab case.
+ * refocus; Web Push covers the closed-tab case. Lives in the SideNav footer
+ * (navy rail) since the TopBar was removed — `expanded` mirrors the rail's
+ * hover state so the label collapses with it.
  */
-export function NotificationBell() {
+export function NotificationBell({ expanded = true }: { expanded?: boolean }) {
   const router = useRouter();
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -187,19 +188,26 @@ export function NotificationBell() {
       }}
     >
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Thông báo" className="relative">
-          <Bell className="h-4 w-4" aria-hidden />
-          {unread > 0 && (
-            <span
-              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
-              aria-label={`${unread} thông báo chưa đọc`}
-            >
-              {unread > 9 ? "9+" : unread}
-            </span>
-          )}
-        </Button>
+        <button
+          type="button"
+          aria-label="Thông báo"
+          className="flex w-full items-center gap-3 rounded-md p-1.5 text-left text-slate-200 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400/60"
+        >
+          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center">
+            <Bell className="h-5 w-5" aria-hidden />
+            {unread > 0 && (
+              <span
+                className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
+                aria-label={`${unread} thông báo chưa đọc`}
+              >
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
+          </span>
+          {expanded && <span className="truncate text-sm font-medium">Thông báo</span>}
+        </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-96 max-w-[calc(100vw-1rem)] p-0">
+      <DropdownMenuContent align="end" side="right" className="w-96 max-w-[calc(100vw-1rem)] p-0">
         <div className="flex items-center justify-between px-3 py-2">
           <DropdownMenuLabel className="p-0 text-sm font-semibold text-brand-900">
             Thông báo
