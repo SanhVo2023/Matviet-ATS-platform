@@ -55,3 +55,4 @@ supabase/.temp/
 *.pem
 .vercel
 .netlify/
+.playwright-mcp/
