@@ -12,7 +12,7 @@ import { JobForm } from "./JobForm";
 import { JOB_STATUSES, type JobInput } from "@/lib/validation/job";
 import type { JobRow } from "@/server/jobs/repository";
 import type { ManagerOption } from "./HiringManagerPicker";
-import { createJobAction } from "@/app/(dashboard)/tin-tuyen-dung/actions";
+import { createJobAction } from "@/app/(dashboard)/vi-tri/actions";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,7 @@ interface Props {
   initialJobs: JobRow[];
   departments: Department[];
   managerOptions: ManagerOption[];
-  /** When true (route is /tin-tuyen-dung/moi), the create form auto-opens. */
+  /** When true (route is /vi-tri/moi), the create form auto-opens. */
   forceCreateOpen?: boolean;
 }
 
@@ -76,7 +76,7 @@ export function JobsListClient({
         subtitle={`${filtered.length} / ${initialJobs.length} tin đang hiển thị`}
         action={
           <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" aria-hidden /> Tạo tin mới
+            <Plus className="h-4 w-4" aria-hidden /> Tạo vị trí mới
           </Button>
         }
       />
@@ -145,7 +145,7 @@ export function JobsListClient({
         open={createOpen}
         onOpenChange={(o) => {
           setCreateOpen(o);
-          if (!o && forceCreateOpen) router.push("/tin-tuyen-dung");
+          if (!o && forceCreateOpen) router.push("/vi-tri");
         }}
         mode="create"
         departments={departments}

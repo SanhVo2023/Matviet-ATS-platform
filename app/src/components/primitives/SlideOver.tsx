@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
  * and overlay click are correct out of the box.
  *
  * Usage:
- *   <SlideOver open={open} onOpenChange={setOpen} title="Tạo tin tuyển dụng" width="lg">
+ *   <SlideOver open={open} onOpenChange={setOpen} title="Tạo vị trí" width="lg">
  *     <SlideOver.Body>...form sections...</SlideOver.Body>
  *     <SlideOver.Footer>...sticky save bar...</SlideOver.Footer>
  *   </SlideOver>

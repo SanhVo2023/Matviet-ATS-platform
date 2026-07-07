@@ -105,9 +105,7 @@ export async function seedDemoData(): Promise<SeedDemoResult> {
     .where(inArray(jobs.status, ["open", "draft"]))
     .limit(3);
   if (jobList.length === 0) {
-    throw new Error(
-      "Không có vị trí (jobs) nào để seed dữ liệu — tạo ít nhất 1 tin tuyển dụng trước.",
-    );
+    throw new Error("Không có vị trí (jobs) nào để seed dữ liệu — tạo ít nhất 1 vị trí trước.");
   }
 
   // Pick first user as actor

@@ -80,7 +80,7 @@ export async function commitImportAction(args: unknown): Promise<ActionResult<Co
   }
   try {
     const result = await commitImport(parsed.data.rows, parsed.data.options, profile.id);
-    revalidatePath(`/tin-tuyen-dung/${parsed.data.options.job_id}`);
+    revalidatePath(`/vi-tri/${parsed.data.options.job_id}`);
     revalidatePath("/ung-vien");
     return { ok: true, data: result };
   } catch (err) {

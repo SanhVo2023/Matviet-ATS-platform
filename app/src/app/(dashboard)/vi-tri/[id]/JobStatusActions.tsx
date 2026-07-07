@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pause, Play, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { setJobStatusAction } from "@/app/(dashboard)/tin-tuyen-dung/actions";
+import { setJobStatusAction } from "@/app/(dashboard)/vi-tri/actions";
 import { t } from "@/lib/i18n";
 import type { Database } from "@/types/db";
 
@@ -41,7 +41,7 @@ export function JobStatusActions({ jobId, status }: { jobId: string; status: Job
   if (status === "draft")
     return (
       <Button disabled={pending} onClick={() => change("open")}>
-        <Play className="h-4 w-4" aria-hidden /> Đăng tin
+        <Play className="h-4 w-4" aria-hidden /> Đăng tuyển
       </Button>
     );
 

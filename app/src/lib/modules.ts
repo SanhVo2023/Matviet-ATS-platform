@@ -69,7 +69,7 @@ export const MODULES: AppModule[] = [
   },
   {
     key: "jobs",
-    href: "/tin-tuyen-dung",
+    href: "/vi-tri",
     label: t.nav.jobs,
     icon: Briefcase,
     roles: ["admin", "hr", "hiring_manager"],

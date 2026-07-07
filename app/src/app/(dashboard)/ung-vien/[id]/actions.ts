@@ -139,7 +139,7 @@ export async function manualScoreAction(input: unknown): Promise<ActionResult> {
   const candidate = await getCandidate(parsed.data.candidate_id);
   if (!candidate) return { ok: false, error: "Không tìm thấy ứng viên" };
   const job = await getJob(candidate.job_id);
-  if (!job) return { ok: false, error: "Không tìm thấy tin tuyển dụng" };
+  if (!job) return { ok: false, error: "Không tìm thấy vị trí" };
 
   try {
     await recordManualScore({

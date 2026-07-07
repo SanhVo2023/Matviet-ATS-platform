@@ -54,7 +54,7 @@ export default async function JobPipelinePage({ params }: { params: Promise<{ id
         action={
           <>
             <Button asChild variant="ghost" size="sm">
-              <Link href={`/tin-tuyen-dung/${job.id}`}>
+              <Link href={`/vi-tri/${job.id}`}>
                 <ArrowLeft className="h-4 w-4" aria-hidden /> Chi tiết tin
               </Link>
             </Button>
@@ -71,7 +71,7 @@ export default async function JobPipelinePage({ params }: { params: Promise<{ id
         <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 p-12 text-center">
           <p className="text-sm font-medium text-slate-700">{t.empty.candidates}</p>
           <p className="mt-1 text-xs text-slate-500">
-            Tải CV lên từ trang chi tiết tin để bắt đầu chấm điểm + theo dõi pipeline.
+            Tải CV lên từ trang chi tiết vị trí để bắt đầu chấm điểm + theo dõi pipeline.
           </p>
         </div>
       ) : (

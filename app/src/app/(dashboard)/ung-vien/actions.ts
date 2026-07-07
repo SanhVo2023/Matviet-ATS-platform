@@ -81,8 +81,8 @@ export async function uploadCandidateAction(
     }
 
     revalidatePath("/ung-vien");
-    revalidatePath("/tin-tuyen-dung");
-    revalidatePath(`/tin-tuyen-dung/${parsed.data.job_id}`);
+    revalidatePath("/vi-tri");
+    revalidatePath(`/vi-tri/${parsed.data.job_id}`);
     return { ok: true, data: { id } };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Lỗi tải lên" };

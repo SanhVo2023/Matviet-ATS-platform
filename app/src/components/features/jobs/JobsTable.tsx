@@ -20,7 +20,7 @@ import { t } from "@/lib/i18n";
 import { formatDate } from "@/lib/vi-format";
 import type { JobRow } from "@/server/jobs/repository";
 import type { Database } from "@/types/db";
-import { setJobStatusAction, archiveJobAction } from "@/app/(dashboard)/tin-tuyen-dung/actions";
+import { setJobStatusAction, archiveJobAction } from "@/app/(dashboard)/vi-tri/actions";
 
 type JobStatus = Database["public"]["Enums"]["job_status"];
 
@@ -75,10 +75,10 @@ export function JobsTable({ jobs, onCreate }: Props) {
     return (
       <EmptyState
         title={t.empty.jobs}
-        description="Tạo tin đầu tiên để bắt đầu nhận hồ sơ."
+        description="Tạo vị trí đầu tiên để bắt đầu nhận hồ sơ."
         action={
           <Button variant="navy" onClick={onCreate}>
-            <Plus className="h-4 w-4" aria-hidden /> Tạo tin mới
+            <Plus className="h-4 w-4" aria-hidden /> Tạo vị trí mới
           </Button>
         }
       />
@@ -89,7 +89,7 @@ export function JobsTable({ jobs, onCreate }: Props) {
     <DataTable
       columns={columns}
       data={jobs}
-      onRowClick={(job) => router.push(`/tin-tuyen-dung/${job.id}`)}
+      onRowClick={(job) => router.push(`/vi-tri/${job.id}`)}
       initialSorting={[{ id: "posted_at", desc: true }]}
     />
   );
@@ -131,7 +131,7 @@ function RowActions({ job }: { job: JobRow }) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenuItem onSelect={() => router.push(`/tin-tuyen-dung/${job.id}/sua`)}>
+        <DropdownMenuItem onSelect={() => router.push(`/vi-tri/${job.id}/sua`)}>
           <Pencil className="mr-2 h-3.5 w-3.5" aria-hidden /> {t.action.edit}
         </DropdownMenuItem>
         {job.status === "open" && (

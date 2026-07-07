@@ -15,7 +15,7 @@ import {
   commitImportAction,
   previewImportAction,
   type PreviewResponse,
-} from "@/app/(dashboard)/tin-tuyen-dung/[id]/import/actions";
+} from "@/app/(dashboard)/vi-tri/[id]/import/actions";
 import { CsvPreviewTable } from "./CsvPreviewTable";
 
 interface Props {

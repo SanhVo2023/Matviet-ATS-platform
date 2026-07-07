@@ -52,7 +52,7 @@ async function assertActorMayDecide(
       .limit(1)
       .then((r) => r[0] ?? null);
     if (!assigned) {
-      throw new Error("Bạn không phụ trách tin tuyển dụng của ứng viên này");
+      throw new Error("Bạn không phụ trách vị trí của ứng viên này");
     }
   }
 }
@@ -99,7 +99,7 @@ export async function startApproval(
     .where(eq(jobs.id, cand.job_id))
     .limit(1)
     .then((r) => r[0] ?? null);
-  if (!job) throw new Error("Không tìm thấy tin tuyển dụng");
+  if (!job) throw new Error("Không tìm thấy vị trí");
 
   const flow = job.flow_type as FlowType;
   const steps = APPROVAL_PRESETS[flow];

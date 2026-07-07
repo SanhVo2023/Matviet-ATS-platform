@@ -64,7 +64,7 @@ export function CandidateProfile({ candidate, jobTitle, jobId }: Props) {
           icon={Briefcase}
           label="Vị trí ứng tuyển"
           value={jobTitle ?? "—"}
-          href={`/tin-tuyen-dung/${jobId}`}
+          href={`/vi-tri/${jobId}`}
         />
         <DataItem icon={Calendar} label="Đã nộp" value={formatRelative(candidate.created_at)} />
       </dl>

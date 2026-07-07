@@ -54,7 +54,7 @@ export async function createAssessmentAction(
       profile.id,
     );
     revalidatePath(`/cai-dat/bai-test/${parsed.data.job_id}`);
-    revalidatePath(`/tin-tuyen-dung/${parsed.data.job_id}`);
+    revalidatePath(`/vi-tri/${parsed.data.job_id}`);
     return { ok: true, data: { id } };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Lỗi tải lên" };

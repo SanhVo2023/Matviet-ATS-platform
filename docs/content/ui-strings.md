@@ -15,7 +15,7 @@
 |---|---|
 | `nav.dashboard` | Tổng quan |
 | `nav.inbox` | Hộp việc cần làm |
-| `nav.jobs` | Tin tuyển dụng |
+| `nav.jobs` | Vị trí |
 | `nav.candidates` | Ứng viên |
 | `nav.pipeline` | Quy trình |
 | `nav.interviews` | Phỏng vấn |
@@ -160,7 +160,7 @@ Keys match the `approval_step_kind` enum.
 
 | Key | Vietnamese |
 |---|---|
-| `empty.jobs` | Chưa có tin tuyển dụng nào. Hãy tạo tin đầu tiên. |
+| `empty.jobs` | Chưa có vị trí nào. Hãy tạo vị trí đầu tiên. |
 | `empty.candidates` | Chưa có ứng viên. CV sẽ tự động hiện ở đây khi có. Bạn cũng có thể tải lên thủ công. |
 | `empty.interviewsToday` | Không có phỏng vấn hôm nay. Một ngày yên tĩnh! |
 | `empty.interviewsUpcoming` | Không có phỏng vấn sắp tới. |

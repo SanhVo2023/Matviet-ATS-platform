@@ -16,10 +16,7 @@ import { HiringManagerPicker, type ManagerOption } from "./HiringManagerPicker";
 import { t } from "@/lib/i18n";
 import { JobInputSchema, type JobInput } from "@/lib/validation/job";
 import { DEFAULT_WEIGHT_TEMPLATES } from "@/lib/constants";
-import {
-  generateJobContentAction,
-  suggestWeightsAction,
-} from "@/app/(dashboard)/tin-tuyen-dung/actions";
+import { generateJobContentAction, suggestWeightsAction } from "@/app/(dashboard)/vi-tri/actions";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -158,7 +155,7 @@ export function JobForm({
     const result = await onSubmit(values, intent);
     setSubmitting(null);
     if (result.ok) {
-      toast.success(intent === "publish" ? "Đã đăng tin." : t.success.draftSaved);
+      toast.success(intent === "publish" ? "Đã đăng tuyển." : t.success.draftSaved);
       onOpenChange(false);
     } else {
       toast.error(result.error);
@@ -170,7 +167,7 @@ export function JobForm({
       open={open}
       onOpenChange={onOpenChange}
       width="xl"
-      title={mode === "create" ? "Tạo tin tuyển dụng" : "Chỉnh sửa tin tuyển dụng"}
+      title={mode === "create" ? "Tạo vị trí" : "Chỉnh sửa vị trí"}
       description="Mô tả vị trí, gán phòng ban + trưởng phòng, cấu hình trọng số AI."
     >
       <FormProvider {...methods}>
@@ -366,7 +363,7 @@ export function JobForm({
           </Button>
           <Button type="button" onClick={() => handle("publish")} disabled={submitting !== null}>
             {submitting === "publish" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-            {mode === "create" ? "Đăng tin" : "Cập nhật"}
+            {mode === "create" ? "Đăng tuyển" : "Cập nhật"}
           </Button>
         </SlideOver.Footer>
       </FormProvider>

@@ -56,4 +56,4 @@ The bulk insert and duplicate scan use the admin client to:
 1. Bypass RLS for performance (no per-row check).
 2. Scan all candidates regardless of caller's RLS visibility (HR/admin sees everything anyway, but this keeps the code uniform).
 
-The calling Server Action (`commitImportAction` in `app/(dashboard)/tin-tuyen-dung/[id]/import/actions.ts`) MUST guard with `requireRole(["admin","hr"])`. Authorization happens at the action boundary; the service layer trusts the caller.
+The calling Server Action (`commitImportAction` in `app/(dashboard)/vi-tri/[id]/import/actions.ts`) MUST guard with `requireRole(["admin","hr"])`. Authorization happens at the action boundary; the service layer trusts the caller.

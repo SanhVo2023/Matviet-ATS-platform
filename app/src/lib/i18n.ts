@@ -23,7 +23,7 @@ export const t = {
   nav: {
     dashboard: "Tổng quan",
     inbox: "Hộp việc cần làm",
-    jobs: "Tin tuyển dụng",
+    jobs: "Vị trí",
     candidates: "Ứng viên",
     pipeline: "Quy trình",
     interviews: "Phỏng vấn",
@@ -179,7 +179,7 @@ export const t = {
   },
 
   empty: {
-    jobs: "Chưa có tin tuyển dụng nào. Hãy tạo tin đầu tiên.",
+    jobs: "Chưa có vị trí nào. Hãy tạo vị trí đầu tiên.",
     candidates:
       "Chưa có ứng viên. CV sẽ tự động hiện ở đây khi có. Bạn cũng có thể tải lên thủ công.",
     interviewsToday: "Không có phỏng vấn hôm nay. Một ngày yên tĩnh!",

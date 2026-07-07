@@ -77,7 +77,7 @@ export const TOOLS: AiToolDef[] = [
   {
     name: "search_candidates",
     description:
-      "Tìm ứng viên theo tên, giai đoạn pipeline và/hoặc tin tuyển dụng. Trả về: id, tên, giai đoạn, vị trí, điểm AI (sắp theo điểm giảm dần).",
+      "Tìm ứng viên theo tên, giai đoạn pipeline và/hoặc vị trí. Trả về: id, tên, giai đoạn, vị trí, điểm AI (sắp theo điểm giảm dần).",
     parameters: {
       type: "object",
       properties: {
@@ -86,7 +86,7 @@ export const TOOLS: AiToolDef[] = [
           type: "string",
           description: "Giai đoạn pipeline, ví dụ: new, screened, interview_scheduled, recommended",
         },
-        job: { type: "string", description: "Tên (một phần) hoặc UUID tin tuyển dụng để lọc" },
+        job: { type: "string", description: "Tên (một phần) hoặc UUID vị trí để lọc" },
       },
     },
   },
@@ -172,10 +172,10 @@ export const TOOLS: AiToolDef[] = [
       required: ["name_or_id"],
     },
   },
-  // ------------------------- Tin tuyển dụng (jobs) -------------------------
+  // ------------------------- Vị trí (jobs) -------------------------
   {
     name: "list_jobs",
-    description: "Liệt kê tin tuyển dụng: id, tiêu đề, trạng thái, địa điểm, số ứng viên.",
+    description: "Liệt kê vị trí: id, tiêu đề, trạng thái, địa điểm, số ứng viên.",
     parameters: {
       type: "object",
       properties: {
@@ -187,7 +187,7 @@ export const TOOLS: AiToolDef[] = [
   {
     name: "get_job",
     description:
-      "Bức tranh toàn cảnh một tin tuyển dụng: chi tiết tin + funnel từng giai đoạn, đã tuyển/chỉ tiêu, điểm AI trung bình & cao nhất, ai đang chờ duyệt, lịch phỏng vấn sắp tới, giai đoạn đang kẹt lâu nhất.",
+      "Bức tranh toàn cảnh một vị trí: chi tiết vị trí + funnel từng giai đoạn, đã tuyển/chỉ tiêu, điểm AI trung bình & cao nhất, ai đang chờ duyệt, lịch phỏng vấn sắp tới, giai đoạn đang kẹt lâu nhất.",
     parameters: {
       type: "object",
       properties: { job: { type: "string", description: "Tiêu đề (một phần) hoặc UUID" } },
@@ -197,7 +197,7 @@ export const TOOLS: AiToolDef[] = [
   {
     name: "create_job",
     description:
-      "Tạo tin tuyển dụng MỚI ở trạng thái NHÁP. BẮT BUỘC hỏi người dùng xác nhận trước (tóm tắt tiêu đề/địa điểm/lương/mô tả), chỉ gọi với confirmed=true sau khi họ đồng ý. Muốn đăng công khai thì gọi tiếp set_job_status.",
+      "Tạo vị trí MỚI ở trạng thái NHÁP. BẮT BUỘC hỏi người dùng xác nhận trước (tóm tắt tiêu đề/địa điểm/lương/mô tả), chỉ gọi với confirmed=true sau khi họ đồng ý. Muốn đăng công khai thì gọi tiếp set_job_status.",
     parameters: {
       type: "object",
       properties: {
@@ -220,7 +220,7 @@ export const TOOLS: AiToolDef[] = [
   {
     name: "update_job",
     description:
-      "Sửa tin tuyển dụng (tiêu đề, mô tả, địa điểm, chỉ tiêu, lương). BẮT BUỘC hỏi xác nhận trước; chỉ gọi với confirmed=true sau khi người dùng đồng ý.",
+      "Sửa vị trí (tiêu đề, mô tả, địa điểm, chỉ tiêu, lương). BẮT BUỘC hỏi xác nhận trước; chỉ gọi với confirmed=true sau khi người dùng đồng ý.",
     parameters: {
       type: "object",
       properties: {
@@ -388,13 +388,13 @@ async function resolveJob(titleOrId: string) {
       .from(jobs)
       .where(and(eq(jobs.id, titleOrId.trim()), eq(jobs.is_archived, false)))
       .get();
-    if (!row) throw new Error(`Không tìm thấy tin tuyển dụng với id ${titleOrId}`);
+    if (!row) throw new Error(`Không tìm thấy vị trí với id ${titleOrId}`);
     return row;
   }
   const needle = fold(titleOrId);
   const all = await db.select().from(jobs).where(eq(jobs.is_archived, false)).limit(100);
   const matches = all.filter((j) => fold(j.title).includes(needle)).slice(0, 5);
-  if (matches.length === 0) throw new Error(`Không tìm thấy tin tuyển dụng "${titleOrId}"`);
+  if (matches.length === 0) throw new Error(`Không tìm thấy vị trí "${titleOrId}"`);
   if (matches.length > 1) {
     throw new Error(
       `Có ${matches.length} tin khớp "${titleOrId}": ` +
@@ -649,7 +649,7 @@ function makeExecutor(profile: SessionProfile) {
           message: `Đã tạo quy trình duyệt cho ${c.full_name} (${r.approval_ids.length} bước).`,
         };
       }
-      // ---------------------- Tin tuyển dụng (jobs) ----------------------
+      // ---------------------- Vị trí (jobs) ----------------------
       case "list_jobs": {
         const conds = [eq(jobs.is_archived, false)];
         const status = typeof args.status === "string" ? args.status.trim() : "";
@@ -783,13 +783,13 @@ function makeExecutor(profile: SessionProfile) {
             type: i.type,
           })),
           public_url: `/tuyen-dung/${j.id}`,
-          admin_url: `/tin-tuyen-dung/${j.id}`,
+          admin_url: `/vi-tri/${j.id}`,
         };
       }
       case "create_job": {
         if (args.confirmed !== true) return NOT_CONFIRMED;
         const title = String(args.title ?? "").trim();
-        if (title.length < 3) return { error: "Thiếu tiêu đề tin tuyển dụng." };
+        if (title.length < 3) return { error: "Thiếu tiêu đề vị trí." };
         const family = (ROLE_FAMILIES as readonly string[]).includes(String(args.role_family))
           ? (String(args.role_family) as (typeof ROLE_FAMILIES)[number])
           : "custom";
@@ -823,9 +823,9 @@ function makeExecutor(profile: SessionProfile) {
         await auditAgent(profile, "jobs", jobId, "agent_create", { title, role_family: family });
         return {
           ok: true,
-          message: `Đã tạo tin NHÁP "${title}". Muốn đăng công khai, xác nhận rồi dùng set_job_status → open.`,
+          message: `Đã tạo vị trí NHÁP "${title}". Muốn đăng công khai, xác nhận rồi dùng set_job_status → open.`,
           job_id: jobId,
-          admin_url: `/tin-tuyen-dung/${jobId}`,
+          admin_url: `/vi-tri/${jobId}`,
         };
       }
       case "update_job": {
@@ -852,7 +852,7 @@ function makeExecutor(profile: SessionProfile) {
         return {
           ok: true,
           message: `Đã cập nhật tin "${j.title}": ${Object.keys(set).join(", ")}.`,
-          admin_url: `/tin-tuyen-dung/${j.id}`,
+          admin_url: `/vi-tri/${j.id}`,
         };
       }
       case "set_job_status": {
@@ -1131,12 +1131,12 @@ Nguyên tắc:
 - Bạn hành động DƯỚI DANH NGHĨA và TRONG PHẠM VI QUYỀN của người dùng hiện tại — không hơn. Nếu công cụ báo ngoài thẩm quyền, nói thẳng cho người dùng, đừng tìm cách vòng qua. Mọi thao tác đều được ghi nhật ký với tên người dùng.
 - Dùng công cụ để LÀM việc thay vì chỉ mô tả. Sau khi làm xong, tóm tắt kết quả 1-2 câu kèm đường dẫn nếu có.
 - XÁC NHẬN TRƯỚC KHI THAY ĐỔI: với create_job / update_job / set_job_status / cancel_interview / move_candidate_stage sang hired-rejected-withdrew, luôn tóm tắt việc định làm và hỏi người dùng đồng ý không. Chỉ khi họ trả lời đồng ý mới gọi công cụ với confirmed=true. Không bao giờ tự đặt confirmed=true khi chưa được đồng ý trong hội thoại.
-- Tin tuyển dụng tạo mới luôn là NHÁP — muốn hiện lên trang tuyển dụng công khai phải set_job_status → open (một lần xác nhận riêng).
+- Vị trí tạo mới luôn là NHÁP — muốn hiện lên trang tuyển dụng công khai phải set_job_status → open (một lần xác nhận riêng).
 - Khi so sánh ứng viên hoặc liệt kê nhiều dòng dữ liệu, trình bày bằng BẢNG Markdown gọn (cột tiếng Việt).
 - Ngày giờ người dùng nói (ví dụ "thứ Năm 2 giờ chiều") phải đổi sang ISO 8601 với múi giờ +07:00 trước khi gọi schedule_interview.
 - Email soạn ra LUÔN ở trạng thái chờ duyệt — nhắc người dùng vào trang Email để duyệt trước khi gửi. Duyệt email và duyệt hồ sơ KHÔNG làm được từ chat.
 - Không bịa dữ liệu: nếu công cụ trả lỗi hoặc không thấy, nói thẳng và gợi ý cách khác.
-- Nếu trùng tên nhiều ứng viên/tin tuyển dụng, hỏi lại người dùng chọn cái nào.
+- Nếu trùng tên nhiều ứng viên/vị trí, hỏi lại người dùng chọn cái nào.
 - Khi cần dùng công cụ, gọi qua cơ chế tool-calling thật — KHÔNG viết "[gọi công cụ …]" trong câu trả lời.
 - Tuyệt đối không thực hiện thao tác ngoài các công cụ được cấp.`;
 }

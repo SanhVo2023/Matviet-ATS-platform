@@ -91,17 +91,17 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id: 
         action={
           <>
             <Button asChild variant="outline">
-              <Link href={`/tin-tuyen-dung/${job.id}/qr`}>
+              <Link href={`/vi-tri/${job.id}/qr`}>
                 <QrCode className="h-4 w-4" aria-hidden /> Mã QR
               </Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href={`/tin-tuyen-dung/${job.id}/sua`}>
+              <Link href={`/vi-tri/${job.id}/sua`}>
                 <Pencil className="h-4 w-4" aria-hidden /> {t.action.edit}
               </Link>
             </Button>
             <Button asChild variant="navy">
-              <Link href={`/tin-tuyen-dung/${job.id}/pipeline`}>
+              <Link href={`/vi-tri/${job.id}/pipeline`}>
                 <Kanban className="h-4 w-4" aria-hidden /> {t.pipeline.viewToggle.kanban}
               </Link>
             </Button>

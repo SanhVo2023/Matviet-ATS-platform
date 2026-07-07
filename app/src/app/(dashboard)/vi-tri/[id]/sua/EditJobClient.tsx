@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { JobForm } from "@/components/features/jobs/JobForm";
 import type { JobInput } from "@/lib/validation/job";
 import type { ManagerOption } from "@/components/features/jobs/HiringManagerPicker";
-import { updateJobAction } from "@/app/(dashboard)/tin-tuyen-dung/actions";
+import { updateJobAction } from "@/app/(dashboard)/vi-tri/actions";
 
 interface Props {
   jobId: string;
@@ -22,7 +22,7 @@ export function EditJobClient({ jobId, initialValues, departments, managerOption
   ): Promise<{ ok: true; id: string } | { ok: false; error: string }> => {
     const r = await updateJobAction(jobId, values, intent);
     if (!r.ok) return r;
-    router.push(`/tin-tuyen-dung/${jobId}`);
+    router.push(`/vi-tri/${jobId}`);
     router.refresh();
     return { ok: true, id: jobId };
   };
@@ -31,7 +31,7 @@ export function EditJobClient({ jobId, initialValues, departments, managerOption
     <JobForm
       open
       onOpenChange={(o) => {
-        if (!o) router.push(`/tin-tuyen-dung/${jobId}`);
+        if (!o) router.push(`/vi-tri/${jobId}`);
       }}
       mode="edit"
       initialValues={initialValues}
