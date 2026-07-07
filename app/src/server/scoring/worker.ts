@@ -188,7 +188,7 @@ async function processJob(q: QueueRow): Promise<string> {
   }
 
   const job = await db.select().from(jobs).where(eq(jobs.id, candidate.job_id)).get();
-  if (!job) throw new NonRetriableError("Không tìm thấy tin tuyển dụng.");
+  if (!job) throw new NonRetriableError("Không tìm thấy vị trí.");
 
   const weights = readWeights(job.weights);
   const { rubric, extraSystemNote } = getRubricForJob(job.role_family, job.title);

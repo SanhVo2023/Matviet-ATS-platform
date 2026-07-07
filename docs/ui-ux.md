@@ -194,7 +194,7 @@ Border radius: `rounded-md` (6px) default, `rounded-lg` (8px) cards, `rounded-fu
 | English | Vietnamese |
 |---|---|
 | Dashboard | Tổng quan |
-| Job postings | Tin tuyển dụng |
+| Job postings / Positions | Vị trí (renamed from "Tin tuyển dụng", 2026-07-07; route `/vi-tri`) |
 | Job / Position | Vị trí |
 | Candidate | Ứng viên |
 | Pipeline | Quy trình |
@@ -252,7 +252,7 @@ Manager logs into a different app than HR.
 |---|---|---|---|
 | Hộp việc cần làm (`/`) — Manager landing | — | — | ✓ |
 | Tổng quan (`/`) — HR landing | ✓ | ✓ | — |
-| Tin tuyển dụng | ✓ | ✓ | ✓ (read-only, dept-scoped) |
+| Vị trí | ✓ | ✓ | ✓ (read-only, dept-scoped) |
 | Ứng viên | ✓ | ✓ | ✓ (dept-scoped) |
 | Phỏng vấn | ✓ | ✓ | ✓ (own assigned) |
 | Phê duyệt | ✓ | ✓ | ✓ (own pending) |

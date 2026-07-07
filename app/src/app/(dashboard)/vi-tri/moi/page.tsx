@@ -5,10 +5,10 @@ import { JobsListClient } from "@/components/features/jobs/JobsListClient";
 import { t } from "@/lib/i18n";
 
 /**
- * Same content as /tin-tuyen-dung but with the create slide-over auto-opened.
+ * Same content as /vi-tri but with the create slide-over auto-opened.
  * Allows direct URL deep-link from emails / shortcuts to open the form.
  */
-export const metadata: Metadata = { title: `Tạo tin tuyển dụng · ${t.nav.jobs}` };
+export const metadata: Metadata = { title: `Tạo vị trí · ${t.nav.jobs}` };
 export const dynamic = "force-dynamic";
 
 export default async function NewJobPage() {

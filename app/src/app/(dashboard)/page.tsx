@@ -88,7 +88,7 @@ function HrDashboard({
     {
       label: t.dashboard.cards.openJobs,
       value: data.openJobs,
-      href: "/tin-tuyen-dung",
+      href: "/vi-tri",
       icon: Briefcase,
     },
     { label: t.dashboard.cards.newCvs, value: data.newCvs7d, href: "/ung-vien", icon: FileText },

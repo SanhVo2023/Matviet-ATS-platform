@@ -3,7 +3,7 @@
 import * as React from "react";
 import { AlertTriangle, Check, Link as LinkIcon } from "lucide-react";
 import { t } from "@/lib/i18n";
-import type { PreviewResponse } from "@/app/(dashboard)/tin-tuyen-dung/[id]/import/actions";
+import type { PreviewResponse } from "@/app/(dashboard)/vi-tri/[id]/import/actions";
 import type { CsvField } from "@/lib/validation/csv-import";
 
 const FIELD_LABEL: Record<CsvField, string> = {

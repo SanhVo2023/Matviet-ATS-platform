@@ -30,7 +30,7 @@ export async function scheduleInterviewAction(
     const { id } = await scheduleInterview(parsed.data, profile.id);
     revalidatePath("/phong-van");
     revalidatePath(`/ung-vien/${parsed.data.candidate_id}`);
-    revalidatePath(`/tin-tuyen-dung/${id}`);
+    revalidatePath(`/vi-tri/${id}`);
     return { ok: true, data: { id } };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Lỗi đặt lịch" };

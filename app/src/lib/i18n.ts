@@ -23,7 +23,7 @@ export const t = {
   nav: {
     dashboard: "Tổng quan",
     inbox: "Hộp việc cần làm",
-    jobs: "Tin tuyển dụng",
+    jobs: "Vị trí",
     candidates: "Ứng viên",
     pipeline: "Quy trình",
     interviews: "Phỏng vấn",
@@ -179,7 +179,7 @@ export const t = {
   },
 
   empty: {
-    jobs: "Chưa có tin tuyển dụng nào. Hãy tạo tin đầu tiên.",
+    jobs: "Chưa có vị trí nào. Hãy tạo vị trí đầu tiên.",
     candidates:
       "Chưa có ứng viên. CV sẽ tự động hiện ở đây khi có. Bạn cũng có thể tải lên thủ công.",
     interviewsToday: "Không có phỏng vấn hôm nay. Một ngày yên tĩnh!",
@@ -252,8 +252,8 @@ export const t = {
     roleFamily: "Loại vị trí",
     flowType: {
       label: "Quy trình duyệt",
-      staff: "Nhân viên (3 bước)",
-      management: "Cấp quản lý (4 bước)",
+      staff: "Nhân viên (1 bước duyệt)",
+      management: "Cấp quản lý (3 bước duyệt)",
     },
     location: "Địa điểm làm việc",
     headcount: "Số lượng cần tuyển",

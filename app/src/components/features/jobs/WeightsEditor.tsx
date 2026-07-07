@@ -18,7 +18,7 @@ import {
   DEFAULT_WEIGHT_TEMPLATES,
   type CriterionCode,
 } from "@/lib/constants";
-import { suggestWeightsAction } from "@/app/(dashboard)/tin-tuyen-dung/actions";
+import { suggestWeightsAction } from "@/app/(dashboard)/vi-tri/actions";
 import type { JobInput, Weights } from "@/lib/validation/job";
 
 const CRITERION_DESCRIPTION: Record<CriterionCode, string> = {

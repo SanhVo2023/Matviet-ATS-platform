@@ -23,7 +23,7 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 └── app/                             ← the Next.js project
     ├── src/app/                     ← App Router; VIETNAMESE route slugs:
     │   ├── (auth)/dang-nhap, dat-lai-mat-khau
-    │   ├── (dashboard)/tin-tuyen-dung (jobs), ung-vien (candidates),
+    │   ├── (dashboard)/vi-tri (jobs), ung-vien (candidates),
     │   │   email, bao-cao (reports), cai-dat (settings: bai-test, nguoi-dung)
     │   ├── test/[token]             ← public (no-auth) assessment submission page
     │   └── api/                     ← scoring/drain + emails/drain (cron via CRON_SECRET),
@@ -65,7 +65,7 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 | `assessments` | Bài test send/receive/grade; 48h base64url tokens; public `/test/[token]` page | yes |
 | `csv-import` | TopCV/CareerViet CSV bulk import; two-phase preview→commit; accent-stripped header maps | yes |
 | `notifications` | In-app bell (TopBar, 60s poll) + Web Push (payload-free VAPID via WebCrypto; SW fetches content with its session cookie). Emitters: scoring done/failed, approval pending/finalized, interview created + ≤60-min reminder + stale-CV nudge (cron `/api/notifications/cron`), email dead-letter, new/offer-response candidate events. `notifyUsers`/`notifyRoles` swallow every error | yes |
-| `apply` | Public careers intake (ADR 0014): `/tuyen-dung` + `POST /api/apply` → candidate (`source='careers_page'`, PDPD `consent_at`) + auto scoring + `receipt_ack` + bell. Honeypot + 3s fill-time + 5/h/IP + dup block. QR poster per job at `/tin-tuyen-dung/[id]/qr` | yes |
+| `apply` | Public careers intake (ADR 0014): `/tuyen-dung` + `POST /api/apply` → candidate (`source='careers_page'`, PDPD `consent_at`) + auto scoring + `receipt_ack` + bell. Honeypot + 3s fill-time + 5/h/IP + dup block. QR poster per job at `/vi-tri/[id]/qr` | yes |
 | `offers` | Offer magic link: `composeFromTemplate('offer')` mints 7-day token, injects `{{offer_link}}`; public `/nhan-viec/[token]` accept→`hired` / decline→`rejected` with `offer_response` recorded (offer-declines ≠ ordinary rejects). Group 13 onboarding trigger | yes |
 | `reports` | 6 charts + PDF/Excel export + demo seeder; all queries take a `ReportFilter` | yes |
 
@@ -102,6 +102,7 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 - **Candidates:** no app account — email-only interaction
 - **Scale:** 1–3 jobs/month, 20–50 CVs/job, ≤5 users, ≤5 outbound emails/day
 - **Stack (post-pivot, ADRs 0009–0013):** Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui, deployed to **Cloudflare Workers** via `@opennextjs/cloudflare` · **D1** (SQLite, Drizzle ORM) · **R2** (files) · **Queues** (scoring fast path) + **Cron Triggers** (every-minute backstop drains) · **better-auth** (ADR 0010) · **Workers AI** (default `@cf/moonshotai/kimi-k2.6`, admin-switchable) · **Cloudflare Email Service** (outbound, `hr@matviet.com.vn`) · Microsoft Graph API (calendar/Teams + email fallback)
+- **Design system (ADR 0016):** **Astryx** (Meta, `@astryxdesign/*` PINNED 0.1.3) — read `app/.claude/CLAUDE.md` (generated agent conventions) BEFORE any UI work; discover with `npx astryx build/component/template`. Custom theme `matviet` at `app/src/styles/themes/matviet/` (navy accent + gold primary-CTA override) — after editing `matvietTheme.ts`, ALWAYS re-run `npx astryx theme build src/styles/themes/matviet/matvietTheme.ts` (the app imports the built CSS/JS). Shell = AppShell + SideNav (navy rail via `sidenav` override, mirrored in globals.css — v0.1.3 selector quirk) + TopNav. shadcn `ui/*` keeps its API for composition-heavy primitives; migrate opportunistically. Jobs route is **`/vi-tri`** ("Vị trí"; old `/tin-tuyen-dung` 308-redirects).
 - **Legacy stack (being decommissioned):** Supabase project ref `xeyqbapegqeibeqrwnkm` (pause after cutover), Netlify, Fly.io worker (never deployed — retired)
 
 ---

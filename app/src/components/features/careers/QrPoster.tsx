@@ -32,11 +32,11 @@ export function QrPoster({ jobId, jobTitle, location, applyUrl, jobOpen }: Props
     <div className="mx-auto max-w-2xl p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between print:hidden">
         <Link
-          href={`/tin-tuyen-dung/${jobId}`}
+          href={`/vi-tri/${jobId}`}
           className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-primary-600"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          Quay lại tin tuyển dụng
+          Quay lại vị trí
         </Link>
         <Button onClick={() => window.print()}>
           <Printer className="mr-2 h-4 w-4" aria-hidden />

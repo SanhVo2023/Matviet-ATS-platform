@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [{ protocol: "https", hostname: "hr.matviet.com.vn" }],
   },
+  async redirects() {
+    return [
+      // 2026-07-07 rename: /tin-tuyen-dung → /vi-tri (old bookmarks + agent-emitted links)
+      { source: "/tin-tuyen-dung", destination: "/vi-tri", permanent: true },
+      { source: "/tin-tuyen-dung/:path*", destination: "/vi-tri/:path*", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

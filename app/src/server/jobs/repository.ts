@@ -1,7 +1,7 @@
 import "server-only";
-import { and, asc, desc, eq, like } from "drizzle-orm";
+import { and, asc, desc, eq, like, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { departments, jobs, job_assignments, users } from "@/db/schema";
+import { candidates, departments, jobs, job_assignments, users } from "@/db/schema";
 import type { Database, Tables } from "@/types/db";
 
 export type JobRow = Tables<"jobs">;
@@ -85,4 +85,28 @@ export async function listHiringManagers(): Promise<ManagerProfile[]> {
     department_id: row.department_id,
     department_name: row.department_name ?? null,
   }));
+}
+
+export interface JobCandidateCounts {
+  job_id: string;
+  total: number;
+  active: number;
+  hired: number;
+}
+
+/**
+ * Per-job candidate tallies for the positions list (ADR 0016 workspace pass):
+ * total CVs, still-in-pipeline count, and hires (vs headcount).
+ */
+export async function countCandidatesByJob(): Promise<JobCandidateCounts[]> {
+  const db = await getDb();
+  return db
+    .select({
+      job_id: candidates.job_id,
+      total: sql<number>`count(*)`,
+      active: sql<number>`sum(case when ${candidates.current_stage} not in ('hired','rejected','withdrew') then 1 else 0 end)`,
+      hired: sql<number>`sum(case when ${candidates.current_stage} = 'hired' then 1 else 0 end)`,
+    })
+    .from(candidates)
+    .groupBy(candidates.job_id);
 }

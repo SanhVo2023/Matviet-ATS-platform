@@ -12,7 +12,7 @@ import { JobForm } from "./JobForm";
 import { JOB_STATUSES, type JobInput } from "@/lib/validation/job";
 import type { JobRow } from "@/server/jobs/repository";
 import type { ManagerOption } from "./HiringManagerPicker";
-import { createJobAction } from "@/app/(dashboard)/tin-tuyen-dung/actions";
+import { createJobAction } from "@/app/(dashboard)/vi-tri/actions";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,9 @@ interface Props {
   initialJobs: JobRow[];
   departments: Department[];
   managerOptions: ManagerOption[];
-  /** When true (route is /tin-tuyen-dung/moi), the create form auto-opens. */
+  /** Per-job candidate tallies keyed by job id (total / active / hired). */
+  candidateCounts?: Record<string, { total: number; active: number; hired: number }>;
+  /** When true (route is /vi-tri/moi), the create form auto-opens. */
   forceCreateOpen?: boolean;
 }
 
@@ -35,6 +37,7 @@ export function JobsListClient({
   initialJobs,
   departments,
   managerOptions,
+  candidateCounts,
   forceCreateOpen,
 }: Props) {
   const router = useRouter();
@@ -73,10 +76,10 @@ export function JobsListClient({
       <PageHeader
         icon={Briefcase}
         title={t.nav.jobs}
-        subtitle={`${filtered.length} / ${initialJobs.length} tin đang hiển thị`}
+        subtitle={`${filtered.length} / ${initialJobs.length} vị trí đang hiển thị`}
         action={
           <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" aria-hidden /> Tạo tin mới
+            <Plus className="h-4 w-4" aria-hidden /> Tạo vị trí mới
           </Button>
         }
       />
@@ -134,18 +137,22 @@ export function JobsListClient({
             onChange={(e) => setSearch(e.target.value || null)}
             placeholder="Tìm tiêu đề"
             className="h-9 pl-9"
-            aria-label="Tìm tin"
+            aria-label="Tìm vị trí"
           />
         </div>
       </section>
 
-      <JobsTable jobs={filtered} onCreate={() => setCreateOpen(true)} />
+      <JobsTable
+        jobs={filtered}
+        candidateCounts={candidateCounts}
+        onCreate={() => setCreateOpen(true)}
+      />
 
       <JobForm
         open={createOpen}
         onOpenChange={(o) => {
           setCreateOpen(o);
-          if (!o && forceCreateOpen) router.push("/tin-tuyen-dung");
+          if (!o && forceCreateOpen) router.push("/vi-tri");
         }}
         mode="create"
         departments={departments}

@@ -17,6 +17,6 @@ Anti-abuse lives in TWO layers: the API route (honeypot `website` field +
 `opened_at` minimum fill time of 3s — both answer fake success) and this
 service (rate limit + dup). No captcha by design — see ADR 0014.
 
-The printable QR poster (`/tin-tuyen-dung/[id]/qr`, `QrPoster.tsx`) deep-links
+The printable QR poster (`/vi-tri/[id]/qr`, `QrPoster.tsx`) deep-links
 to the public detail page; dashboard chrome is `print:hidden` so
 `window.print()` emits only the poster.

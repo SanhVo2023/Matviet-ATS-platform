@@ -125,7 +125,7 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
       {job ? (
         <p className="text-sm text-slate-500">
           Vị trí:{" "}
-          <Link href={`/tin-tuyen-dung/${job.id}`} className="text-primary-600 hover:underline">
+          <Link href={`/vi-tri/${job.id}`} className="text-primary-600 hover:underline">
             {job.title}
           </Link>
         </p>

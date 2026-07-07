@@ -55,8 +55,8 @@ export default async function BaiTestSettingsListPage() {
             {jobs.length === 0 ? (
               <li className="px-6 py-12 text-center text-sm text-slate-500">
                 Chưa có vị trí nào. Tạo vị trí trước tại{" "}
-                <Link href="/tin-tuyen-dung" className="text-primary-600 hover:underline">
-                  Tin tuyển dụng
+                <Link href="/vi-tri" className="text-primary-600 hover:underline">
+                  Vị trí
                 </Link>
                 .
               </li>

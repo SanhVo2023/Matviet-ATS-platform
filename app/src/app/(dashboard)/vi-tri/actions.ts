@@ -42,11 +42,11 @@ export async function createJobAction(
   try {
     const status: JobStatus = intent === "publish" ? "open" : "draft";
     const { id } = await createJobWithAssignments(parsed.data, status, profile.id);
-    revalidatePath("/tin-tuyen-dung");
+    revalidatePath("/vi-tri");
     revalidatePath("/");
     return { ok: true, data: { id } };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Lỗi tạo tin" };
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi tạo vị trí" };
   }
 }
 
@@ -74,8 +74,8 @@ export async function updateJobAction(
       console.warn("[updateJob] reaggregate failed (scores stale until next screening):", rErr);
     }
 
-    revalidatePath("/tin-tuyen-dung");
-    revalidatePath(`/tin-tuyen-dung/${id}`);
+    revalidatePath("/vi-tri");
+    revalidatePath(`/vi-tri/${id}`);
     revalidatePath("/ung-vien");
     revalidatePath("/");
     return { ok: true, data: { id } };
@@ -117,7 +117,7 @@ export async function generateJobContentAction(
         {
           role: "system",
           content:
-            "Bạn viết tin tuyển dụng tiếng Việt cho Mắt Việt — chuỗi cửa hàng mắt kính bán lẻ tại Việt Nam. " +
+            "Bạn viết nội dung tuyển dụng tiếng Việt cho Mắt Việt — chuỗi cửa hàng mắt kính bán lẻ tại Việt Nam. " +
             "Giọng chuyên nghiệp, ấm áp, thực tế với thị trường lao động Việt Nam. " +
             "Trả về CHÍNH XÁC định dạng sau, không thêm chữ nào khác:\n" +
             "MOTA:\n<HTML mô tả công việc: 1 đoạn <p> giới thiệu ngắn về vị trí, tiếp theo <p><strong>Nhiệm vụ chính:</strong></p> + <ul> 4-6 <li>, rồi <p><strong>Quyền lợi:</strong></p> + <ul> 3-4 <li>>\n" +
@@ -151,8 +151,8 @@ export async function setJobStatusAction(id: string, status: JobStatus): Promise
   await requireRole(["admin", "hr"]);
   try {
     await setJobStatus(id, status);
-    revalidatePath("/tin-tuyen-dung");
-    revalidatePath(`/tin-tuyen-dung/${id}`);
+    revalidatePath("/vi-tri");
+    revalidatePath(`/vi-tri/${id}`);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Lỗi cập nhật trạng thái" };
@@ -166,8 +166,8 @@ export async function archiveJobAction(id: string): Promise<ActionResult> {
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Lỗi xóa tin" };
   }
-  revalidatePath("/tin-tuyen-dung");
-  redirect("/tin-tuyen-dung");
+  revalidatePath("/vi-tri");
+  redirect("/vi-tri");
 }
 
 const SuggestWeightsSchema = z.object({
