@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro, JetBrains_Mono } from "next/font/google";
+// Astryx design system (ADR 0016) — order matters: reset → components → theme
+import "@astryxdesign/core/reset.css";
+import "@astryxdesign/core/astryx.css";
+import "@/styles/themes/matviet/matviet.css";
 import "@/styles/globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "sonner";
@@ -40,7 +44,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi" suppressHydrationWarning>
+    // data-theme on <html> = SSR-safe light mode (Astryx Theme syncs it on hydration)
+    <html lang="vi" data-theme="light" suppressHydrationWarning>
       <body className={`${beVietnamPro.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
         <Toaster position="top-right" richColors closeButton />
