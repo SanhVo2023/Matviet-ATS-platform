@@ -27,7 +27,16 @@ self.addEventListener("install", (event) => {
       const cache = await caches.open(SHELL_CACHE);
       // cache: "reload" bypasses the HTTP cache so a redeploy always
       // refreshes the stored copy along with the new SW version.
-      await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
+      // On Cloudflare the asset host 307s /offline.html -> /offline
+      // (html_handling), and a REDIRECTED response can never be served to a
+      // navigation — so re-wrap the body in a clean synthetic 200 response.
+      const res = await fetch(new Request(OFFLINE_URL, { cache: "reload", redirect: "follow" }));
+      if (!res.ok) throw new Error(`offline page precache failed: ${res.status}`);
+      const body = await res.text();
+      await cache.put(
+        OFFLINE_URL,
+        new Response(body, { headers: { "Content-Type": "text/html; charset=utf-8" } }),
+      );
       await self.skipWaiting();
     })(),
   );
