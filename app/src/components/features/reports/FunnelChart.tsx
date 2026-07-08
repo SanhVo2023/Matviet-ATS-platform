@@ -25,24 +25,9 @@ const SUPER_LABEL: Record<string, string> = {
   rejected: "Từ chối",
 };
 
-const STAGE_LABEL: Record<string, string> = {
-  new: "Mới",
-  screening: "Đang sàng lọc",
-  screened: "Đã sàng",
-  interview_scheduled: "Đặt lịch PV",
-  interviewed: "Đã PV",
-  test_sent: "Gửi test",
-  test_done: "Đã test",
-  recommended: "Đề xuất",
-  salary_deal: "Chốt lương",
-  bod_review: "BOD duyệt",
-  tap_doan_review: "Tập đoàn duyệt",
-  offer_sent: "Đã gửi offer",
-  offer_accepted: "Nhận offer",
-  hired: "Đã tuyển",
-  rejected: "Từ chối",
-  withdrew: "Rút",
-};
+// Detailed stage labels come from the canonical i18n map (ADR 0019 — one
+// stage language; this chart used to carry its own drifted copy).
+const STAGE_LABEL = t.stage as Record<string, string>;
 
 export function FunnelChart({ data }: { data: FunnelSuperStageDatum[] }) {
   if (data.length === 0) {

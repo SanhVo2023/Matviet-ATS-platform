@@ -85,6 +85,45 @@ export async function listEvaluations(interviewId: string): Promise<InterviewEva
     .orderBy(asc(interview_evaluations.created_at));
 }
 
+export interface CandidateEvaluationRow {
+  interview_id: string;
+  scheduled_at: string;
+  interview_status: InterviewStatus;
+  evaluator_user_id: string;
+  recommendation: Database["public"]["Enums"]["recommendation"] | null;
+  strengths: string | null;
+  concerns: string | null;
+  proposed_salary: number | null;
+  created_at: string;
+}
+
+/**
+ * All interview evaluations across a candidate's interviews — the manager's
+ * "how did they do" digest on the candidate page (ADR 0019). Same join the
+ * dossier builds inline (server/candidates/dossier.ts).
+ */
+export async function listEvaluationsForCandidate(
+  candidateId: string,
+): Promise<CandidateEvaluationRow[]> {
+  const db = await getDb();
+  return db
+    .select({
+      interview_id: interview_evaluations.interview_id,
+      scheduled_at: interviews.scheduled_at,
+      interview_status: interviews.status,
+      evaluator_user_id: interview_evaluations.evaluator_user_id,
+      recommendation: interview_evaluations.recommendation,
+      strengths: interview_evaluations.strengths,
+      concerns: interview_evaluations.concerns,
+      proposed_salary: interview_evaluations.proposed_salary,
+      created_at: interview_evaluations.created_at,
+    })
+    .from(interview_evaluations)
+    .innerJoin(interviews, eq(interview_evaluations.interview_id, interviews.id))
+    .where(eq(interviews.candidate_id, candidateId))
+    .orderBy(asc(interview_evaluations.created_at));
+}
+
 /**
  * List potential interviewers — active admin / HR / hiring_manager users.
  * Authorization lives in the caller's requireRole guard (must be HR/admin).

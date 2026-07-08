@@ -7,7 +7,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { formatRelative } from "@/lib/vi-format";
-import { stageReadiness, type Stage, type ReadinessTone } from "@/lib/validation/candidate";
+import { stageReadiness, type Stage } from "@/lib/validation/candidate";
+import { READINESS_DOT, READINESS_TEXT } from "@/lib/stage-visuals";
 import { t } from "@/lib/i18n";
 import type { CandidateRow } from "@/server/candidates/repository";
 
@@ -16,21 +17,6 @@ interface Props {
   /** When true, card is rendered inside <DragOverlay> — disable hover styles + interactivity. */
   overlay?: boolean;
 }
-
-/** Status dot — ALWAYS paired with the label next to it (color-blind safe). */
-const DOT_CLASS: Record<ReadinessTone, string> = {
-  ready: "bg-emerald-500",
-  waiting: "bg-slate-300",
-  blocked: "bg-rose-500",
-  done: "bg-emerald-600 ring-2 ring-emerald-200",
-};
-
-const LABEL_CLASS: Record<ReadinessTone, string> = {
-  ready: "text-emerald-700",
-  waiting: "text-slate-500",
-  blocked: "text-rose-600",
-  done: "text-emerald-700",
-};
 
 /**
  * Compact 2-line card (Sanh 2026-07-07): name + AI score, then the readiness
@@ -90,13 +76,13 @@ export function KanbanCard({ candidate, overlay }: Props) {
         {/* Line 2 — readiness dot + label + relative time */}
         <div className="mt-1.5 flex items-center gap-1.5">
           <span
-            className={cn("h-2 w-2 shrink-0 rounded-full", DOT_CLASS[readiness.tone])}
+            className={cn("h-2 w-2 shrink-0 rounded-full", READINESS_DOT[readiness.tone])}
             aria-hidden
           />
           <span
             className={cn(
               "min-w-0 flex-1 truncate text-[11px] font-medium",
-              LABEL_CLASS[readiness.tone],
+              READINESS_TEXT[readiness.tone],
             )}
           >
             {readiness.label}

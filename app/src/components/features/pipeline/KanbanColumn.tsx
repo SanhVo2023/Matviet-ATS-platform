@@ -5,6 +5,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { cn } from "@/lib/utils";
 import type { StageGroup } from "@/lib/validation/candidate";
+import { GROUP_ACCENT } from "@/lib/stage-visuals";
 import type { CandidateRow } from "@/server/candidates/repository";
 import { KanbanCard } from "./KanbanCard";
 
@@ -16,15 +17,6 @@ interface Props {
   /** Rendered at the top of the card list (the intake column's PDF drop target). */
   headerSlot?: React.ReactNode;
 }
-
-/** One accent per business column (Sanh 2026-07-07). */
-const GROUP_ACCENT: Record<string, string> = {
-  g_intake: "border-slate-400",
-  g_eval: "border-amber-400",
-  g_offer: "border-indigo-400",
-  g_onboard: "border-emerald-500",
-  g_closed: "border-rose-400",
-};
 
 export function KanbanColumn({ group, candidates, acceptsDrop, headerSlot }: Props) {
   const { setNodeRef, isOver: dndIsOver } = useDroppable({

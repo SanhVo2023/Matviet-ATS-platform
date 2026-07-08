@@ -11,6 +11,9 @@ import {
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { formatRelative } from "@/lib/vi-format";
+// Plain-language verdict bands (2026-07-08 redesign — the six side-by-side
+// bars read as intimidating; HR wants an answer, not a dashboard).
+import { scoreVerdict as verdictOf } from "@/lib/stage-visuals";
 import { EvidenceChip } from "./EvidenceChip";
 import { RescoreButton } from "./RescoreButton";
 
@@ -24,14 +27,6 @@ interface Props {
   scoredAt: string;
   /** Show "weights changed" hint above the card if the latest screening pre-dates a weight change. */
   weightsChanged?: boolean;
-}
-
-// Plain-language verdict bands (2026-07-08 redesign — the six side-by-side
-// bars read as intimidating; HR wants an answer, not a dashboard).
-function verdictOf(total: number): { label: string; className: string } {
-  if (total >= 75) return { label: "Phù hợp cao", className: "bg-emerald-100 text-emerald-800" };
-  if (total >= 55) return { label: "Phù hợp trung bình", className: "bg-amber-100 text-amber-800" };
-  return { label: "Phù hợp thấp", className: "bg-rose-100 text-rose-700" };
 }
 
 function scoreChipClass(score: number): string {

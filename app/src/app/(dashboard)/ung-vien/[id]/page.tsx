@@ -14,13 +14,24 @@ import {
 import { getJob, getJobAssignments } from "@/server/jobs/repository";
 import { getLatestScreening, getQueueStatus } from "@/server/scoring/repository";
 import { getAssessmentForJob, listSubmissionsForCandidate } from "@/server/assessments/repository";
-import { listInterviews, listInterviewers } from "@/server/interviews/repository";
+import {
+  listInterviews,
+  listInterviewers,
+  listEvaluationsForCandidate,
+} from "@/server/interviews/repository";
 import { listApprovalsForCandidate } from "@/server/approvals/repository";
+import { listCandidateEmails } from "@/server/email/repository";
+import { listActiveTemplates } from "@/server/email/templates";
+import { getComposerVarDefaults } from "@/server/email/composer-defaults";
 import { CandidateHeader } from "@/components/features/candidates/CandidateHeader";
 import { CandidateAiSummary } from "@/components/features/candidates/CandidateAiSummary";
-import { CandidateTabs } from "@/components/features/candidates/CandidateTabs";
-import { CandidateTimeline } from "@/components/features/candidates/CandidateTimeline";
-import { ApprovalProgress } from "@/components/features/approvals/ApprovalProgress";
+import { CandidateJourney } from "@/components/features/candidates/journey/CandidateJourney";
+import {
+  CandidateReferenceRail,
+  type RailEmailRow,
+} from "@/components/features/candidates/CandidateReferenceRail";
+import { ChangeCvButton } from "@/components/features/candidates/ChangeCvButton";
+import { ComposeEmailButton } from "@/components/features/emails/ComposeEmailButton";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +45,11 @@ export async function generateMetadata({
   return { title: candidate ? `${candidate.full_name} · Ứng viên` : "Ứng viên" };
 }
 
+/**
+ * Candidate page v3 (ADR 0019): the hiring journey ladder IS the page.
+ * Header answers "who + how good"; the ladder answers "where + what
+ * happened at each rung + what's next"; the rail holds reference material.
+ */
 export default async function CandidateDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const profile = await requireRole(["admin", "hr", "hiring_manager"]);
   const { id } = await params;
@@ -47,6 +63,8 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
     if (!assignments.some((a) => a.manager_user_id === profile.id)) notFound();
   }
 
+  const canManage = profile.role === "admin" || profile.role === "hr";
+
   const [
     job,
     cvFile,
@@ -56,8 +74,10 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
     assessment,
     submissions,
     interviews,
+    evaluations,
     approvals,
     interviewers,
+    emails,
   ] = await Promise.all([
     getJob(candidate.job_id),
     candidate.cv_file_id ? getCvFile(candidate.cv_file_id) : Promise.resolve(null),
@@ -67,25 +87,69 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
     getAssessmentForJob(candidate.job_id),
     listSubmissionsForCandidate(candidate.id),
     listInterviews({ candidate_id: candidate.id }),
+    listEvaluationsForCandidate(candidate.id),
     listApprovalsForCandidate(candidate.id),
     listInterviewers(),
+    listCandidateEmails(candidate.id),
   ]);
   const latestSubmission = submissions[0] ?? null;
 
   const signedUrl = cvFile ? await signCvUrl(cvFile.storage_path) : null;
 
-  // Resolve actor names for the timeline + approval history
+  // Resolve actor names: timeline + approvals + interview evaluators
   const actorIds = Array.from(
     new Set([
       ...history.map((h) => h.actor_user_id).filter((x): x is string => !!x),
       ...approvals.map((a) => a.actor_user_id).filter((x): x is string => !!x),
+      ...evaluations.map((e) => e.evaluator_user_id),
     ]),
   );
   const actorNames = await lookupProfileNames(actorIds);
 
-  // Determine if the current user owns the manager_recommend step (via job_assignments)
+  // Does the current user own the manager_recommend step (via job_assignments)?
   const jobAssignments = await getJobAssignments(candidate.job_id);
   const currentUserOwnsManagerStep = jobAssignments.some((a) => a.manager_user_id === profile.id);
+
+  // Email composer needs server data (templates + var defaults) — prepare the
+  // button here and hand it into client shells as slots.
+  const hrName = profile.full_name ?? "Phòng Nhân sự";
+  const [templates, autoVars] = canManage
+    ? await Promise.all([listActiveTemplates(), getComposerVarDefaults(candidate.id, hrName)])
+    : [[], {}];
+  const composeButton =
+    canManage && candidate.email ? (
+      <ComposeEmailButton
+        templates={templates}
+        defaults={{
+          candidateId: candidate.id,
+          jobId: candidate.job_id,
+          to: [candidate.email],
+          vars: {
+            ...autoVars,
+            candidate_name: candidate.full_name,
+            job_title: job?.title ?? "",
+            hr_name: hrName,
+            company_name: "Mắt Việt",
+          },
+          lockRecipient: true,
+        }}
+        size="sm"
+        variant="navy"
+        label="Gửi email"
+      />
+    ) : null;
+
+  const railEmails: RailEmailRow[] = emails.map((e) => ({
+    id: e.id,
+    subject: e.subject,
+    direction: e.direction,
+    to_emails: e.to_emails ?? [],
+    template_code: e.template_code,
+    error: e.error,
+    status: e.status,
+    sent_at: e.sent_at,
+    created_at: e.created_at,
+  }));
 
   return (
     <div className="mx-auto max-w-[1400px] p-6 lg:p-8">
@@ -96,8 +160,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
       >
         <ChevronLeft className="h-4 w-4" aria-hidden /> {t.nav.candidates}
       </Link>
-      {/* Identity + journey header (2026-07-08 redesign): where the candidate
-          is (kanban's 4 business groups) and what's next, at a glance. */}
+
       <CandidateHeader
         candidate={candidate}
         jobTitle={job?.title ?? null}
@@ -105,59 +168,50 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
       />
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Main column — AI narrative first, then the 3 merged tabs */}
+        {/* Main — AI narrative, then the journey ladder */}
         <div className="space-y-4 lg:col-span-8">
           <CandidateAiSummary
             candidateId={candidate.id}
             initialSummary={candidate.ai_summary}
             summaryAt={candidate.ai_summary_at}
           />
-          <CandidateTabs
+          <CandidateJourney
             candidate={candidate}
             job={job}
-            cv={
-              cvFile
-                ? {
-                    signedUrl,
-                    mime: cvFile.mime,
-                    originalName: cvFile.original_name,
-                  }
-                : undefined
-            }
             latestScreening={latestScreening}
             queueStatus={queueStatus}
-            assessment={assessment}
-            latestSubmission={latestSubmission}
-            canSendAssessment={profile.role === "admin" || profile.role === "hr"}
-            hrName={profile.full_name ?? "Phòng Nhân sự"}
+            isAdmin={profile.role === "admin"}
+            currentRole={profile.role}
             interviews={interviews}
             interviewers={interviewers}
-            currentRole={profile.role}
-            isAdmin={profile.role === "admin"}
+            evaluations={evaluations}
+            assessment={assessment}
+            latestSubmission={latestSubmission}
+            approvals={approvals}
+            actorNames={actorNames}
+            currentUserOwnsManagerStep={currentUserOwnsManagerStep}
+            history={history}
+            offerComposeSlot={composeButton}
           />
         </div>
 
-        {/* Side rail — Lịch sử, approvals, internal notes */}
+        {/* Reference rail — contact, CV, notes, emails */}
         <div className="lg:col-span-4">
-          <CandidateTimeline history={history} actorNames={actorNames} />
-          <ApprovalProgress
-            candidateId={candidate.id}
-            approvals={approvals}
-            currentRole={profile.role}
-            currentUserOwnsManagerStep={currentUserOwnsManagerStep}
-            actorNames={actorNames}
-            canStart={
-              profile.role === "admin" || profile.role === "hr" || profile.role === "hiring_manager"
+          <CandidateReferenceRail
+            contact={{
+              email: candidate.email,
+              phone: candidate.phone,
+              location: candidate.location,
+              createdAt: candidate.created_at,
+            }}
+            cv={
+              cvFile ? { signedUrl, mime: cvFile.mime, originalName: cvFile.original_name } : null
             }
+            cvActionSlot={canManage ? <ChangeCvButton candidateId={candidate.id} /> : undefined}
+            notes={candidate.notes}
+            emails={railEmails}
+            composeSlot={composeButton}
           />
-          {candidate.notes ? (
-            <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-                Ghi chú nội bộ
-              </p>
-              <p className="whitespace-pre-wrap text-sm text-slate-700">{candidate.notes}</p>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>

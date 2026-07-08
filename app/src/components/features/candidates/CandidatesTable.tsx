@@ -81,7 +81,12 @@ export function CandidatesTable({ candidates, jobsById, onCreate }: Props) {
       {
         accessorKey: "current_stage",
         header: () => <span>Giai đoạn</span>,
-        cell: ({ row }) => <StageBadge stage={row.original.current_stage} />,
+        cell: ({ row }) => (
+          <StageBadge
+            stage={row.original.current_stage}
+            aiStatus={row.original.ai_screening_status}
+          />
+        ),
       },
       {
         accessorKey: "created_at",
