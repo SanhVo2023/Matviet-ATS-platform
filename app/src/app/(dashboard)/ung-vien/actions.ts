@@ -304,7 +304,7 @@ export async function prefillFromCvAction(
         }),
         maxTokens: 2048,
         temperature: 0,
-        feature: "candidate_summary",
+        feature: "cv_prefill",
         userId: profile.id,
       });
       if (data.full_name.trim().length >= 2) result.full_name = data.full_name.trim();

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mất kết nối — Mắt Việt HR</title>
+    <!--
+      Served by sw.js when the HTML navigation itself dies (VN ISP ↔ Cloudflare
+      resets). Must be 100% self-contained: when this page shows, the network
+      is broken, so no external CSS/JS/fonts/images can be referenced.
+    -->
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        font-family:
+          "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        background: #0b1430;
+        color: #f3f5fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+      }
+      .card {
+        max-width: 420px;
+        width: 100%;
+      }
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: #16224d;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        margin-bottom: 20px;
+      }
+      .logo svg {
+        display: block;
+      }
+      h1 {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      p {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #aab4d4;
+      }
+      .status {
+        margin-top: 20px;
+        font-size: 13px;
+        color: #fbc312;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 20px;
+      }
+      .spinner {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid rgba(251, 195, 18, 0.3);
+        border-top-color: #fbc312;
+        animation: spin 0.8s linear infinite;
+        flex: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      button {
+        margin-top: 24px;
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        color: #0b1430;
+        background: #fbc312;
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 24px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #ffd24d;
+      }
+      .hint {
+        margin-top: 16px;
+        font-size: 12px;
+        color: #6b7699;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="logo" aria-hidden="true">
+        <!-- glasses mark -->
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fbc312" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="6.5" cy="14" r="3.5" />
+          <circle cx="17.5" cy="14" r="3.5" />
+          <path d="M10 14h4" />
+          <path d="M3 14l1.5-6M21 14l-1.5-6" />
+        </svg>
+      </div>
+      <h1>Mất kết nối tới máy chủ</h1>
+      <p>
+        Đường truyền tới Mắt Việt HR vừa bị gián đoạn (thường do mạng chập chờn).
+        Hệ thống sẽ tự kết nối lại — anh/chị không cần làm gì.
+      </p>
+      <div class="status">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="msg">Đang tự thử lại…</span>
+      </div>
+      <button type="button" onclick="retryNow()">Thử lại ngay</button>
+      <p class="hint">Trang sẽ tự tải lại ngay khi kết nối phục hồi.</p>
+    </div>
+    <script>
+      var attempts = 0;
+      var msg = document.getElementById("msg");
+      function retryNow() {
+        attempts++;
+        msg.textContent = "Đang tự thử lại… (lần " + attempts + ")";
+        // Any HTTP response at all (even 4xx/5xx) means the connection is
+        // back — reload and let the app take over from there.
+        fetch(window.location.href, { cache: "no-store", credentials: "include" })
+          .then(function () {
+            msg.textContent = "Đã kết nối lại — đang tải trang…";
+            window.location.reload();
+          })
+          .catch(function () {
+            /* still down — the interval keeps trying */
+          });
+      }
+      setInterval(retryNow, 4000);
+      window.addEventListener("online", retryNow);
+      retryNow();
+    </script>
+  </body>
+</html>

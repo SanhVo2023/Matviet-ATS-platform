@@ -26,6 +26,21 @@ async function invokeRoute(
   return (await handler.fetch(request, env, ctx)) as Response;
 }
 
+/**
+ * An idle drain pass (200 + all-zero counters) is the every-minute steady
+ * state — logging it flooded the observability dashboard (3 lines/min).
+ * Only log when the run actually did something or went wrong.
+ */
+function isIdleResult(status: number, body: string): boolean {
+  if (status !== 200) return false;
+  try {
+    const data = JSON.parse(body) as Record<string, unknown>;
+    return Object.values(data).every((v) => v === 0 || v === "idle" || v === false || v == null);
+  } catch {
+    return false;
+  }
+}
+
 export default {
   fetch: handler.fetch,
 
@@ -33,7 +48,10 @@ export default {
     for (const path of CRON_ROUTES) {
       try {
         const res = await invokeRoute(path, env, ctx);
-        console.log(`[cron ${controller.cron}] ${path} -> ${res.status} ${await res.text()}`);
+        const body = await res.text();
+        if (!isIdleResult(res.status, body)) {
+          console.log(`[cron ${controller.cron}] ${path} -> ${res.status} ${body}`);
+        }
       } catch (err) {
         console.error(`[cron ${controller.cron}] ${path} failed:`, err);
       }

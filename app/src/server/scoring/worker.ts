@@ -251,6 +251,11 @@ async function processJob(q: QueueRow): Promise<string> {
   const screeningId = inserted[0]!.id;
 
   // Explicit denormalization (was the bump_candidate_score trigger in Postgres)
+  // Ambient AI (ADR 0018): the score pass already writes an overall_summary —
+  // seed candidates.ai_summary with it so the profile shows a narrative
+  // without anyone clicking. "Tóm tắt lại" later swaps in the richer
+  // dossier-based version.
+  const overallSummary = passTwo.scored.overall_summary?.trim();
   await db
     .update(candidates)
     .set({
@@ -261,6 +266,7 @@ async function processJob(q: QueueRow): Promise<string> {
       ai_screening_error: null,
       cv_text: passOne.parsed._raw_text.slice(0, 50_000),
       parsed: stripRawText(passOne.parsed) as never,
+      ...(overallSummary ? { ai_summary: overallSummary, ai_summary_at: nowIso } : {}),
     })
     .where(eq(candidates.id, q.candidate_id));
 

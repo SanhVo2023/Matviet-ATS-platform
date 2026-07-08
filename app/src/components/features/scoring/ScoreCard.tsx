@@ -1,11 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { CRITERION_CODES, type VerifiedCriteria, type Weights } from "@/lib/ai/gemini/types";
+import { AlertTriangle, Check, ChevronDown } from "lucide-react";
+import {
+  CRITERION_CODES,
+  type CriterionCode,
+  type VerifiedCriteria,
+  type Weights,
+} from "@/lib/ai/gemini/types";
 import { t } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 import { formatRelative } from "@/lib/vi-format";
-import { CriterionBar } from "./CriterionBar";
+import { EvidenceChip } from "./EvidenceChip";
 import { RescoreButton } from "./RescoreButton";
 
 interface Props {
@@ -20,6 +26,28 @@ interface Props {
   weightsChanged?: boolean;
 }
 
+// Plain-language verdict bands (2026-07-08 redesign — the six side-by-side
+// bars read as intimidating; HR wants an answer, not a dashboard).
+function verdictOf(total: number): { label: string; className: string } {
+  if (total >= 75) return { label: "Phù hợp cao", className: "bg-emerald-100 text-emerald-800" };
+  if (total >= 55) return { label: "Phù hợp trung bình", className: "bg-amber-100 text-amber-800" };
+  return { label: "Phù hợp thấp", className: "bg-rose-100 text-rose-700" };
+}
+
+function scoreChipClass(score: number): string {
+  if (score >= 70) return "bg-emerald-50 text-emerald-700";
+  if (score >= 55) return "bg-amber-50 text-amber-700";
+  return "bg-rose-50 text-rose-700";
+}
+
+/** One line of grounding for a criterion: first verified quote, else reasoning. */
+function snippetOf(criteria: VerifiedCriteria, code: CriterionCode): string {
+  const r = criteria[code];
+  const quote = r.evidence_quotes.find((q) => q.verified) ?? r.evidence_quotes[0];
+  const text = (quote?.text || r.reasoning || "").trim();
+  return text.length > 110 ? `${text.slice(0, 110)}…` : text;
+}
+
 export function ScoreCard({
   candidateId,
   total,
@@ -29,7 +57,28 @@ export function ScoreCard({
   scoredAt,
   weightsChanged,
 }: Props) {
-  const reduceMotion = useReducedMotion();
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
+
+  const scored = CRITERION_CODES.map((code) => ({ code, score: criteria[code]?.score ?? 0 }));
+  const strengths = scored
+    .filter((c) => c.score >= 70)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+  let concerns = scored
+    .filter((c) => c.score < 55)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 3);
+  let concernsTitle = "Cần lưu ý";
+  if (concerns.length === 0) {
+    // Everything scored decently — still surface the weakest link so HR
+    // knows what to probe in the interview.
+    concerns = [...scored].sort((a, b) => a.score - b.score).slice(0, 1);
+    concernsTitle = "Điểm thấp nhất";
+  }
+
+  const verdict = verdictOf(total);
+  const t100 = Math.max(0, Math.min(100, Math.round(total)));
+
   return (
     <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-5">
       {weightsChanged ? (
@@ -38,81 +87,193 @@ export function ScoreCard({
         </p>
       ) : null}
 
-      {/* Header — overall score */}
-      <div className="flex flex-wrap items-center gap-4">
-        <CircularScore total={total} />
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {t.score.overall}
+      {/* Verdict — the answer first */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span className="text-4xl font-extrabold tabular-nums leading-none text-brand-900">
+          {t100}
+        </span>
+        <span className={cn("rounded-full px-3 py-1 text-sm font-semibold", verdict.className)}>
+          {verdict.label}
+        </span>
+        <span className="text-xs text-slate-400">
+          {t.score.scoredAt}: <time dateTime={scoredAt}>{formatRelative(scoredAt)}</time>
+        </span>
+      </div>
+      {summary ? (
+        <p className="text-sm text-slate-600" lang="vi">
+          {summary}
+        </p>
+      ) : null}
+
+      {/* Strengths / concerns — plain language, grounded in the CV */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-md border border-emerald-100 bg-emerald-50/40 p-3">
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            <Check className="h-3.5 w-3.5" aria-hidden /> Điểm mạnh
           </p>
-          {summary ? (
-            <p className="mt-1 text-sm italic text-slate-600" lang="vi">
-              {summary}
-            </p>
-          ) : null}
+          {strengths.length > 0 ? (
+            <ul className="space-y-2">
+              {strengths.map(({ code, score }) => (
+                <HighlightItem key={code} code={code} score={score} criteria={criteria} />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-slate-500">Chưa có tiêu chí nào đạt mức nổi bật.</p>
+          )}
+        </div>
+        <div className="rounded-md border border-amber-100 bg-amber-50/40 p-3">
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-700">
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> {concernsTitle}
+          </p>
+          <ul className="space-y-2">
+            {concerns.map(({ code, score }) => (
+              <HighlightItem key={code} code={code} score={score} criteria={criteria} />
+            ))}
+          </ul>
         </div>
       </div>
 
-      {/* 6 bars */}
-      <div className="space-y-2">
-        {CRITERION_CODES.map((code, i) => (
-          <motion.div
-            key={code}
-            initial={reduceMotion ? false : { opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06, duration: 0.2 }}
-          >
-            <CriterionBar code={code} weight={weights[code] ?? 0} result={criteria[code]} />
-          </motion.div>
-        ))}
+      {/* Full 6-criterion detail — collapsed by default */}
+      <div className="rounded-md border border-slate-200">
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+          aria-expanded={detailsOpen}
+        >
+          Xem chi tiết 6 tiêu chí
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-slate-400 transition-transform",
+              detailsOpen && "rotate-180",
+            )}
+            aria-hidden
+          />
+        </button>
+        {detailsOpen ? (
+          <div className="divide-y divide-slate-100 border-t border-slate-100">
+            {CRITERION_CODES.map((code) => (
+              <CriterionRow
+                key={code}
+                code={code}
+                weight={weights[code] ?? 0}
+                result={criteria[code]}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
 
-      {/* Footer — meta. Model/token internals live in Cài đặt → Hệ thống,
+      {/* Footer — model/token internals live in Cài đặt → Hệ thống,
           not in front of HR (Sanh, 2026-07-06). */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
-        <span>
-          {t.score.scoredAt}: <time dateTime={scoredAt}>{formatRelative(scoredAt)}</time>
-        </span>
+      <div className="flex justify-end border-t border-slate-100 pt-3">
         <RescoreButton candidateId={candidateId} variant="rescore" />
       </div>
     </div>
   );
 }
 
-function CircularScore({ total }: { total: number }) {
-  const reduceMotion = useReducedMotion();
-  const t100 = Math.max(0, Math.min(100, Math.round(total)));
-  const radius = 32;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - t100 / 100);
+function HighlightItem({
+  code,
+  score,
+  criteria,
+}: {
+  code: CriterionCode;
+  score: number;
+  criteria: VerifiedCriteria;
+}) {
+  const snippet = snippetOf(criteria, code);
   return (
-    <div className="relative grid h-20 w-20 place-items-center">
-      <svg viewBox="0 0 80 80" className="h-20 w-20 -rotate-90">
-        <circle
-          cx="40"
-          cy="40"
-          r={radius}
-          stroke="currentColor"
-          className="text-brand-900/10"
-          strokeWidth="6"
-          fill="none"
+    <li className="text-sm">
+      <span className="flex items-center gap-2">
+        <span className="font-medium text-slate-800">{t.criterion[code]}</span>
+        <span
+          className={cn(
+            "rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+            scoreChipClass(score),
+          )}
+        >
+          {Math.round(score)}
+        </span>
+      </span>
+      {snippet ? (
+        <span className="mt-0.5 block text-xs text-slate-500" lang="vi">
+          {snippet}
+        </span>
+      ) : null}
+    </li>
+  );
+}
+
+function CriterionRow({
+  code,
+  weight,
+  result,
+}: {
+  code: CriterionCode;
+  weight: number;
+  result: {
+    score: number;
+    reasoning: string;
+    evidence_quotes: Array<{ text: string; verified: boolean }>;
+  };
+}) {
+  const [open, setOpen] = React.useState(false);
+  const score = Math.max(0, Math.min(100, result.score));
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-slate-50"
+        aria-expanded={open}
+      >
+        <span className="min-w-0 flex-1 truncate text-sm text-slate-700">{t.criterion[code]}</span>
+        <span className="text-xs text-slate-400">{Math.round(weight * 100)}%</span>
+        <span
+          className={cn(
+            "w-10 rounded-full px-1.5 py-0.5 text-center text-[11px] font-semibold tabular-nums",
+            scoreChipClass(score),
+          )}
+        >
+          {score}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-slate-400 transition-transform",
+            open && "rotate-180",
+          )}
+          aria-hidden
         />
-        <motion.circle
-          cx="40"
-          cy="40"
-          r={radius}
-          stroke="currentColor"
-          className="text-accent-400"
-          strokeWidth="6"
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          initial={reduceMotion ? false : { strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: reduceMotion ? 0 : 0.8, ease: [0.4, 0, 0.2, 1] }}
-        />
-      </svg>
-      <span className="absolute text-xl font-extrabold tabular-nums text-brand-900">{t100}</span>
+      </button>
+      {open ? (
+        <div className="space-y-2 bg-slate-50/60 px-3 py-2 text-xs">
+          {result.reasoning ? (
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                {t.score.reasoning}
+              </p>
+              <p className="text-slate-700" lang="vi">
+                {result.reasoning}
+              </p>
+            </div>
+          ) : null}
+          <div>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Bằng chứng
+            </p>
+            {result.evidence_quotes.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                {result.evidence_quotes.map((q, i) => (
+                  <EvidenceChip key={i} text={q.text} verified={q.verified} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400">{t.score.noEvidence}</p>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

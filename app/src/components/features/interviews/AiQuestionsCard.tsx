@@ -6,19 +6,27 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { formatRelative } from "@/lib/vi-format";
 import { generateInterviewQuestionsAction } from "@/app/(dashboard)/phong-van/actions";
 
 interface Props {
   interviewId: string;
+  /** Persisted questions (ambient AI, ADR 0018) — generated at scheduling time. */
+  initialQuestions?: string[] | null;
+  generatedAt?: string | null;
 }
 
 /**
- * Collapsible card suggesting interview questions grounded in the candidate's
- * CV + AI screening. Generated on demand, never persisted — the interviewer
- * copies what they find useful.
+ * Interview questions grounded in the candidate's CV + AI screening.
+ * Ambient AI (ADR 0018): they're generated automatically when the interview
+ * is scheduled and persisted — this card shows them immediately; the button
+ * only regenerates (or backfills if the background pass didn't finish).
  */
-export function AiQuestionsCard({ interviewId }: Props) {
-  const [questions, setQuestions] = React.useState<string[] | null>(null);
+export function AiQuestionsCard({ interviewId, initialQuestions, generatedAt }: Props) {
+  const [questions, setQuestions] = React.useState<string[] | null>(
+    initialQuestions && initialQuestions.length > 0 ? initialQuestions : null,
+  );
+  const [freshAt, setFreshAt] = React.useState<string | null>(generatedAt ?? null);
   const [loading, setLoading] = React.useState(false);
   const [open, setOpen] = React.useState(true);
 
@@ -28,6 +36,7 @@ export function AiQuestionsCard({ interviewId }: Props) {
     setLoading(false);
     if (res.ok && res.data) {
       setQuestions(res.data.questions);
+      setFreshAt(new Date().toISOString());
       setOpen(true);
     } else {
       toast.error(res.ok ? "Không tạo được câu hỏi" : res.error);
@@ -67,6 +76,9 @@ export function AiQuestionsCard({ interviewId }: Props) {
                 Câu hỏi phỏng vấn gợi ý
               </h2>
             )}
+            {questions && freshAt && (
+              <span className="text-xs text-slate-400">AI soạn {formatRelative(freshAt)}</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {questions && (
@@ -87,15 +99,15 @@ export function AiQuestionsCard({ interviewId }: Props) {
               ) : (
                 <Sparkles className="h-4 w-4" aria-hidden />
               )}
-              {loading ? "Đang tạo..." : questions ? "Tạo lại" : "Gợi ý câu hỏi"}
+              {loading ? "Đang tạo..." : questions ? "Tạo lại" : "Tạo câu hỏi"}
             </Button>
           </div>
         </div>
 
         {!questions && !loading && (
           <p className="mt-2 text-xs text-slate-500">
-            AI đề xuất 6-8 câu hỏi dựa trên CV của ứng viên và yêu cầu vị trí — điểm mạnh cần xác
-            minh và khoảng trống cần đào sâu.
+            AI đang chuẩn bị 6-8 câu hỏi dựa trên CV của ứng viên và yêu cầu vị trí — tải lại trang
+            sau ít phút, hoặc bấm &quot;Tạo câu hỏi&quot; để tạo ngay.
           </p>
         )}
 

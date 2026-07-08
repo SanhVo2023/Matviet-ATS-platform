@@ -349,6 +349,10 @@ export const candidates = sqliteTable(
       .notNull()
       .default("pending"),
     ai_screening_error: text("ai_screening_error"),
+    /** Ambient AI (ADR 0018): persisted summary — seeded from scoring's
+     * overall_summary, refreshed on demand from the full dossier. */
+    ai_summary: text("ai_summary"),
+    ai_summary_at: text("ai_summary_at"),
     notes: text("notes"),
     // --- offer magic link (G12): candidate accepts/declines via /nhan-viec/[token] ---
     offer_token: text("offer_token"),
@@ -462,6 +466,10 @@ export const interviews = sqliteTable(
     teams_link: text("teams_link"),
     graph_event_id: text("graph_event_id"),
     notes: text("notes"),
+    /** Ambient AI (ADR 0018): questions auto-generated at scheduling time —
+     * JSON array of strings; "Tạo lại" regenerates. */
+    ai_questions: text("ai_questions", { mode: "json" }).$type<Json>(),
+    ai_questions_at: text("ai_questions_at"),
     created_by: text("created_by").references(() => users.id),
     created_at: text("created_at").notNull().$defaultFn(nowIso),
     updated_at: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),

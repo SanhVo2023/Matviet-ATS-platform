@@ -235,7 +235,7 @@ export async function suggestWeightsAction(
       zod: WeightsAiZod,
       maxTokens: 4096,
       temperature: 0.3,
-      feature: "jd_generate",
+      feature: "weights_suggest",
       userId: profile.id,
     });
 

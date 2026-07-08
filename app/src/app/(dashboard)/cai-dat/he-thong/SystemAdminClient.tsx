@@ -22,8 +22,10 @@ const FEATURE_LABEL: Record<string, string> = {
   agent: "Trợ lý AI",
   email_draft: "Soạn email",
   jd_generate: "Viết mô tả tin",
+  weights_suggest: "Gợi ý trọng số",
   interview_questions: "Câu hỏi phỏng vấn",
   candidate_summary: "Tóm tắt ứng viên",
+  cv_prefill: "Đọc CV khi tải lên",
   general: "Khác",
 };
 

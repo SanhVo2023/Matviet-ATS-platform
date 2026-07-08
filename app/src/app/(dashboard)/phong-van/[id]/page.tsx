@@ -153,8 +153,18 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
         </ul>
       </section>
 
-      {/* AI-suggested interview questions — generated on demand, not persisted */}
-      <AiQuestionsCard interviewId={interview.id} />
+      {/* AI-suggested interview questions — auto-generated at scheduling time (ADR 0018) */}
+      <AiQuestionsCard
+        interviewId={interview.id}
+        initialQuestions={
+          Array.isArray(interview.ai_questions)
+            ? (interview.ai_questions as unknown[]).filter(
+                (q): q is string => typeof q === "string",
+              )
+            : null
+        }
+        generatedAt={interview.ai_questions_at}
+      />
 
       {/* Existing reviews — read-only summary */}
       {allEvaluations.length > 0 ? (

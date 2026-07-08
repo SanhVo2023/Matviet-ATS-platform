@@ -16,7 +16,8 @@ import { getLatestScreening, getQueueStatus } from "@/server/scoring/repository"
 import { getAssessmentForJob, listSubmissionsForCandidate } from "@/server/assessments/repository";
 import { listInterviews, listInterviewers } from "@/server/interviews/repository";
 import { listApprovalsForCandidate } from "@/server/approvals/repository";
-import { CandidateProfile } from "@/components/features/candidates/CandidateProfile";
+import { CandidateHeader } from "@/components/features/candidates/CandidateHeader";
+import { CandidateAiSummary } from "@/components/features/candidates/CandidateAiSummary";
 import { CandidateTabs } from "@/components/features/candidates/CandidateTabs";
 import { CandidateTimeline } from "@/components/features/candidates/CandidateTimeline";
 import { ApprovalProgress } from "@/components/features/approvals/ApprovalProgress";
@@ -95,18 +96,22 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
       >
         <ChevronLeft className="h-4 w-4" aria-hidden /> {t.nav.candidates}
       </Link>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left rail */}
-        <div className="lg:col-span-3">
-          <CandidateProfile
-            candidate={candidate}
-            jobTitle={job?.title ?? null}
-            jobId={candidate.job_id}
-          />
-        </div>
+      {/* Identity + journey header (2026-07-08 redesign): where the candidate
+          is (kanban's 4 business groups) and what's next, at a glance. */}
+      <CandidateHeader
+        candidate={candidate}
+        jobTitle={job?.title ?? null}
+        jobId={candidate.job_id}
+      />
 
-        {/* Center column — 3 merged tabs (ADR 0015 hierarchy pass) */}
-        <div className="lg:col-span-6">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Main column — AI narrative first, then the 3 merged tabs */}
+        <div className="space-y-4 lg:col-span-8">
+          <CandidateAiSummary
+            candidateId={candidate.id}
+            initialSummary={candidate.ai_summary}
+            summaryAt={candidate.ai_summary_at}
+          />
           <CandidateTabs
             candidate={candidate}
             job={job}
@@ -132,8 +137,8 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
           />
         </div>
 
-        {/* Right rail — Lịch sử, then the approval progress right under it */}
-        <div className="lg:col-span-3">
+        {/* Side rail — Lịch sử, approvals, internal notes */}
+        <div className="lg:col-span-4">
           <CandidateTimeline history={history} actorNames={actorNames} />
           <ApprovalProgress
             candidateId={candidate.id}
@@ -145,6 +150,14 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
               profile.role === "admin" || profile.role === "hr" || profile.role === "hiring_manager"
             }
           />
+          {candidate.notes ? (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                Ghi chú nội bộ
+              </p>
+              <p className="whitespace-pre-wrap text-sm text-slate-700">{candidate.notes}</p>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

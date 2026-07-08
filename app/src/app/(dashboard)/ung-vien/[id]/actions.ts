@@ -9,8 +9,6 @@ import { getCandidate } from "@/server/candidates/repository";
 import { getJob } from "@/server/jobs/repository";
 import { aiChat } from "@/lib/ai/workers-ai";
 import "@/server/ai/runtime";
-import "@/server/ai/runtime";
-import { t } from "@/lib/i18n";
 import { CRITERION_CODES, type CriterionCode } from "@/lib/ai/gemini/types";
 import {
   ASSESSMENT_FILE_MAX_BYTES,
@@ -171,7 +169,10 @@ function isUuid(s: string): boolean {
 
 /**
  * AI summary of a candidate (3-4 Vietnamese sentences: highlights, risks,
- * suggested next step). On-demand, read-only — never persisted.
+ * suggested next step). Ambient AI (ADR 0018): the scoring worker seeds
+ * candidates.ai_summary automatically; this action is the "Tóm tắt lại"
+ * refresh — it re-reads the WHOLE dossier (notes, interviews, approvals)
+ * and persists the richer result.
  */
 export async function summarizeCandidateAction(
   candidateId: string,
@@ -218,6 +219,21 @@ export async function summarizeCandidateAction(
     );
     const summary = text.trim();
     if (!summary) return { ok: false, error: "AI trả về rỗng — vui lòng thử lại." };
+
+    // Persist (ADR 0018) so the next visitor sees it without clicking.
+    try {
+      const { getDb } = await import("@/db");
+      const { candidates } = await import("@/db/schema");
+      const { eq } = await import("drizzle-orm");
+      const db = await getDb();
+      await db
+        .update(candidates)
+        .set({ ai_summary: summary.slice(0, 4000), ai_summary_at: new Date().toISOString() })
+        .where(eq(candidates.id, candidateId));
+      revalidatePath(`/ung-vien/${candidateId}`);
+    } catch (persistErr) {
+      console.warn("[summary] persist failed (returning ephemeral result):", persistErr);
+    }
     return { ok: true, data: { summary } };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Không tóm tắt được hồ sơ" };
