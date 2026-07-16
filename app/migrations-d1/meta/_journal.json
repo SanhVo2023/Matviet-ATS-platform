@@ -43,6 +43,13 @@
       "when": 1783448413221,
       "tag": "0005_perpetual_human_robot",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784175256619,
+      "tag": "0006_skinny_bloodstrike",
+      "breakpoints": true
     }
   ]
 }

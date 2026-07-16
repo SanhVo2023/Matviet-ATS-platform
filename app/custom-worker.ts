@@ -82,3 +82,6 @@ export default {
 // Re-export Durable Object classes the OpenNext runtime may reference.
 // @ts-ignore — generated at build time
 export { DOQueueHandler, DOShardedTagCache, BucketCachePurge } from "./.open-next/worker.js";
+
+// App-authored Durable Objects (ADR 0020) — bound in wrangler.jsonc.
+export { HiringAgent } from "./src/agents/hiring-agent";

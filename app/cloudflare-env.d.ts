@@ -7,6 +7,10 @@ declare global {
     FILES: R2Bucket;
     AI: Ai;
     SCORING_QUEUE: Queue;
+    /** HiringAgent Durable Objects — one instance per job opening (ADR 0020). */
+    HIRING_AGENT: import("@cloudflare/workers-types").DurableObjectNamespace;
+    /** Self service binding — DO alarms call the app's own /api routes. */
+    SELF: Fetcher;
     /** Cloudflare Email Service `send_email` binding (object-payload send API). */
     EMAIL?: import("@/lib/email/cloudflare").CloudflareEmailBinding;
     ASSETS: Fetcher;

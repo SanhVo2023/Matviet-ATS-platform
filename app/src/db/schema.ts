@@ -792,3 +792,60 @@ export const push_subscriptions = sqliteTable(
   },
   (t) => [index("idx_push_subs_user").on(t.user_id)],
 );
+
+// ---------------------------------------------------------------------------
+// Agent proposals (ADR 0020) — propose-first agent-driven hiring. The
+// HiringAgent/emitters prepare fully-formed actions; a human approves,
+// edits, or dismisses them in the "Hôm nay" feed. Executing a proposal goes
+// through the SAME server services a manual click uses.
+// ---------------------------------------------------------------------------
+
+export const PROPOSAL_KINDS = [
+  "interview_invite",
+  "start_approval",
+  "compose_offer",
+  "nudge_stale",
+  "job_from_intent",
+] as const;
+export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
+
+export const PROPOSAL_STATUSES = [
+  "proposed",
+  "executed",
+  "dismissed",
+  "superseded",
+  "failed",
+] as const;
+export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
+
+export const agent_proposals = sqliteTable(
+  "agent_proposals",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    job_id: text("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    candidate_id: text("candidate_id").references(() => candidates.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: PROPOSAL_KINDS }).notNull(),
+    status: text("status", { enum: PROPOSAL_STATUSES }).notNull().default("proposed"),
+    /** One Vietnamese sentence shown on the feed card. */
+    summary: text("summary").notNull(),
+    /** "Vì sao?" — the agent's grounding for this proposal (Vietnamese). */
+    reasoning: text("reasoning"),
+    /** Kind-specific prepared action (drafted email, slots, job fields...). */
+    payload: text("payload", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
+    /** Open-proposal dedupe: same key while one is still `proposed` = skip. */
+    dedupe_key: text("dedupe_key").notNull(),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+    decided_by: text("decided_by").references(() => users.id, { onDelete: "set null" }),
+    decided_at: text("decided_at"),
+    /** Ids of rows the execution created ({interview_id}/{email_id}/...). */
+    executed_ref: text("executed_ref", { mode: "json" }).$type<Record<string, string>>(),
+    error: text("error"),
+  },
+  (t) => [
+    index("idx_proposals_status").on(t.status, t.created_at),
+    index("idx_proposals_job").on(t.job_id, t.status),
+    index("idx_proposals_dedupe").on(t.dedupe_key, t.status),
+  ],
+);

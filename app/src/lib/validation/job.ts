@@ -57,6 +57,13 @@ export const JobInputSchema = z.object({
 export type JobInput = z.infer<typeof JobInputSchema>;
 
 /**
+ * Pre-parse (form-side) values — zod 4 splits input/output types where
+ * .default()/.coerce apply, and @hookform/resolvers v5 types the resolver
+ * as Resolver<input, ctx, output>.
+ */
+export type JobInputValues = z.input<typeof JobInputSchema>;
+
+/**
  * Stricter check before moving from draft → open:
  * non-empty description + coherent salary range (when both bounds set).
  */

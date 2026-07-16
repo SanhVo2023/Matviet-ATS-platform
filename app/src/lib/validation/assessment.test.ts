@@ -10,7 +10,7 @@ import {
 describe("CreateAssessmentSchema", () => {
   it("accepts minimum valid input", () => {
     const r = CreateAssessmentSchema.safeParse({
-      job_id: "11111111-1111-1111-1111-111111111111",
+      job_id: "11111111-1111-4111-8111-111111111111",
     });
     expect(r.success).toBe(true);
   });
@@ -22,7 +22,7 @@ describe("CreateAssessmentSchema", () => {
 
   it("clamps time_limit_min upper bound", () => {
     const r = CreateAssessmentSchema.safeParse({
-      job_id: "11111111-1111-1111-1111-111111111111",
+      job_id: "11111111-1111-4111-8111-111111111111",
       time_limit_min: 1000,
     });
     expect(r.success).toBe(false);
@@ -30,7 +30,7 @@ describe("CreateAssessmentSchema", () => {
 
   it("rejects negative time_limit", () => {
     const r = CreateAssessmentSchema.safeParse({
-      job_id: "11111111-1111-1111-1111-111111111111",
+      job_id: "11111111-1111-4111-8111-111111111111",
       time_limit_min: -10,
     });
     expect(r.success).toBe(false);
@@ -41,13 +41,13 @@ describe("GradeSubmissionSchema", () => {
   it("accepts boundary scores 0 and 100", () => {
     expect(
       GradeSubmissionSchema.safeParse({
-        submission_id: "11111111-1111-1111-1111-111111111111",
+        submission_id: "11111111-1111-4111-8111-111111111111",
         score: 0,
       }).success,
     ).toBe(true);
     expect(
       GradeSubmissionSchema.safeParse({
-        submission_id: "11111111-1111-1111-1111-111111111111",
+        submission_id: "11111111-1111-4111-8111-111111111111",
         score: 100,
       }).success,
     ).toBe(true);
@@ -56,13 +56,13 @@ describe("GradeSubmissionSchema", () => {
   it("rejects scores outside 0–100", () => {
     expect(
       GradeSubmissionSchema.safeParse({
-        submission_id: "11111111-1111-1111-1111-111111111111",
+        submission_id: "11111111-1111-4111-8111-111111111111",
         score: -1,
       }).success,
     ).toBe(false);
     expect(
       GradeSubmissionSchema.safeParse({
-        submission_id: "11111111-1111-1111-1111-111111111111",
+        submission_id: "11111111-1111-4111-8111-111111111111",
         score: 101,
       }).success,
     ).toBe(false);
@@ -73,7 +73,7 @@ describe("SendAssessmentSchema", () => {
   it("requires both UUIDs", () => {
     expect(
       SendAssessmentSchema.safeParse({
-        candidate_id: "11111111-1111-1111-1111-111111111111",
+        candidate_id: "11111111-1111-4111-8111-111111111111",
       }).success,
     ).toBe(false);
   });

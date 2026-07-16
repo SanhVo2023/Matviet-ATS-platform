@@ -14,7 +14,7 @@ import { WeightsEditor } from "./WeightsEditor";
 import { RoleFamilyAndFlow } from "./RoleFamilyAndFlow";
 import { HiringManagerPicker, type ManagerOption } from "./HiringManagerPicker";
 import { t } from "@/lib/i18n";
-import { JobInputSchema, type JobInput } from "@/lib/validation/job";
+import { JobInputSchema, type JobInput, type JobInputValues } from "@/lib/validation/job";
 import { DEFAULT_WEIGHT_TEMPLATES } from "@/lib/constants";
 import { generateJobContentAction, suggestWeightsAction } from "@/app/(dashboard)/vi-tri/actions";
 import { ChevronDown } from "lucide-react";
@@ -63,7 +63,7 @@ export function JobForm({
   managerOptions,
   onSubmit,
 }: JobFormProps) {
-  const methods = useForm<JobInput>({
+  const methods = useForm<JobInputValues, unknown, JobInput>({
     resolver: zodResolver(JobInputSchema),
     defaultValues: { ...DEFAULT_VALUES, ...initialValues },
     mode: "onBlur",
@@ -151,7 +151,9 @@ export function JobForm({
       return;
     }
     setSubmitting(intent);
-    const values = methods.getValues();
+    // trigger() validated already; parse applies defaults + number coercion
+    // (form values are the schema's INPUT type since zod 4 / resolvers 5).
+    const values = JobInputSchema.parse(methods.getValues());
     const result = await onSubmit(values, intent);
     setSubmitting(null);
     if (result.ok) {
@@ -281,7 +283,7 @@ export function JobForm({
                     </Button>
                   </div>
                   <RichTextEditor
-                    value={methods.watch("description")}
+                    value={methods.watch("description") ?? ""}
                     onChange={(html) =>
                       methods.setValue("description", html, { shouldDirty: true })
                     }
@@ -291,7 +293,7 @@ export function JobForm({
 
                 <Section title={t.jobForm.requirements}>
                   <RichTextEditor
-                    value={methods.watch("requirements_html")}
+                    value={methods.watch("requirements_html") ?? ""}
                     onChange={(html) =>
                       methods.setValue("requirements_html", html, { shouldDirty: true })
                     }

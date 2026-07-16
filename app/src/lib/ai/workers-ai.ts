@@ -1,6 +1,6 @@
 import "server-only";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import type { ZodType, ZodTypeDef } from "zod";
+import type { ZodType } from "zod";
 
 /**
  * Workers AI provider (ADR 0013) — replaces the geo-gated Gemini API.
@@ -259,7 +259,7 @@ export async function aiJson<T>(
     user: string;
     jsonSchema: Record<string, unknown>;
     /** Input type is unconstrained so schemas with .transform() coercions fit. */
-    zod: ZodType<T, ZodTypeDef, unknown>;
+    zod: ZodType<T, unknown>;
     maxTokens?: number;
     temperature?: number;
   } & AiCallMeta,

@@ -41,6 +41,16 @@
   // (SPF/DKIM live on cf-bounce.matviet.com.vn). Inbound mail stays on the
   // company's Google Workspace MX; do NOT enable Email Routing on this zone.
   "send_email": [{ "name": "EMAIL" }],
+  // Agent-driven hiring (ADR 0020): one HiringAgent Durable Object per job
+  // opening (Agents SDK). The DO holds only orchestration state (timers,
+  // watch list) — D1 stays the single system of record.
+  "durable_objects": {
+    "bindings": [{ "name": "HIRING_AGENT", "class_name": "HiringAgent" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["HiringAgent"] }],
+  // Self service binding: DO alarms call back into the app's own /api routes
+  // (Next context) — the DO never runs business logic itself.
+  "services": [{ "binding": "SELF", "service": "matviet-hr" }],
   "queues": {
     // Fast path for CV scoring: upload → queue message → consumer invocation
     // (own lifetime, no 30s waitUntil cap). The cron below is the backstop.
