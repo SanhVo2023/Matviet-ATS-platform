@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { candidates, cv_files, people, stage_history } from "@/db/schema";
 import { getCurrentProfile } from "@/lib/auth";
+import { emitAgentEventInBackground } from "@/server/agent-flows/events";
 import { deleteFile, putFile } from "@/lib/r2";
 import { cvStoragePath, isAcceptedCvMime, CV_MAX_BYTES } from "@/lib/storage/paths";
 import type { CandidateUploadInput } from "@/lib/validation/candidate";
@@ -196,6 +197,10 @@ export async function changeStage(candidateId: string, nextStage: Stage): Promis
       actor_user_id: actor?.id ?? null,
     }),
   ]);
+
+  // Agent-driven hiring (ADR 0020): supersede stale proposals + prepare the
+  // next one + re-arm the job agent's timer. Off the request path.
+  emitAgentEventInBackground({ type: "stage_changed", candidateId, toStage: nextStage });
 }
 
 export async function archiveCandidate(candidateId: string): Promise<void> {

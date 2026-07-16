@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { candidates, jobs, stage_history } from "@/db/schema";
 import { publicEnv } from "@/types/env";
 import { notifyRoles } from "@/server/notifications/service";
+import { emitAgentEventInBackground } from "@/server/agent-flows/events";
 
 /**
  * Offer magic link (G12) — the candidate-facing accept/decline flow.
@@ -167,6 +168,14 @@ export async function respondToOffer(
     actor_user_id: null,
     notes:
       input.decision === "accepted" ? "Ứng viên nhận việc qua liên kết" : "Ứng viên từ chối offer",
+  });
+
+  // ADR 0020: terminal stage — the job agent stops watching this candidate
+  // and open proposals get superseded.
+  emitAgentEventInBackground({
+    type: "offer_responded",
+    candidateId: offer.candidate_id,
+    accepted: input.decision === "accepted",
   });
 
   await notifyRoles(["hr", "admin"], {

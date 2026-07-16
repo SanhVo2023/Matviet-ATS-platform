@@ -22,6 +22,7 @@ import {
 } from "@/lib/validation/assessment";
 import { assessmentTestStoragePath, assessmentSubmissionStoragePath } from "@/lib/storage/paths";
 import { renderFromTemplate } from "@/server/email/templates";
+import { emitAgentEventInBackground } from "@/server/agent-flows/events";
 
 export interface UploadedAssessmentFile {
   buffer: ArrayBuffer;
@@ -416,6 +417,13 @@ export async function gradeSubmission(
       .set({ current_stage: "test_done" })
       .where(eq(candidates.id, sub.candidate_id));
   }
+
+  // ADR 0020: re-arm the job agent's stale timer for the new stage.
+  emitAgentEventInBackground({
+    type: "stage_changed",
+    candidateId: sub.candidate_id,
+    toStage: "test_done",
+  });
 
   return { ok: true };
 }

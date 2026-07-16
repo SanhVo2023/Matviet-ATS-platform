@@ -17,6 +17,7 @@ import {
 } from "@/lib/graph/calendar";
 import { publicEnv } from "@/types/env";
 import { notifyUsers } from "@/server/notifications/service";
+import { emitAgentEventInBackground } from "@/server/agent-flows/events";
 import { formatDateTime } from "@/lib/vi-format";
 
 /**
@@ -263,6 +264,9 @@ export async function submitEvaluation(
           .where(eq(candidates.id, cid));
       }
     }
+    // Agent-driven hiring (ADR 0020): evaluation in → prepared "trình duyệt"
+    // proposal with the eval digest. Off the request path.
+    emitAgentEventInBackground({ type: "evaluation_submitted", candidateId: cid });
   }
 
   return { id: evalId };

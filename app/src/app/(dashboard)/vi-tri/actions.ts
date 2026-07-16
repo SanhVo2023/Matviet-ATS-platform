@@ -4,10 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth";
-import { aiChat } from "@/lib/ai/workers-ai";
 import "@/server/ai/runtime";
-import "@/server/ai/runtime";
-import { t } from "@/lib/i18n";
 import {
   JobInputSchema,
   JobPublishSchema,
@@ -91,13 +88,6 @@ const GenerateJobContentSchema = z.object({
 });
 
 /** Strip markdown fences the model sometimes wraps HTML in, keep simple tags only. */
-function cleanAiHtml(raw: string): string {
-  return raw
-    .replace(/```(?:html)?/gi, "")
-    .replace(/<\/?(?:script|style|iframe|object|embed)[^>]*>/gi, "")
-    .trim();
-}
-
 /**
  * AI-draft the job description + requirements from title/role family/location.
  * Fills the form editors only — HR reviews and edits before saving. Never persists.
@@ -112,36 +102,11 @@ export async function generateJobContentAction(
   }
   const { title, role_family, location } = parsed.data;
   try {
-    const { text } = await aiChat(
-      [
-        {
-          role: "system",
-          content:
-            "Bạn viết nội dung tuyển dụng tiếng Việt cho Mắt Việt — chuỗi cửa hàng mắt kính bán lẻ tại Việt Nam. " +
-            "Giọng chuyên nghiệp, ấm áp, thực tế với thị trường lao động Việt Nam. " +
-            "Trả về CHÍNH XÁC định dạng sau, không thêm chữ nào khác:\n" +
-            "MOTA:\n<HTML mô tả công việc: 1 đoạn <p> giới thiệu ngắn về vị trí, tiếp theo <p><strong>Nhiệm vụ chính:</strong></p> + <ul> 4-6 <li>, rồi <p><strong>Quyền lợi:</strong></p> + <ul> 3-4 <li>>\n" +
-            "YEUCAU:\n<HTML yêu cầu ứng viên: <ul> 4-6 <li> về kinh nghiệm, kỹ năng, thái độ>\n" +
-            "Chỉ dùng thẻ <p>, <ul>, <li>, <strong>. Không dùng markdown, không bịa mức lương hay địa chỉ cụ thể.",
-        },
-        {
-          role: "user",
-          content: `Chức danh: ${title}. Loại vị trí: ${t.roleFamily[role_family]}. Địa điểm làm việc: ${location?.trim() || "chưa xác định"}.`,
-        },
-      ],
-      { maxTokens: 4096, temperature: 0.5, feature: "jd_generate" },
-    );
-    const m = text.match(/MOTA:\s*([\s\S]*?)\s*YEUCAU:\s*([\s\S]+)/);
-    if (!m || !m[1]?.trim() || !m[2]?.trim()) {
-      return { ok: false, error: "AI trả về sai định dạng — vui lòng thử lại." };
-    }
-    return {
-      ok: true,
-      data: {
-        description_html: cleanAiHtml(m[1]),
-        requirements_html: cleanAiHtml(m[2]),
-      },
-    };
+    // Shared core (server/jobs/ai-content.ts) — also used by the agent's
+    // job_from_intent generator (ADR 0020).
+    const { generateJobContent } = await import("@/server/jobs/ai-content");
+    const data = await generateJobContent({ title, roleFamily: role_family, location });
+    return { ok: true, data };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Lỗi tạo nội dung bằng AI" };
   }

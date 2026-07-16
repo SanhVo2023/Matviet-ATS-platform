@@ -1,13 +1,7 @@
 import "server-only";
 import { and, desc, eq, getTableColumns, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
-import {
-  agent_proposals,
-  candidates,
-  jobs,
-  type ProposalKind,
-  type ProposalStatus,
-} from "@/db/schema";
+import { agent_proposals, candidates, jobs, type ProposalKind } from "@/db/schema";
 
 /**
  * agent_proposals data access (ADR 0020). All writes funnel through here so
@@ -15,7 +9,8 @@ import {
  */
 
 export interface NewProposal {
-  jobId: string;
+  /** null for job_from_intent — the job doesn't exist until approval. */
+  jobId: string | null;
   candidateId?: string | null;
   kind: ProposalKind;
   summary: string;
@@ -59,6 +54,18 @@ export async function createProposal(p: NewProposal): Promise<{ id: string } | n
     })
     .returning({ id: agent_proposals.id })
     .then((r) => r[0] ?? null);
+
+  if (row) {
+    // Bell: a new card is waiting on the Hôm nay feed. Error-swallowing by
+    // notifications contract; lazily imported to keep the layer edge thin.
+    const { notifyRoles } = await import("@/server/notifications/service");
+    await notifyRoles(["hr", "admin"], {
+      type: "agent_proposal",
+      title: "Trợ lý đề xuất: " + p.summary.slice(0, 120),
+      body: "Xem và duyệt trên trang chính",
+      link: "/",
+    });
+  }
   return row;
 }
 

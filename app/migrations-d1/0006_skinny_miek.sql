@@ -1,6 +1,6 @@
 CREATE TABLE `agent_proposals` (
 	`id` text PRIMARY KEY NOT NULL,
-	`job_id` text NOT NULL,
+	`job_id` text,
 	`candidate_id` text,
 	`kind` text NOT NULL,
 	`status` text DEFAULT 'proposed' NOT NULL,

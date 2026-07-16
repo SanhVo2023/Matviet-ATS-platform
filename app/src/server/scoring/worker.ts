@@ -45,6 +45,7 @@ import {
 } from "@/lib/ai/gemini/prompts";
 import type { ParsedCv, ScoreResult, Weights, CriterionCode } from "@/lib/ai/gemini/types";
 import { notifyRoles } from "@/server/notifications/service";
+import { emitAgentEvent } from "@/server/agent-flows/events";
 import { readWeights, computeWeightedTotalFromVerified, applyEvidenceDiscount } from "./weights";
 import { validateEvidence } from "./evidence";
 import { getRubricForJob, rubricGuidanceMap } from "./rubric";
@@ -85,6 +86,9 @@ export async function runScoringJob(candidateId?: string): Promise<ScoringOutcom
       .where(eq(scoring_queue.id, queueRow.id));
     await advanceStageAfterScoring(queueRow.candidate_id);
     await notifyScoringOutcome(queueRow.candidate_id, screeningId);
+    // Agent-driven hiring (ADR 0020): a good score turns into a prepared
+    // interview proposal on the Hôm nay feed. Never throws.
+    await emitAgentEvent({ type: "scoring_succeeded", candidateId: queueRow.candidate_id });
     return {
       status: "succeeded",
       candidate_id: queueRow.candidate_id,

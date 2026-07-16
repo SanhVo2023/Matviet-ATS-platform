@@ -47,7 +47,7 @@ export async function proposeInterviewInvite(args: {
   const db = await getDb();
 
   const managers = await db
-    .select({ id: users.id, name: users.full_name, email: users.email })
+    .select({ id: users.id, name: users.name, email: users.email })
     .from(job_assignments)
     .innerJoin(users, eq(job_assignments.manager_user_id, users.id))
     .where(eq(job_assignments.job_id, job.id));
@@ -165,6 +165,10 @@ export async function proposeComposeOffer(args: {
     payload: { template_code: "offer", salary_hint: salaryHint },
     dedupeKey: `co:${candidate.id}`,
   });
+}
+
+export async function hasOfferEmailFor(candidateId: string): Promise<boolean> {
+  return hasOfferEmail(candidateId);
 }
 
 async function hasOfferEmail(candidateId: string): Promise<boolean> {

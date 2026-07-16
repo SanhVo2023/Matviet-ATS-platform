@@ -751,6 +751,7 @@ export const NOTIFICATION_TYPES = [
   "candidate_new",
   "candidate_stale",
   "offer_response",
+  "agent_proposal",
   "system",
 ] as const;
 
@@ -822,9 +823,8 @@ export const agent_proposals = sqliteTable(
   "agent_proposals",
   {
     id: text("id").primaryKey().$defaultFn(uuid),
-    job_id: text("job_id")
-      .notNull()
-      .references(() => jobs.id, { onDelete: "cascade" }),
+    /** Nullable: job_from_intent proposes a job that doesn't exist yet. */
+    job_id: text("job_id").references(() => jobs.id, { onDelete: "cascade" }),
     candidate_id: text("candidate_id").references(() => candidates.id, { onDelete: "cascade" }),
     kind: text("kind", { enum: PROPOSAL_KINDS }).notNull(),
     status: text("status", { enum: PROPOSAL_STATUSES }).notNull().default("proposed"),

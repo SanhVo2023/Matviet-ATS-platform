@@ -44,6 +44,24 @@ function staleDelayFor(stage: string): number | null {
 /** AI-score floor for auto-proposing an interview (matches verdict band ≥ TB). */
 const INVITE_SCORE_FLOOR = 55;
 
+/**
+ * Fire-and-forget wrapper for request-path emitters (server actions, public
+ * routes): rides `ctx.waitUntil` so the user's response never waits on
+ * proposal generation (the interview generator can hit Graph). Background
+ * contexts (scoring worker) await emitAgentEvent directly instead.
+ */
+export function emitAgentEventInBackground(evt: AgentEvent): void {
+  void (async () => {
+    try {
+      const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+      const { ctx } = await getCloudflareContext({ async: true });
+      ctx.waitUntil(emitAgentEvent(evt));
+    } catch {
+      await emitAgentEvent(evt); // no ctx (tests, node) — still best-effort
+    }
+  })();
+}
+
 export async function emitAgentEvent(evt: AgentEvent): Promise<void> {
   try {
     const db = await getDb();

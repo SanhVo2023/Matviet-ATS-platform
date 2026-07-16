@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { approvals, candidates, jobs, job_assignments } from "@/db/schema";
 import type { Database } from "@/types/db";
 import { notifyRoles, notifyUsers, jobManagerIds } from "@/server/notifications/service";
+import { emitAgentEventInBackground } from "@/server/agent-flows/events";
 import { APPROVAL_PRESETS, STAGE_FOR_PENDING_STEP, STEP_LABEL_VI, type FlowType } from "./presets";
 
 type StepKind = Database["public"]["Enums"]["approval_step_kind"];
@@ -234,6 +235,12 @@ export async function decideApproval(
       },
       { excludeUserId: actor.id },
     );
+    // ADR 0020: reject-finalize supersedes any open agent proposals.
+    emitAgentEventInBackground({
+      type: "approval_finalized",
+      candidateId: r.candidate_id,
+      approved: false,
+    });
     return { candidateId: r.candidate_id, finalized: true, nextStep: null };
   }
 
@@ -265,6 +272,12 @@ export async function decideApproval(
       },
       { excludeUserId: actor.id },
     );
+    // ADR 0020: full approval → prepared offer-email proposal on the feed.
+    emitAgentEventInBackground({
+      type: "approval_finalized",
+      candidateId: r.candidate_id,
+      approved: true,
+    });
     return { candidateId: r.candidate_id, finalized: true, nextStep: null };
   }
 

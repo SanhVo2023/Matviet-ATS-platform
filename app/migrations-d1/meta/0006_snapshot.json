@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9d9acac5-ef2f-49ca-a9b5-b03489825597",
+  "id": "43eafde4-7e22-4c5a-ab40-3361562bf1c0",
   "prevId": "a738d70c-6e6f-4357-90e2-ad7ecd4be7ba",
   "tables": {
     "accounts": {
@@ -135,7 +135,7 @@
           "name": "job_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "candidate_id": {
