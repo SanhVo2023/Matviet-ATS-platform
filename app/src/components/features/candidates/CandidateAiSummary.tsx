@@ -37,8 +37,11 @@ export function CandidateAiSummary({ candidateId, initialSummary, summaryAt }: P
     }
   };
 
+  // Borderless: rendered inside the header card (aiSummarySlot) since the
+  // 2026-07-16 compaction — an own card spent the page's top slot on an
+  // empty state for unsummarized candidates.
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
           <Sparkles className="h-3.5 w-3.5 text-accent-500" aria-hidden />

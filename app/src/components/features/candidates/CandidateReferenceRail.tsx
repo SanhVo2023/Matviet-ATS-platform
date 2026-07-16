@@ -60,7 +60,9 @@ export function CandidateReferenceRail({
   const pdfSrc = cv?.signedUrl ? `${cv.signedUrl}#navpanes=0&pagemode=none` : null;
 
   return (
-    <div className="space-y-4">
+    // ONE card, divided sections (2026-07-16 compaction — four stacked
+    // cards paid full padding for 2-3 lines each).
+    <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
       {/* Contact */}
       <RailCard title="Liên hệ">
         <ul className="space-y-1.5 text-sm text-slate-700">
@@ -200,6 +202,7 @@ export function CandidateReferenceRail({
   );
 }
 
+/** One section of the merged rail card — heading + content, no own border. */
 function RailCard({
   title,
   icon: Icon,
@@ -210,7 +213,7 @@ function RailCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4">
+    <section className="px-4 py-3.5">
       <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
         {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
         {title}

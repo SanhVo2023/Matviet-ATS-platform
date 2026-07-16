@@ -12,14 +12,17 @@ interface Props {
   candidate: CandidateRow;
   jobTitle: string | null;
   jobId: string;
+  /** AI summary block (2026-07-16 merge) — lives INSIDE the header card. */
+  aiSummarySlot?: React.ReactNode;
 }
 
 /**
- * Slim identity header (ADR 0019): who + score + the stage escape hatch.
- * WHERE the candidate is and WHAT happened lives in the journey ladder
- * below; contact lives in the reference rail.
+ * Slim identity header (ADR 0019): who + score + the stage escape hatch +
+ * the AI narrative (merged 2026-07-16 — was its own card wasting the top
+ * slot on an empty state). WHERE the candidate is and WHAT happened lives
+ * in the journey ladder below; contact lives in the reference rail.
  */
-export function CandidateHeader({ candidate, jobTitle, jobId }: Props) {
+export function CandidateHeader({ candidate, jobTitle, jobId, aiSummarySlot }: Props) {
   const stage = candidate.current_stage as Stage;
   const isClosed = groupOfStage(stage).id === CLOSED_GROUP.id;
 
@@ -64,9 +67,14 @@ export function CandidateHeader({ candidate, jobTitle, jobId }: Props) {
         </p>
       </div>
 
-      <div className="shrink-0">
+      {/* Own row on phones so the name column isn't squeezed to one word/line */}
+      <div className="w-full shrink-0 sm:w-auto">
         <StageDropdown candidateId={candidate.id} currentStage={candidate.current_stage} />
       </div>
+
+      {aiSummarySlot ? (
+        <div className="w-full border-t border-slate-100 pt-3">{aiSummarySlot}</div>
+      ) : null}
     </header>
   );
 }

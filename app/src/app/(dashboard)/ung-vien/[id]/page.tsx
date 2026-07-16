@@ -165,16 +165,18 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
         candidate={candidate}
         jobTitle={job?.title ?? null}
         jobId={candidate.job_id}
-      />
-
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Main — AI narrative, then the journey ladder */}
-        <div className="space-y-4 lg:col-span-8">
+        aiSummarySlot={
           <CandidateAiSummary
             candidateId={candidate.id}
             initialSummary={candidate.ai_summary}
             summaryAt={candidate.ai_summary_at}
           />
+        }
+      />
+
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Main — the journey ladder (AI narrative lives in the header) */}
+        <div className="space-y-4 lg:col-span-8">
           <CandidateJourney
             candidate={candidate}
             job={job}
