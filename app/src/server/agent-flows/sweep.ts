@@ -38,6 +38,36 @@ export async function sweepCandidate(
   if (!cand || cand.is_archived || cand.job_id !== jobId) return result;
 
   const stage = String(cand.current_stage);
+
+  // interview_scheduled: anchored to the interview itself — stale means the
+  // interview happened, the grace passed, and no evaluation was submitted.
+  if (stage === "interview_scheduled") {
+    const { latestInterviewTime, INTERVIEW_EVAL_GRACE_DAYS } = await import("./events");
+    const anchor = await latestInterviewTime(candidateId);
+    if (!anchor) return result;
+    const overrideSec = Number(process.env.AGENT_STALE_OVERRIDE_SECONDS ?? "");
+    const due =
+      Number.isFinite(overrideSec) && overrideSec > 0
+        ? anchor + overrideSec * 1000
+        : anchor + INTERVIEW_EVAL_GRACE_DAYS * 86_400_000;
+    if (Date.now() < due) return result;
+    const job = await db
+      .select({ id: jobs.id, title: jobs.title, flow_type: jobs.flow_type })
+      .from(jobs)
+      .where(eq(jobs.id, cand.job_id))
+      .limit(1)
+      .then((r) => r[0] ?? null);
+    if (!job) return result;
+    await proposeNudgeStale({
+      candidate: { ...cand, current_stage: stage },
+      job,
+      idleDays: Math.max(1, Math.floor((Date.now() - anchor) / 86_400_000)),
+    });
+    result.proposed = 1;
+    console.log(`[agent-flows] sweep job=${jobId} candidate=${candidateId} -> nudge_stale (eval)`);
+    return result;
+  }
+
   const thresholdDays = STALE_AFTER_DAYS[stage];
   if (thresholdDays == null) return result; // stage isn't watched
 

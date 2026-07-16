@@ -425,7 +425,7 @@ export const t = {
   emails: {
     queue: {
       title: "Hàng chờ email",
-      subtitle: "Email tự động qua MS Graph — gửi mỗi 5 phút.",
+      subtitle: "Gửi từ hr@matviet.com.vn — hàng đợi tự gửi mỗi phút.",
       empty: "Hàng chờ trống.",
       filterAll: "Tất cả",
     },
@@ -485,32 +485,6 @@ export const t = {
     },
     cancelPrompt: "Lý do hủy?",
     cancelDefaultReason: "HR hủy",
-  },
-
-  importCsv: {
-    title: "Nhập CV từ file CSV",
-    description: "Nạp danh sách ứng viên từ TopCV hoặc CareerViet bằng file CSV xuất ra.",
-    sourceLabel: "Nguồn",
-    sourceTopcv: "TopCV",
-    sourceCareerViet: "CareerViet",
-    fileLabel: "File CSV",
-    fileHint: "Tối đa 5 MB, 500 hàng.",
-    step1: "Tải file lên",
-    step2: "Xem trước",
-    step3: "Xác nhận",
-    previewing: "Đang phân tích…",
-    rowCount: "{{count}} hàng",
-    duplicateHit: "Trùng",
-    invalidRow: "Lỗi",
-    columnMappedAs: "Cột “{{header}}” → {{field}}",
-    columnUnmapped: "Cột “{{header}}” chưa khớp",
-    fetchCvsToggle: "Tự động tải CV về Storage",
-    skipDuplicatesToggle: "Bỏ qua ứng viên trùng",
-    confirm: "Bắt đầu nhập",
-    summarySuccess: "Đã thêm {{count}} ứng viên",
-    summarySkipped: "Bỏ qua {{count}} trùng",
-    summaryFailed: "{{count}} hàng lỗi",
-    importing: "Đang nhập…",
   },
 
   time: {

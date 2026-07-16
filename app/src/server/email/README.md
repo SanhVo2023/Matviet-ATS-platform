@@ -28,7 +28,7 @@ caller (server action)
        └─ repository.enqueueOutbound(rendered)
             └─ inserts email_messages(status='queued' | 'pending_approval')
 
-cron */5 min (Netlify) → /api/emails/drain
+cron mỗi phút (Cloudflare Cron Trigger) → /api/emails/drain
   └─ sender.drainQueue(10)
        └─ for each row: sender.sendOne(row)
             ├─ lib/graph/email.sendMail(...) → Graph 202 / 401 / 429 / 5xx

@@ -1,5 +1,8 @@
 # Internal API — Mắt Việt HR
 
+> **⚠️ TÀI LIỆU CŨ (pre-pivot).** Phần lớn nội dung mô tả stack Supabase/Netlify/Gemini đã bị thay thế bởi Cloudflare (ADR 0009–0013) và CSV import đã bị xóa (ADR 0017). Route thật: app/src/app/api/** (drains, agent sweep/ping, apply, reports export, setup).
+
+
 Master plan reference: PART VI
 
 All routes are Next.js Route Handlers under `src/app/api/*`. Authenticated via Supabase session cookie (`@supabase/ssr`). JSON request/response.

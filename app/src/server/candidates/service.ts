@@ -206,6 +206,8 @@ export async function changeStage(candidateId: string, nextStage: Stage): Promis
 export async function archiveCandidate(candidateId: string): Promise<void> {
   const db = await getDb();
   await db.update(candidates).set({ is_archived: true }).where(eq(candidates.id, candidateId));
+  // ADR 0020: archive = supersede every open agent card + stop the DO watch.
+  emitAgentEventInBackground({ type: "candidate_archived", candidateId });
 }
 
 export async function updateCandidateContact(

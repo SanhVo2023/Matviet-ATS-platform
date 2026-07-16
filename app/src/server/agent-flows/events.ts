@@ -1,7 +1,7 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { getDb } from "@/db";
-import { candidates, jobs, type ProposalKind } from "@/db/schema";
+import { candidates, interviews, jobs, type ProposalKind } from "@/db/schema";
 import { SCORE_BAND_MEDIUM_MIN } from "@/lib/stage-visuals";
 import { pingHiringAgent } from "./agent-link";
 import { listOpenProposalsForCandidate, supersedeProposals } from "./repository";
@@ -27,7 +27,7 @@ export type AgentEvent =
   | { type: "approval_finalized"; candidateId: string; approved: boolean }
   | { type: "offer_responded"; candidateId: string; accepted: boolean }
   | { type: "stage_changed"; candidateId: string; toStage: string }
-  | { type: "candidate_created"; candidateId: string };
+  | { type: "candidate_archived"; candidateId: string };
 
 /** Idle DAYS before a stale nudge, per stage (sweep.ts shares this). */
 export const STALE_AFTER_DAYS: Record<string, number> = {
@@ -38,12 +38,45 @@ export const STALE_AFTER_DAYS: Record<string, number> = {
   offer_sent: 3,
 };
 
+/**
+ * interview_scheduled is watched RELATIVE TO THE INTERVIEW, not the stage
+ * change: check 1 day after the (latest) interview should have happened —
+ * "phỏng vấn xong mà chưa có đánh giá" was a fully silent gap (audit #2).
+ */
+export const INTERVIEW_EVAL_GRACE_DAYS = 1;
+
+function envOverrideSeconds(): number | null {
+  const override = Number(process.env.AGENT_STALE_OVERRIDE_SECONDS ?? "");
+  return Number.isFinite(override) && override > 0 ? override : null;
+}
+
 /** Test hook: override every stale delay (seconds) via env. */
-function staleDelayFor(stage: string): number | null {
+async function staleDelayFor(candidateId: string, stage: string): Promise<number | null> {
+  const override = envOverrideSeconds();
+  if (stage === "interview_scheduled") {
+    const anchor = await latestInterviewTime(candidateId);
+    if (!anchor) return null;
+    if (override) return override;
+    const dueMs = anchor + INTERVIEW_EVAL_GRACE_DAYS * 86_400_000 - Date.now();
+    return Math.max(3600, Math.ceil(dueMs / 1000));
+  }
   const days = STALE_AFTER_DAYS[stage];
   if (days == null) return null;
-  const override = Number(process.env.AGENT_STALE_OVERRIDE_SECONDS ?? "");
-  return Number.isFinite(override) && override > 0 ? override : days * 86_400;
+  return override ?? days * 86_400;
+}
+
+/** Epoch ms of the candidate's most recent scheduled interview END, or null. */
+export async function latestInterviewTime(candidateId: string): Promise<number | null> {
+  const db = await getDb();
+  const row = await db
+    .select({ scheduled_at: interviews.scheduled_at, duration_min: interviews.duration_min })
+    .from(interviews)
+    .where(and(eq(interviews.candidate_id, candidateId), ne(interviews.status, "cancelled")))
+    .orderBy(desc(interviews.scheduled_at))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+  if (!row) return null;
+  return Date.parse(row.scheduled_at) + (row.duration_min ?? 60) * 60_000;
 }
 
 /**
@@ -88,7 +121,21 @@ export async function emitAgentEvent(evt: AgentEvent): Promise<void> {
       .where(eq(candidates.id, evt.candidateId))
       .limit(1)
       .then((r) => r[0] ?? null);
-    if (!row || row.is_archived) return;
+    if (!row) return;
+    if (row.is_archived || evt.type === "candidate_archived") {
+      // Archive = full cleanup: every open card leaves the feed, the DO
+      // stops watching. (Cards for archived candidates were previously
+      // orphaned + still approvable — audit gap #1.)
+      const open = await listOpenProposalsForCandidate(row.id);
+      await supersedeProposals(open.map((p) => p.id));
+      await pingHiringAgent({
+        jobId: row.job_id,
+        candidateId: row.id,
+        stage: String(row.current_stage),
+        checkAfterSeconds: null,
+      });
+      return;
+    }
     const cand = row;
     const job = { id: row.job_id, title: row.job_title, flow_type: row.job_flow_type };
 
@@ -113,7 +160,12 @@ export async function emitAgentEvent(evt: AgentEvent): Promise<void> {
       await proposeComposeOffer({ candidate: cand, job });
     }
 
-    if (evt.type === "evaluation_submitted") {
+    // Evaluation in — OR a test graded (test-only roles never get an
+    // evaluation; grading is their "kết quả đã có" moment — audit gap #3).
+    if (
+      evt.type === "evaluation_submitted" ||
+      (evt.type === "stage_changed" && evt.toStage === "test_done")
+    ) {
       await proposeStartApproval({ candidate: cand, job });
     }
 
@@ -121,7 +173,7 @@ export async function emitAgentEvent(evt: AgentEvent): Promise<void> {
       jobId: cand.job_id,
       candidateId: cand.id,
       stage,
-      checkAfterSeconds: staleDelayFor(stage),
+      checkAfterSeconds: await staleDelayFor(cand.id, stage),
     });
   } catch (err) {
     console.error("[agent-flows] emitAgentEvent failed:", err);

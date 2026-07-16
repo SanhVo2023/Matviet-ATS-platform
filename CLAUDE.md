@@ -4,39 +4,35 @@ You are building an internal-HR ATS for Mắt Việt (Vietnamese optical retail 
 
 **Read this file on every session.** It's the navigator.
 
-> **⚡ PLATFORM PIVOT (2026-07-02, Sanh directive):** The app is migrating from Supabase+Netlify+Fly.io to **Cloudflare (Workers + D1 + R2 + Cron Triggers)**, target domain `hr.matviet.com.vn`. Read ADRs **0009–0012** before touching data/auth/storage code. The Supabase MCP tools and `supabase/` folder are legacy during the transition — new DB work happens in `app/src/db/` (Drizzle) + `app/migrations-d1/`. The old master plan (`~/.claude/plans/mutable-crunching-coral.md` v5.0) is **superseded** where it conflicts with the ADRs. The app is also being positioned as the base of an all-in employee management system (ADR 0012) — foundation only, don't build HRIS features without a new directive.
+> **⚡ PLATFORM (post-pivot, ADRs 0009–0013):** The app runs on **Cloudflare (Workers + D1 + R2 + Queues + Cron + Durable Objects)** at `hr.matviet.com.vn`. The old Supabase+Netlify+Fly stack is fully removed from the repo (2026-07-16). DB work happens in `app/src/db/` (Drizzle) + `app/migrations-d1/`. The old master plan (`~/.claude/plans/mutable-crunching-coral.md` v5.0) is **superseded** where it conflicts with the ADRs. The app is also positioned as the base of an all-in employee management system (ADR 0012) — foundation only, don't build HRIS features without a new directive. Since ADR 0020 the app is **agent-driven, propose-first**: agents prepare actions as feed cards; humans one-tap approve.
 
 ---
 
 ## Repository layout (important — app is NOT at repo root)
 
-The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.json`, `tsconfig.json`, `.env.local`, and the `supabase/` folder are under `app/`. Run every npm command from `app/`. Doc paths in this file like `src/server/...` mean `app/src/server/...`.
+The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.json`, `tsconfig.json`, and `.env.local` are under `app/`. Run every npm command from `app/`. Doc paths in this file like `src/server/...` mean `app/src/server/...`.
 
 ```
 <repo root>/
 ├── CLAUDE.md, README.md, docs/     ← docs live at ROOT
-├── .mcp.json                        ← Supabase MCP config (gitignored; template: .mcp.example.json)
 ├── .husky/                          ← pre-commit: lint-staged (prettier) on app/** JS/TS files
 ├── .github/workflows/ci.yml         ← CI: typecheck + lint + build (working-directory: app)
-├── libreoffice-worker/              ← Fly.io DOCX→PDF worker (scaffolded, NOT yet deployed)
-├── tests/fixtures/                  ← shared test fixtures (CSV samples)
 └── app/                             ← the Next.js project
     ├── src/app/                     ← App Router; VIETNAMESE route slugs:
     │   ├── (auth)/dang-nhap, dat-lai-mat-khau
-    │   ├── (dashboard)/vi-tri (jobs), ung-vien (candidates),
-    │   │   email, bao-cao (reports), cai-dat (settings: bai-test, nguoi-dung)
-    │   ├── test/[token]             ← public (no-auth) assessment submission page
-    │   └── api/                     ← scoring/drain + emails/drain (cron via CRON_SECRET),
-    │                                  reports/export/{pdf,excel}, test/submit
+    │   ├── (dashboard)/vi-tri (jobs), ung-vien (candidates), phong-van, phe-duyet,
+    │   │   email, bao-cao (reports), cai-dat (settings: bai-test, nguoi-dung, he-thong)
+    │   ├── test/[token], nhan-viec/[token], tuyen-dung  ← public (no-auth) pages
+    │   └── api/                     ← drains + agent sweep/ping (CRON_SECRET), apply,
+    │                                  reports/export/{pdf,excel}, test/submit, setup
+    ├── src/agents/                  ← HiringAgent Durable Object (Agents SDK, ADR 0020)
     ├── src/server/<module>/         ← server-only business logic (see Modules below)
-    ├── src/lib/                     ← supabase clients (client/server/admin), ai/gemini,
-    │                                  graph (MSAL + sendMail), validation (Zod), vi-format
-    ├── src/components/, src/types/db.ts (generated), src/__test__/
-    ├── supabase/migrations/         ← 0001–0019 mirrored SQL
-    ├── supabase/functions/score-candidate/  ← Deno edge function (code DUPLICATED from
-    │                                  src/lib/ai/gemini + src/server/scoring; Next side
-    │                                  is the single source of truth — sync on change)
-    └── netlify/                     ← scheduled-function shims that hit the /api drains
+    ├── src/lib/                     ← ai/workers-ai + ai/gemini (prompt/schema lib — name
+    │                                  is legacy, runs on Workers AI), graph, validation,
+    │                                  vi-format, stage-visuals, cron-auth
+    ├── src/components/, src/types/db.ts (Drizzle-derived), src/__test__/
+    ├── src/db/schema.ts + migrations-d1/  ← THE schema (D1 + drizzle-kit)
+    └── custom-worker.ts             ← worker entry: cron, queue, DO exports
 ```
 
 `@/` path alias → `app/src/` (configured in both `tsconfig.json` and `vitest.config.ts` — Vitest needs its own alias entry).
@@ -95,8 +91,6 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 
 ## Project facts (memorize)
 
-- **Supabase project:** `Mắt Việt HR application`, ref `xeyqbapegqeibeqrwnkm`, region `ap-southeast-2` (Sydney), Postgres 17.6.1.111
-- **Supabase MCP namespace:** `mcp__supabase-matviet__*` (project-scope; loaded from `.mcp.json`)
 - **Project owner / reviewer:** Sanh Võ
 - **Primary user:** chị Bùi Thị Hương, HR Staff, 3 years experience, low-tech
 - **Secondary users:** Trưởng phòng (Hiring Manager) — bursty, mobile-on-store-floor; BOD/Tập đoàn — rare exec approvers
@@ -104,7 +98,7 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 - **Scale:** 1–3 jobs/month, 20–50 CVs/job, ≤5 users, ≤5 outbound emails/day
 - **Stack (post-pivot, ADRs 0009–0013):** Next.js 15 (App Router) + TypeScript + Tailwind + shadcn/ui, deployed to **Cloudflare Workers** via `@opennextjs/cloudflare` · **D1** (SQLite, Drizzle ORM) · **R2** (files) · **Queues** (scoring fast path) + **Cron Triggers** (every-minute backstop drains) · **better-auth** (ADR 0010) · **Workers AI** (default `@cf/moonshotai/kimi-k2.6`, admin-switchable) · **Cloudflare Email Service** (outbound, `hr@matviet.com.vn`) · Microsoft Graph API (calendar/Teams + email fallback)
 - **Design system (ADR 0016):** **Astryx** (Meta, `@astryxdesign/*` PINNED 0.1.3) — read `app/.claude/CLAUDE.md` (generated agent conventions) BEFORE any UI work; discover with `npx astryx build/component/template`. Custom theme `matviet` at `app/src/styles/themes/matviet/` (navy accent + gold primary-CTA override) — after editing `matvietTheme.ts`, ALWAYS re-run `npx astryx theme build src/styles/themes/matviet/matvietTheme.ts` (the app imports the built CSS/JS). Shell = AppShell + SideNav (navy rail via `sidenav` override, mirrored in globals.css — v0.1.3 selector quirk) + TopNav. shadcn `ui/*` keeps its API for composition-heavy primitives; migrate opportunistically. Jobs route is **`/vi-tri`** ("Vị trí"; old `/tin-tuyen-dung` 308-redirects).
-- **Legacy stack (being decommissioned):** Supabase project ref `xeyqbapegqeibeqrwnkm` (pause after cutover), Netlify, Fly.io worker (never deployed — retired)
+- **Legacy stack (code fully removed 2026-07-16):** Supabase (project ref `xeyqbapegqeibeqrwnkm` — Sanh: pause project + revoke the local MCP PAT), Netlify, Fly.io worker. No legacy folders/deps remain in the repo.
 
 ---
 
@@ -115,8 +109,7 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 ### Auto-mode rules
 - **Proceed autonomously on:** code changes, migrations on dev branches, type regen, edge function deploys to dev, log fetching, advisor checks, dependency installs, test runs, doc updates.
 - **Pause and ask on:**
-  - Supabase MCP cost confirmations (`get_cost` → present to Sanh → `confirm_cost`)
-  - Production migration merges (`merge_branch` from dev to main DB)
+  - Production D1 migrations (`npm run db:migrate:remote`) and deploys — hand Sanh `!`-prefixed commands
   - Any secret value (Sanh pastes — never echoed)
   - Destructive ops (`reset_branch`, `delete_branch` of unmerged work, dropping main tables)
   - High-severity advisor RLS gap that needs policy clarification
@@ -157,9 +150,7 @@ Each of the 11 build groups becomes one or more feature branches: `feat/01-found
 
 ---
 
-## Database & platform workflow (post-pivot — wrangler, not Supabase MCP)
-
-> The `mcp__supabase-matviet__*` tools are LEGACY (project pending decommission). Do not use them for new work.
+## Database & platform workflow (wrangler)
 
 | Task | Command | Verification + commit |
 |---|---|---|
@@ -186,7 +177,6 @@ When starting any module touching the libraries below, query Context7 (`mcp__plu
 | Library | What to look up |
 |---|---|
 | Next.js 15 | App Router server actions, async `cookies()`, middleware matcher |
-| `@supabase/ssr` | `createServerClient` cookie adapter for App Router Next 15 |
 | `@google/genai` | `responseSchema`, `responseMimeType`, file input |
 | `@microsoft/microsoft-graph-client` + MSAL Node | `ConfidentialClientApplication`, `/users/{id}/sendMail`, calendar `isOnlineMeeting:true` |
 | React Email v3 | `render()` async API, Tailwind preset |

@@ -1,7 +1,7 @@
 /**
  * /api/emails/drain — cron-protected outbound email queue drain.
  *
- * Schedule: every 5 min via Netlify Cron (see netlify.toml). Selects up to
+ * Schedule: every minute via Cloudflare Cron Trigger (custom-worker.ts). Selects up to
  * MAX_BATCH queued + retry-due rows and sends them through MS Graph.
  *
  * Auth: requires header `Authorization: Bearer ${CRON_SECRET}`. Same secret

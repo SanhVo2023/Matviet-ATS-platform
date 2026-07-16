@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, getTableColumns, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, inArray, isNull, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { agent_proposals, candidates, jobs, type ProposalKind } from "@/db/schema";
 
@@ -74,6 +74,7 @@ export async function createProposal(p: NewProposal): Promise<{ id: string } | n
 export type ProposalRow = typeof agent_proposals.$inferSelect & {
   candidate_name: string | null;
   candidate_stage: string | null;
+  candidate_archived: boolean | null;
   job_title: string | null;
 };
 
@@ -83,6 +84,7 @@ function proposalSelect(db: Awaited<ReturnType<typeof getDb>>) {
       ...getTableColumns(agent_proposals),
       candidate_name: candidates.full_name,
       candidate_stage: candidates.current_stage,
+      candidate_archived: candidates.is_archived,
       job_title: jobs.title,
     })
     .from(agent_proposals)
@@ -90,11 +92,20 @@ function proposalSelect(db: Awaited<ReturnType<typeof getDb>>) {
     .leftJoin(jobs, eq(agent_proposals.job_id, jobs.id));
 }
 
-/** Open proposals for the feed, newest first, with display joins. */
+/**
+ * Open proposals for the feed, newest first. Cards whose candidate or job
+ * was archived are hidden (belt — archive/close also supersedes them).
+ */
 export async function listOpenProposals(limit = 30): Promise<ProposalRow[]> {
   const db = await getDb();
   return proposalSelect(db)
-    .where(eq(agent_proposals.status, "proposed"))
+    .where(
+      and(
+        eq(agent_proposals.status, "proposed"),
+        or(isNull(agent_proposals.candidate_id), eq(candidates.is_archived, false)),
+        or(isNull(agent_proposals.job_id), eq(jobs.is_archived, false)),
+      ),
+    )
     .orderBy(desc(agent_proposals.created_at))
     .limit(limit) as Promise<ProposalRow[]>;
 }
@@ -170,6 +181,15 @@ export async function listOpenProposalsForCandidate(
       and(eq(agent_proposals.candidate_id, candidateId), eq(agent_proposals.status, "proposed")),
     );
   return rows as Array<{ id: string; kind: ProposalKind }>;
+}
+
+/** Job closed/archived → every open card under it leaves the feed. */
+export async function supersedeOpenProposalsForJob(jobId: string): Promise<void> {
+  const db = await getDb();
+  await db
+    .update(agent_proposals)
+    .set({ status: "superseded", decided_at: new Date().toISOString() })
+    .where(and(eq(agent_proposals.job_id, jobId), eq(agent_proposals.status, "proposed")));
 }
 
 /** Mark specific open proposals superseded (only touches `proposed` rows). */

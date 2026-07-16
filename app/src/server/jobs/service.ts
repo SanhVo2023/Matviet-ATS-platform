@@ -121,6 +121,10 @@ export async function setJobStatus(id: string, status: JobStatus): Promise<void>
     update.posted_at = new Date().toISOString();
   }
   await db.update(jobs).set(update).where(eq(jobs.id, id));
+  // ADR 0020: a closed/filled job's open agent cards leave the feed.
+  if (status === "closed" || status === "filled") {
+    await supersedeJobProposals(id);
+  }
 }
 
 export async function archiveJob(id: string): Promise<void> {
@@ -129,4 +133,15 @@ export async function archiveJob(id: string): Promise<void> {
     .update(jobs)
     .set({ is_archived: true, closed_at: new Date().toISOString() })
     .where(eq(jobs.id, id));
+  await supersedeJobProposals(id);
+}
+
+/** Best-effort card cleanup (ADR 0020) — never blocks the job operation. */
+async function supersedeJobProposals(jobId: string): Promise<void> {
+  try {
+    const { supersedeOpenProposalsForJob } = await import("@/server/agent-flows/repository");
+    await supersedeOpenProposalsForJob(jobId);
+  } catch (err) {
+    console.warn("[jobs] proposal cleanup failed:", err);
+  }
 }

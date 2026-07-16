@@ -5,7 +5,7 @@
  * Pass 2 (score): user message that includes job context + parsed CV +
  *   per-criterion rubric guidance.
  *
- * The actual Gemini call lives in the Edge Function (Deno); these builders
+ * The model call lives in src/server/scoring/worker.ts (Workers AI, ADR 0013); these builders
  * are pure string functions usable from both Next.js and Deno.
  */
 

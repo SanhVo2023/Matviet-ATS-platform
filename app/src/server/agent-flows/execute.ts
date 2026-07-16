@@ -38,6 +38,11 @@ export async function executeProposal(
 ): Promise<ExecuteResult> {
   const proposal = await getProposal(id);
   if (!proposal) return { ok: false, error: "Không tìm thấy đề xuất" };
+  // Archived candidates can still have a card open in another tab — never
+  // act on them (the feed also filters these).
+  if (proposal.candidate_archived) {
+    return { ok: false, error: "Ứng viên đã được lưu trữ — đề xuất không còn hiệu lực" };
+  }
   // Atomic claim (proposed → approved): blocks double-taps AND stops a
   // concurrent reconcile from superseding the row mid-execution (the
   // schedule emitter's own stage_changed event races this function).

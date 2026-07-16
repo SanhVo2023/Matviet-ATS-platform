@@ -101,10 +101,23 @@ export async function proposeStartApproval(args: {
 
   const evals = await listEvaluationsForCandidate(candidate.id);
   const withRec = evals.filter((e) => e.recommendation);
-  if (withRec.length === 0) return; // nothing to base a recommendation on yet
-  const positive = withRec.filter(
-    (e) => e.recommendation === "strong_yes" || e.recommendation === "yes",
-  ).length;
+
+  // Grounding: interview recommendations, or — for test-only roles that
+  // never get an evaluation — the graded test score (audit gap #3).
+  let summary: string;
+  let digest: string;
+  if (withRec.length > 0) {
+    const positive = withRec.filter(
+      (e) => e.recommendation === "strong_yes" || e.recommendation === "yes",
+    ).length;
+    summary = `Trình duyệt tuyển ${candidate.full_name} — PV: ${positive}/${withRec.length} đề xuất tuyển`;
+    digest = `${positive}/${withRec.length} người phỏng vấn đề xuất tuyển.`;
+  } else {
+    const testScore = await latestGradedTestScore(candidate.id);
+    if (testScore == null) return; // nothing to base a recommendation on yet
+    summary = `Trình duyệt tuyển ${candidate.full_name} — điểm test ${testScore}/100`;
+    digest = `Bài test đã chấm: ${testScore}/100 (chưa có đánh giá phỏng vấn).`;
+  }
 
   const flow = (job.flow_type === "management" ? "management" : "staff") as "staff" | "management";
   const steps = APPROVAL_PRESETS[flow].map((s) => STEP_LABEL_VI[s]).join(" → ");
@@ -113,15 +126,13 @@ export async function proposeStartApproval(args: {
     jobId: job.id,
     candidateId: candidate.id,
     kind: "start_approval",
-    summary: `Trình duyệt tuyển ${candidate.full_name} — PV: ${positive}/${withRec.length} đề xuất tuyển`,
+    summary,
     reasoning:
-      `${positive}/${withRec.length} người phỏng vấn đề xuất tuyển. ` +
+      `${digest} ` +
       `Quy trình duyệt (${flow === "management" ? "quản lý" : "nhân viên"}): ${steps}. ` +
       `Duyệt = tạo các bước duyệt và thông báo người duyệt đầu tiên.`,
     payload: {
       flow_type: flow,
-      positive,
-      total: withRec.length,
       evaluations: withRec.map((e) => ({
         recommendation: e.recommendation,
         strengths: e.strengths,
@@ -131,6 +142,25 @@ export async function proposeStartApproval(args: {
     },
     dedupeKey: `sa:${candidate.id}`,
   });
+}
+
+async function latestGradedTestScore(candidateId: string): Promise<number | null> {
+  const db = await getDb();
+  const { assessment_submissions } = await import("@/db/schema");
+  const { desc, isNotNull } = await import("drizzle-orm");
+  const row = await db
+    .select({ score: assessment_submissions.score })
+    .from(assessment_submissions)
+    .where(
+      and(
+        eq(assessment_submissions.candidate_id, candidateId),
+        isNotNull(assessment_submissions.score),
+      ),
+    )
+    .orderBy(desc(assessment_submissions.graded_at))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+  return row?.score != null ? Math.round(row.score) : null;
 }
 
 /** Fully approved → prepared offer email (magic link minted at send). */
@@ -185,6 +215,19 @@ export async function proposeNudgeStale(args: {
   const { candidate, job, idleDays } = args;
   const stage = candidate.current_stage;
   const stageLabel = (t.stage as Record<string, string>)[stage] ?? stage;
+  // Interview happened, no evaluation yet → nudge the TEAM with the right words.
+  if (stage === "interview_scheduled") {
+    await createProposal({
+      jobId: job.id,
+      candidateId: candidate.id,
+      kind: "nudge_stale",
+      summary: `PV của ${candidate.full_name} đã diễn ra — chưa có đánh giá`,
+      reasoning: `Buổi phỏng vấn đã qua ${idleDays} ngày mà chưa người phỏng vấn nào nhập đánh giá. Duyệt = nhắc người phỏng vấn qua thông báo.`,
+      payload: { action: "remind_team", stage, idle_days: idleDays },
+      dedupeKey: `ns:${candidate.id}:${stage}`,
+    });
+    return;
+  }
   // approvals set stage=offer_sent BEFORE any offer email exists (the
   // compose_offer card is the prompt to send it). Nudging the candidate
   // about an offer they never received would be wrong — and the open

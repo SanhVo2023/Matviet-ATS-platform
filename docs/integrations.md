@@ -1,5 +1,8 @@
 # Integrations — Mắt Việt HR
 
+> **⚠️ TÀI LIỆU CŨ (pre-pivot).** Phần lớn nội dung mô tả stack Supabase/Netlify/Gemini đã bị thay thế bởi Cloudflare (ADR 0009–0013) và CSV import đã bị xóa (ADR 0017). Nguồn đúng hiện tại: docs/decisions/ + CLAUDE.md + src/server/<module>/README.md.
+
+
 Master plan reference: PART V
 
 ---

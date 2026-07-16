@@ -45,7 +45,7 @@ import { reaggregateScoresForJob } from "./repository";
 
 ## Cron safety net
 
-`/api/scoring/drain` runs every 5 min (Netlify Cron). Selects queued + retry-due rows from `scoring_queue` and fires the Edge Function for each. Exists in case the upload-time fire-and-forget gets dropped (cold starts, network blips).
+`/api/scoring/drain` runs every minute (Cloudflare Cron Trigger via custom-worker.ts) and is also invoked by the SCORING_QUEUE consumer. Selects queued + retry-due rows from `scoring_queue` and scores them in-process.
 
 ## Files
 
