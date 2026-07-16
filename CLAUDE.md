@@ -68,6 +68,7 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 | `apply` | Public careers intake (ADR 0014): `/tuyen-dung` + `POST /api/apply` → candidate (`source='careers_page'`, PDPD `consent_at`) + auto scoring + `receipt_ack` + bell. Honeypot + 3s fill-time + 5/h/IP + dup block. QR poster per job at `/vi-tri/[id]/qr` | yes |
 | `offers` | Offer magic link: `composeFromTemplate('offer')` mints 7-day token, injects `{{offer_link}}`; public `/nhan-viec/[token]` accept→`hired` / decline→`rejected` with `offer_response` recorded (offer-declines ≠ ordinary rejects). Group 13 onboarding trigger | yes |
 | `reports` | 6 charts + PDF/Excel export + demo seeder; all queries take a `ReportFilter` | yes |
+| `agent-flows` | Agent-driven hiring, propose-first (ADR 0020): emitters → `events.ts` → deterministic `generators.ts` (+ AI `job-from-intent.ts`) → `agent_proposals` → "Hôm nay" feed on dashboard → `execute.ts` chạy ĐÚNG các service thao tác tay dùng (audit `via:'agent_proposal'`). Per-job `HiringAgent` DO (`src/agents/hiring-agent.ts`, Agents SDK, binding `HIRING_AGENT`) giữ timer stale → alarm → `SELF` binding → `/api/agent/sweep`. ⚠️ Next bundle KHÔNG import gói `agents` (webpack vs `cloudflare:*`) — nói chuyện với DO qua `agent-link.ts` raw stub fetch. Test hooks: `/api/agent/ping`, `AGENT_STALE_OVERRIDE_SECONDS` | yes |
 
 ---
 

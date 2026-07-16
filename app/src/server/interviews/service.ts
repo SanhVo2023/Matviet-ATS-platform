@@ -98,6 +98,13 @@ export async function scheduleInterview(
       .set({ current_stage: "interview_scheduled" })
       .where(eq(candidates.id, candidate.id));
   }
+  // ADR 0020: scheduling supersedes open invite/nudge cards + re-arms the
+  // job agent — regardless of whether the bump above applied.
+  emitAgentEventInBackground({
+    type: "stage_changed",
+    candidateId: candidate.id,
+    toStage: "interview_scheduled",
+  });
 
   // 4. Outlook event + Teams link (best-effort, G7)
   try {
