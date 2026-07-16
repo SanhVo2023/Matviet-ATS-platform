@@ -3,23 +3,15 @@ import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { candidates, jobs, stage_history } from "@/db/schema";
 import { proposeNudgeStale } from "./generators";
+import { STALE_AFTER_DAYS } from "./events";
 
 /**
  * Timer-driven evaluation (ADR 0020) — called by /api/agent/sweep when a
  * HiringAgent DO alarm fires. Re-reads live D1 state and decides whether the
  * candidate is actually stale; a no-op is the normal case (the candidate
  * moved on since the timer was armed — the DO's memory is just a hint,
- * D1 is the truth).
+ * D1 is the truth). Thresholds are shared with the timer arming (events.ts).
  */
-
-/** Same thresholds the DO timers are armed with (events.ts). */
-const STALE_AFTER_DAYS: Record<string, number> = {
-  screened: 3,
-  interviewed: 2,
-  test_sent: 3,
-  test_done: 2,
-  offer_sent: 3,
-};
 
 export async function sweepCandidate(
   jobId: string,

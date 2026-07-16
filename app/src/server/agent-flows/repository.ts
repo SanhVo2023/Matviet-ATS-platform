@@ -1,11 +1,12 @@
 import "server-only";
-import { and, desc, eq, getTableColumns, inArray } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { agent_proposals, candidates, jobs, type ProposalKind } from "@/db/schema";
 
 /**
  * agent_proposals data access (ADR 0020). All writes funnel through here so
- * dedupe and status transitions stay in one place.
+ * dedupe and status transitions stay in one place. Stage SEMANTICS (which
+ * kinds fit which stages) live in events.ts — this layer only stores.
  */
 
 export interface NewProposal {
@@ -20,11 +21,12 @@ export interface NewProposal {
 }
 
 /**
- * Insert unless an open/decided twin exists. Rules:
- * - an open (`proposed`) row with the same dedupe_key → skip (still on the feed)
- * - an `executed`/`dismissed` row with the same key → skip (HR already acted;
- *   don't nag). `superseded`/`failed` rows do NOT block — the situation changed
- *   or the execution needs another try.
+ * Insert unless a twin exists. Rules:
+ * - `proposed`/`approved` twin with the same dedupe_key → skip (on the feed
+ *   or mid-execution)
+ * - `executed`/`dismissed` twin → skip (HR already acted; don't nag).
+ * `superseded`/`failed` don't block — the situation changed or the execution
+ * needs another try.
  */
 export async function createProposal(p: NewProposal): Promise<{ id: string } | null> {
   const db = await getDb();
@@ -34,7 +36,7 @@ export async function createProposal(p: NewProposal): Promise<{ id: string } | n
     .where(
       and(
         eq(agent_proposals.dedupe_key, p.dedupeKey),
-        inArray(agent_proposals.status, ["proposed", "executed", "dismissed"]),
+        inArray(agent_proposals.status, ["proposed", "approved", "executed", "dismissed"]),
       ),
     )
     .limit(1)
@@ -75,9 +77,7 @@ export type ProposalRow = typeof agent_proposals.$inferSelect & {
   job_title: string | null;
 };
 
-/** Open proposals for the feed, newest first, with display joins. */
-export async function listOpenProposals(limit = 30): Promise<ProposalRow[]> {
-  const db = await getDb();
+function proposalSelect(db: Awaited<ReturnType<typeof getDb>>) {
   return db
     .select({
       ...getTableColumns(agent_proposals),
@@ -87,7 +87,13 @@ export async function listOpenProposals(limit = 30): Promise<ProposalRow[]> {
     })
     .from(agent_proposals)
     .leftJoin(candidates, eq(agent_proposals.candidate_id, candidates.id))
-    .leftJoin(jobs, eq(agent_proposals.job_id, jobs.id))
+    .leftJoin(jobs, eq(agent_proposals.job_id, jobs.id));
+}
+
+/** Open proposals for the feed, newest first, with display joins. */
+export async function listOpenProposals(limit = 30): Promise<ProposalRow[]> {
+  const db = await getDb();
+  return proposalSelect(db)
     .where(eq(agent_proposals.status, "proposed"))
     .orderBy(desc(agent_proposals.created_at))
     .limit(limit) as Promise<ProposalRow[]>;
@@ -95,19 +101,26 @@ export async function listOpenProposals(limit = 30): Promise<ProposalRow[]> {
 
 export async function getProposal(id: string): Promise<ProposalRow | null> {
   const db = await getDb();
-  const rows = (await db
-    .select({
-      ...getTableColumns(agent_proposals),
-      candidate_name: candidates.full_name,
-      candidate_stage: candidates.current_stage,
-      job_title: jobs.title,
-    })
-    .from(agent_proposals)
-    .leftJoin(candidates, eq(agent_proposals.candidate_id, candidates.id))
-    .leftJoin(jobs, eq(agent_proposals.job_id, jobs.id))
+  const rows = (await proposalSelect(db)
     .where(eq(agent_proposals.id, id))
     .limit(1)) as ProposalRow[];
   return rows[0] ?? null;
+}
+
+/**
+ * Atomically claim a proposal for execution (proposed → approved). Returns
+ * false when someone else already claimed/decided it — protects against
+ * double-taps AND against a concurrent reconcile superseding the row while
+ * the execution's own side effects are in flight.
+ */
+export async function claimProposal(id: string, actorId: string): Promise<boolean> {
+  const db = await getDb();
+  const r = await db
+    .update(agent_proposals)
+    .set({ status: "approved", decided_by: actorId, decided_at: new Date().toISOString() })
+    .where(and(eq(agent_proposals.id, id), eq(agent_proposals.status, "proposed")))
+    .returning({ id: agent_proposals.id });
+  return r.length > 0;
 }
 
 /** proposed → dismissed (guarded on still-open). */
@@ -121,7 +134,7 @@ export async function dismissProposal(id: string, actorId: string): Promise<bool
   return r.length > 0;
 }
 
-/** Terminal transition after an execution attempt (guarded on still-open). */
+/** Terminal transition after an execution attempt (guarded on the claim). */
 export async function markProposalOutcome(
   id: string,
   actorId: string,
@@ -140,49 +153,33 @@ export async function markProposalOutcome(
         ? { executed_ref: outcome.executedRef }
         : { error: outcome.error.slice(0, 500) }),
     })
-    .where(and(eq(agent_proposals.id, id), eq(agent_proposals.status, "proposed")))
+    .where(and(eq(agent_proposals.id, id), eq(agent_proposals.status, "approved")))
     .returning({ id: agent_proposals.id });
   return r.length > 0;
 }
 
-/**
- * Stage moved on → open proposals whose kind no longer fits the candidate's
- * situation get marked `superseded` (they silently leave the feed).
- */
-const VALID_STAGES_BY_KIND: Record<ProposalKind, string[]> = {
-  interview_invite: ["screened", "new", "screening"],
-  start_approval: ["interviewed", "test_sent", "test_done"],
-  compose_offer: ["offer_sent"],
-  nudge_stale: [], // stage recorded in dedupe_key; any stage change supersedes
-  job_from_intent: [], // job-level; never candidate-stage-bound
-};
-
-export async function reconcileOpenProposals(
+/** Open proposals for one candidate (reconcile input — events.ts decides). */
+export async function listOpenProposalsForCandidate(
   candidateId: string,
-  currentStage: string,
-): Promise<void> {
+): Promise<Array<{ id: string; kind: ProposalKind }>> {
   const db = await getDb();
-  const open = await db
+  const rows = await db
     .select({ id: agent_proposals.id, kind: agent_proposals.kind })
     .from(agent_proposals)
     .where(
       and(eq(agent_proposals.candidate_id, candidateId), eq(agent_proposals.status, "proposed")),
     );
-  const stale = open.filter((p) => {
-    if (p.kind === "job_from_intent") return false;
-    if (p.kind === "nudge_stale") return true; // any movement voids a stale nudge
-    return !VALID_STAGES_BY_KIND[p.kind as ProposalKind].includes(currentStage);
-  });
-  if (stale.length === 0) return;
+  return rows as Array<{ id: string; kind: ProposalKind }>;
+}
+
+/** Mark specific open proposals superseded (only touches `proposed` rows). */
+export async function supersedeProposals(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await getDb();
   await db
     .update(agent_proposals)
     .set({ status: "superseded", decided_at: new Date().toISOString() })
-    .where(
-      inArray(
-        agent_proposals.id,
-        stale.map((s) => s.id),
-      ),
-    );
+    .where(and(inArray(agent_proposals.id, ids), eq(agent_proposals.status, "proposed")));
 }
 
 /**
@@ -211,9 +208,10 @@ export async function completeOpenProposals(
 /** Feed badge count for the TopBar. */
 export async function countOpenProposals(): Promise<number> {
   const db = await getDb();
-  const rows = await db
-    .select({ id: agent_proposals.id })
+  const row = await db
+    .select({ n: sql<number>`count(*)` })
     .from(agent_proposals)
-    .where(eq(agent_proposals.status, "proposed"));
-  return rows.length;
+    .where(eq(agent_proposals.status, "proposed"))
+    .then((r) => r[0] ?? null);
+  return row?.n ?? 0;
 }

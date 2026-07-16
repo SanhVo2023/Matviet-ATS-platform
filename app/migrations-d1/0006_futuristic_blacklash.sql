@@ -20,4 +20,5 @@ CREATE TABLE `agent_proposals` (
 --> statement-breakpoint
 CREATE INDEX `idx_proposals_status` ON `agent_proposals` (`status`,`created_at`);--> statement-breakpoint
 CREATE INDEX `idx_proposals_job` ON `agent_proposals` (`job_id`,`status`);--> statement-breakpoint
-CREATE INDEX `idx_proposals_dedupe` ON `agent_proposals` (`dedupe_key`,`status`);
+CREATE INDEX `idx_proposals_dedupe` ON `agent_proposals` (`dedupe_key`,`status`);--> statement-breakpoint
+CREATE INDEX `idx_proposals_candidate` ON `agent_proposals` (`candidate_id`,`status`);

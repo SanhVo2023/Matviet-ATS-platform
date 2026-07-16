@@ -812,6 +812,8 @@ export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
 
 export const PROPOSAL_STATUSES = [
   "proposed",
+  /** Transient claim state while an approve tap executes (race guard). */
+  "approved",
   "executed",
   "dismissed",
   "superseded",
@@ -847,5 +849,7 @@ export const agent_proposals = sqliteTable(
     index("idx_proposals_status").on(t.status, t.created_at),
     index("idx_proposals_job").on(t.job_id, t.status),
     index("idx_proposals_dedupe").on(t.dedupe_key, t.status),
+    // reconcile/complete lookups run on every pipeline event
+    index("idx_proposals_candidate").on(t.candidate_id, t.status),
   ],
 );

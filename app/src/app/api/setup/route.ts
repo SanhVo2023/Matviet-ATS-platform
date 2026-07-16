@@ -13,6 +13,7 @@
  *     -d '{"email":"sanh.vlt@matkinh.com.vn","password":"...","name":"Sanh Võ"}'
  */
 import { NextResponse } from "next/server";
+import { requireCronAuth } from "@/lib/cron-auth";
 import { count } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
@@ -28,14 +29,8 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: Request): Promise<Response> {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const auth = req.headers.get("Authorization") ?? "";
-  if (!constantTimeEqual(auth, `Bearer ${expected}`)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
 
   const db = await getDb();
   const existing = await db.select({ n: count() }).from(users).get();
@@ -79,14 +74,4 @@ export async function POST(req: Request): Promise<Response> {
   ]);
 
   return NextResponse.json({ ok: true, userId, email, role: "admin" });
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const aBytes = enc.encode(a);
-  const bBytes = enc.encode(b);
-  if (aBytes.length !== bBytes.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < aBytes.length; i++) mismatch |= aBytes[i]! ^ bBytes[i]!;
-  return mismatch === 0;
 }

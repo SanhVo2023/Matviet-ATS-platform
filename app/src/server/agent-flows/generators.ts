@@ -1,12 +1,12 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { approvals, email_messages, job_assignments, users } from "@/db/schema";
 import { listEvaluationsForCandidate } from "@/server/interviews/repository";
 import { STEP_LABEL_VI, APPROVAL_PRESETS } from "@/server/approvals/presets";
 import { scoreVerdict } from "@/lib/stage-visuals";
 import { t } from "@/lib/i18n";
-import { formatDateTime } from "@/lib/vi-format";
+import { formatVND } from "@/lib/vi-format";
 import { createProposal } from "./repository";
 import { proposeInterviewSlots, type SlotOption } from "./slots";
 
@@ -32,9 +32,9 @@ interface JobCtx {
 export interface InterviewInvitePayload {
   slots: SlotOption[];
   duration_min: number;
-  type: "video" | "onsite";
+  /** Must stay a member of INTERVIEW_TYPES (lib/validation/interview.ts). */
+  type: "video" | "in_person" | "phone";
   attendee_ids: string[];
-  attendee_names: string[];
   [key: string]: unknown;
 }
 
@@ -65,7 +65,6 @@ export async function proposeInterviewInvite(args: {
     duration_min: 60,
     type: "video",
     attendee_ids: managers.map((m) => m.id),
-    attendee_names: managers.map((m) => m.name),
   };
 
   await createProposal({
@@ -158,26 +157,23 @@ export async function proposeComposeOffer(args: {
     summary: `Soạn thư mời nhận việc cho ${candidate.full_name}`,
     reasoning:
       `Tất cả các bước duyệt đã thông qua. ` +
-      (salaryHint
-        ? `Lương đề xuất từ người phỏng vấn: ${salaryHint.toLocaleString("vi-VN")} ₫. `
-        : ``) +
+      (salaryHint ? `Lương đề xuất từ người phỏng vấn: ${formatVND(salaryHint)}. ` : ``) +
       `Mở soạn thư để điền lương/ngày bắt đầu — link nhận việc được tạo tự động khi gửi.`,
     payload: { template_code: "offer", salary_hint: salaryHint },
     dedupeKey: `co:${candidate.id}`,
   });
 }
 
-export async function hasOfferEmailFor(candidateId: string): Promise<boolean> {
-  return hasOfferEmail(candidateId);
-}
-
-async function hasOfferEmail(candidateId: string): Promise<boolean> {
+export async function hasOfferEmail(candidateId: string): Promise<boolean> {
   const db = await getDb();
   const rows = await db
-    .select({ id: email_messages.id, template_code: email_messages.template_code })
+    .select({ id: email_messages.id })
     .from(email_messages)
-    .where(eq(email_messages.candidate_id, candidateId));
-  return rows.some((r) => r.template_code === "offer");
+    .where(
+      and(eq(email_messages.candidate_id, candidateId), eq(email_messages.template_code, "offer")),
+    )
+    .limit(1);
+  return rows.length > 0;
 }
 
 /** Sweep found a genuinely idle candidate → nudge card. */
@@ -189,6 +185,11 @@ export async function proposeNudgeStale(args: {
   const { candidate, job, idleDays } = args;
   const stage = candidate.current_stage;
   const stageLabel = (t.stage as Record<string, string>)[stage] ?? stage;
+  // approvals set stage=offer_sent BEFORE any offer email exists (the
+  // compose_offer card is the prompt to send it). Nudging the candidate
+  // about an offer they never received would be wrong — and the open
+  // compose_offer card already reminds the team. Skip.
+  if (stage === "offer_sent" && !(await hasOfferEmail(candidate.id))) return;
   // Waiting on the CANDIDATE → draft a reminder email; waiting on the TEAM →
   // internal nudge to whoever owns the next move.
   const waitingOnCandidate = stage === "test_sent" || stage === "offer_sent";
@@ -222,9 +223,4 @@ export async function proposeNudgeStale(args: {
     },
     dedupeKey: `ns:${candidate.id}:${stage}`,
   });
-}
-
-/** Human-readable slot line for cards/emails ("Thứ Năm 17/07 14:00"). */
-export function formatSlotVi(iso: string): string {
-  return formatDateTime(iso);
 }

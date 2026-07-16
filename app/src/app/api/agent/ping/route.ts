@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireCronAuth } from "@/lib/cron-auth";
 import { pingHiringAgent } from "@/server/agent-flows/agent-link";
 
 export const dynamic = "force-dynamic";
@@ -11,14 +12,8 @@ export const dynamic = "force-dynamic";
  * POST { jobId, candidateId, stage, checkAfterSeconds }
  */
 export async function POST(req: Request): Promise<Response> {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const auth = req.headers.get("Authorization") ?? "";
-  if (!constantTimeEqual(auth, `Bearer ${expected}`)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
 
   const body = (await req.json()) as {
     jobId?: string;
@@ -40,28 +35,13 @@ export async function POST(req: Request): Promise<Response> {
 
 /** GET /api/agent/ping?job=<id> — read the agent's watch state + timers. */
 export async function GET(req: Request): Promise<Response> {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const auth = req.headers.get("Authorization") ?? "";
-  if (!constantTimeEqual(auth, `Bearer ${expected}`)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
+
   const jobId = new URL(req.url).searchParams.get("job");
   if (!jobId) return NextResponse.json({ error: "job is required" }, { status: 400 });
 
   const { snapshotHiringAgent } = await import("@/server/agent-flows/agent-link");
   const snap = await snapshotHiringAgent(jobId);
   return NextResponse.json(snap ?? { error: "agent unreachable" }, { status: snap ? 200 : 502 });
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const ab = enc.encode(a);
-  const bb = enc.encode(b);
-  if (ab.length !== bb.length) return false;
-  let diff = 0;
-  for (let i = 0; i < ab.length; i++) diff |= ab[i]! ^ bb[i]!;
-  return diff === 0;
 }

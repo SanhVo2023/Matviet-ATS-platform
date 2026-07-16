@@ -1,7 +1,12 @@
 import "server-only";
 import { z } from "zod";
 import { aiJson } from "@/lib/ai/workers-ai";
-import { JobInputSchema, ROLE_FAMILIES, type JobInput } from "@/lib/validation/job";
+import {
+  JobInputSchema,
+  JobPublishSchema,
+  ROLE_FAMILIES,
+  type JobInput,
+} from "@/lib/validation/job";
 import { DEFAULT_WEIGHT_TEMPLATES } from "@/lib/constants";
 import { generateJobContent } from "@/server/jobs/ai-content";
 import { createJobWithAssignments } from "@/server/jobs/service";
@@ -73,14 +78,20 @@ export async function proposeJobFromIntent(
       feature: "agent_job_intent",
     });
 
+    // Normalize an inverted range ("lương 12-8tr") before it reaches the gate.
+    let { salary_min, salary_max } = intent;
+    if (salary_min != null && salary_max != null && salary_min > salary_max) {
+      [salary_min, salary_max] = [salary_max, salary_min];
+    }
+
     const jobInput: JobInput = JobInputSchema.parse({
       title: intent.title,
       role_family: intent.role_family,
       flow_type: intent.flow_type,
       headcount: intent.headcount,
       location: intent.location,
-      salary_min: intent.salary_min,
-      salary_max: intent.salary_max,
+      salary_min,
+      salary_max,
       description: content.description_html,
       requirements_html: content.requirements_html,
       weights: DEFAULT_WEIGHT_TEMPLATES[intent.role_family] ?? DEFAULT_WEIGHT_TEMPLATES.sales,
@@ -111,8 +122,15 @@ export async function executeJobFromIntent(
   actor: ExecuteActor,
 ): Promise<ExecuteResult> {
   const payload = p.payload as { job_input?: unknown };
-  const parsed = JobInputSchema.safeParse(payload.job_input);
-  if (!parsed.success) return { ok: false, error: "Dữ liệu vị trí không hợp lệ" };
+  // Same gate the manual publish path enforces (non-empty description,
+  // coherent salary range) — the agent gets no shortcut to "open".
+  const parsed = JobPublishSchema.safeParse(payload.job_input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Dữ liệu vị trí không hợp lệ",
+    };
+  }
   const { id } = await createJobWithAssignments(parsed.data, "open", actor.id);
   return {
     ok: true,

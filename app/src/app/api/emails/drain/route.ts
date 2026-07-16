@@ -8,6 +8,7 @@
  * shared with the scoring drain — both cron jobs are HR-internal infrastructure.
  */
 import { NextResponse } from "next/server";
+import { requireCronAuth } from "@/lib/cron-auth";
 import { drainQueue } from "@/server/email/sender";
 
 export const dynamic = "force-dynamic";
@@ -16,14 +17,8 @@ export const runtime = "nodejs";
 const MAX_BATCH = 10;
 
 export async function GET(req: Request): Promise<Response> {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const auth = req.headers.get("Authorization") ?? "";
-  if (!constantTimeEqual(auth, `Bearer ${expected}`)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
   try {
     const summary = await drainQueue(MAX_BATCH);
     if (summary.drained === 0) {
@@ -36,14 +31,4 @@ export async function GET(req: Request): Promise<Response> {
       { status: 500 },
     );
   }
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const aBytes = enc.encode(a);
-  const bBytes = enc.encode(b);
-  if (aBytes.length !== bBytes.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < aBytes.length; i++) mismatch |= aBytes[i]! ^ bBytes[i]!;
-  return mismatch === 0;
 }

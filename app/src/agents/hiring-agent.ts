@@ -22,6 +22,8 @@ type WatchEntry = {
   stage: string;
   /** ISO timestamp of the event that armed this watch. */
   eventAt: string;
+  /** Pending stale-check timer for this candidate (cancel target). */
+  scheduleId?: string;
 };
 
 type HiringState = {
@@ -92,11 +94,10 @@ export class HiringAgent extends Agent<CloudflareEnv, HiringState> {
 
   /** Called from Next ctx on every pipeline event for this job. */
   async onEvent(e: HiringEvent): Promise<void> {
-    // One pending check per candidate: cancel any previous timer first.
-    const existing = this.getSchedules().filter(
-      (s) => (s.payload as { candidateId?: string } | undefined)?.candidateId === e.candidateId,
-    );
-    for (const s of existing) await this.cancelSchedule(s.id);
+    // One pending check per candidate: cancel the previous timer directly
+    // (its id lives in the watch entry — no full getSchedules() scan).
+    const prev = this.state.watch[e.candidateId]?.scheduleId;
+    if (prev) await this.cancelSchedule(prev).catch(() => {});
 
     const watch = { ...this.state.watch };
     if (e.checkAfterSeconds == null) {
@@ -104,9 +105,15 @@ export class HiringAgent extends Agent<CloudflareEnv, HiringState> {
       this.setState({ watch });
       return;
     }
-    watch[e.candidateId] = { stage: e.stage, eventAt: new Date().toISOString() };
+    const scheduled = await this.schedule(e.checkAfterSeconds, "checkStale", {
+      candidateId: e.candidateId,
+    });
+    watch[e.candidateId] = {
+      stage: e.stage,
+      eventAt: new Date().toISOString(),
+      scheduleId: scheduled.id,
+    };
     this.setState({ watch });
-    await this.schedule(e.checkAfterSeconds, "checkStale", { candidateId: e.candidateId });
   }
 
   /**

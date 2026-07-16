@@ -9,6 +9,7 @@
  * Auth: `Authorization: Bearer ${CRON_SECRET}`.
  */
 import { NextResponse } from "next/server";
+import { requireCronAuth } from "@/lib/cron-auth";
 import { runScoringJob, type ScoringOutcome } from "@/server/scoring/worker";
 
 export const dynamic = "force-dynamic";
@@ -16,14 +17,8 @@ export const dynamic = "force-dynamic";
 const MAX_BATCH = 10;
 
 export async function GET(req: Request): Promise<Response> {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
-  }
-  const auth = req.headers.get("Authorization") ?? "";
-  if (!constantTimeEqual(auth, `Bearer ${expected}`)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronAuth(req);
+  if (denied) return denied;
 
   // ?limit=N caps the batch (each job ≈ 30s of AI wall-clock — small batches
   // keep manual drains inside client/proxy request timeouts).
@@ -47,14 +42,4 @@ export async function GET(req: Request): Promise<Response> {
     succeeded: outcomes.filter((o) => o.status === "succeeded").length,
     failed: outcomes.filter((o) => o.status === "failed").length,
   });
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const aBytes = enc.encode(a);
-  const bBytes = enc.encode(b);
-  if (aBytes.length !== bBytes.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < aBytes.length; i++) mismatch |= aBytes[i]! ^ bBytes[i]!;
-  return mismatch === 0;
 }

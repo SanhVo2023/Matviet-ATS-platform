@@ -8,7 +8,7 @@ import { getComposerVarDefaults } from "@/server/email/composer-defaults";
 import { notifyRoles, notifyUsers, jobManagerIds } from "@/server/notifications/service";
 import { ScheduleInterviewSchema } from "@/lib/validation/interview";
 import { getCandidate } from "@/server/candidates/repository";
-import { getProposal, markProposalOutcome, type ProposalRow } from "./repository";
+import { claimProposal, getProposal, markProposalOutcome, type ProposalRow } from "./repository";
 import type { InterviewInvitePayload } from "./generators";
 
 /**
@@ -38,7 +38,12 @@ export async function executeProposal(
 ): Promise<ExecuteResult> {
   const proposal = await getProposal(id);
   if (!proposal) return { ok: false, error: "Không tìm thấy đề xuất" };
-  if (proposal.status !== "proposed") return { ok: false, error: "Đề xuất này đã được xử lý" };
+  // Atomic claim (proposed → approved): blocks double-taps AND stops a
+  // concurrent reconcile from superseding the row mid-execution (the
+  // schedule emitter's own stage_changed event races this function).
+  if (!(await claimProposal(id, actor.id))) {
+    return { ok: false, error: "Đề xuất này đã được xử lý" };
+  }
 
   let result: ExecuteResult;
   try {
@@ -82,8 +87,8 @@ async function executeByKind(
       // action opens the composer (offer template preselected). This path
       // runs AFTER the composer queued the email, closing the card.
       if (!p.candidate_id) return { ok: false, error: "Thiếu ứng viên" };
-      const { hasOfferEmailFor } = await import("./generators");
-      if (!(await hasOfferEmailFor(p.candidate_id))) {
+      const { hasOfferEmail } = await import("./generators");
+      if (!(await hasOfferEmail(p.candidate_id))) {
         return { ok: false, error: "Chưa có thư offer trong hàng đợi — dùng nút Soạn thư" };
       }
       return { ok: true, executedRef: {}, message: "Thư offer đã vào hàng đợi gửi" };
@@ -108,6 +113,32 @@ async function executeInterviewInvite(
   const payload = p.payload as unknown as InterviewInvitePayload;
   const slot = payload.slots[options.slotIndex ?? 0];
   if (!slot) return { ok: false, error: "Khung giờ không hợp lệ" };
+
+  // Slots were computed at proposal time; an old card can hold past times.
+  // Refresh instead of failing into a raw validation error: this proposal
+  // gets marked failed (which doesn't block dedupe) and a fresh card with
+  // new slots replaces it.
+  if (Date.parse(slot.start) <= Date.now()) {
+    const { getJob } = await import("@/server/jobs/repository");
+    const { getCandidate: getCand } = await import("@/server/candidates/repository");
+    const [job, cand] = await Promise.all([getJob(p.job_id ?? ""), getCand(p.candidate_id)]);
+    if (job && cand) {
+      const { proposeInterviewInvite } = await import("./generators");
+      await proposeInterviewInvite({
+        candidate: {
+          id: cand.id,
+          job_id: cand.job_id,
+          full_name: cand.full_name,
+          ai_score: cand.ai_score,
+        },
+        job: { id: job.id, title: job.title, flow_type: job.flow_type },
+      });
+    }
+    return {
+      ok: false,
+      error: "Khung giờ đề xuất đã qua — trợ lý vừa tạo thẻ mới với khung giờ cập nhật.",
+    };
+  }
 
   // A schedule needs ≥1 interviewer; jobs without assigned managers fall
   // back to the approving HR user.

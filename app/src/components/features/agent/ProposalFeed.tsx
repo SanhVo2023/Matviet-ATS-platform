@@ -16,8 +16,10 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { formatDateTime, formatRelative } from "@/lib/vi-format";
+import { t } from "@/lib/i18n";
+import { formatDateTime, formatRelative, formatVND } from "@/lib/vi-format";
 import { executeProposalAction, dismissProposalAction } from "@/app/(dashboard)/proposal-actions";
+import type { ProposalKind } from "@/db/schema";
 
 /**
  * "Hôm nay" proposal feed (ADR 0020) — agent-prepared actions, one tap to
@@ -37,7 +39,12 @@ export interface FeedProposal {
   job_title: string | null;
 }
 
-const KIND_META: Record<string, { icon: React.ElementType; tint: string; approveLabel: string }> = {
+// Keyed to ProposalKind so adding a kind server-side is a compile error
+// here instead of a silently wrong card.
+const KIND_META: Record<
+  ProposalKind,
+  { icon: React.ElementType; tint: string; approveLabel: string }
+> = {
   interview_invite: {
     icon: CalendarPlus,
     tint: "bg-indigo-50 text-indigo-600",
@@ -82,9 +89,14 @@ export function ProposalFeed({ proposals }: { proposals: FeedProposal[] }) {
 function ProposalCard({ proposal: p }: { proposal: FeedProposal }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
-  const [slotIndex, setSlotIndex] = React.useState(0);
+  // Default to the first slot that is still in the future.
+  const [slotIndex, setSlotIndex] = React.useState(() => {
+    const slots = (p.payload.slots as SlotShape[] | undefined) ?? [];
+    const i = slots.findIndex((s) => Date.parse(s.start) > Date.now());
+    return i >= 0 ? i : 0;
+  });
   const [busy, setBusy] = React.useState<"execute" | "dismiss" | null>(null);
-  const meta = KIND_META[p.kind] ?? KIND_META.nudge_stale!;
+  const meta = KIND_META[p.kind as ProposalKind] ?? KIND_META.nudge_stale;
   const Icon = meta.icon;
 
   // compose_offer needs human salary judgment → primary action is a LINK to
@@ -221,22 +233,27 @@ function SlotPicker({
   return (
     <div className="mt-2">
       <div className="flex flex-wrap gap-1.5">
-        {slots.map((s, i) => (
-          <button
-            key={s.start}
-            type="button"
-            onClick={() => onChange(i)}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-              i === value
-                ? "border-brand-600 bg-brand-600 text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-brand-300",
-            )}
-            aria-pressed={i === value}
-          >
-            {formatDateTime(s.start)}
-          </button>
-        ))}
+        {slots.map((s, i) => {
+          const past = Date.parse(s.start) <= Date.now();
+          return (
+            <button
+              key={s.start}
+              type="button"
+              disabled={past}
+              onClick={() => onChange(i)}
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                i === value
+                  ? "border-brand-600 bg-brand-600 text-white"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-brand-300",
+                past && "line-through opacity-40",
+              )}
+              aria-pressed={i === value}
+            >
+              {formatDateTime(s.start)}
+            </button>
+          );
+        })}
       </div>
       <p className="mt-1 text-[11px] text-slate-400">
         {checked
@@ -272,17 +289,12 @@ function EvalDigest({ payload }: { payload: Record<string, unknown> }) {
       concerns: string | null;
     }>) ?? [];
   if (evals.length === 0) return null;
-  const REC_LABEL: Record<string, string> = {
-    strong_yes: "Rất nên tuyển",
-    yes: "Nên tuyển",
-    maybe: "Cân nhắc",
-    no: "Không tuyển",
-  };
+  const recLabel = t.recommendation as Record<string, string>;
   return (
     <ul className="space-y-1">
       {evals.map((e, i) => (
         <li key={i}>
-          <span className="font-medium">{REC_LABEL[e.recommendation ?? ""] ?? "—"}</span>
+          <span className="font-medium">{recLabel[e.recommendation ?? ""] ?? "—"}</span>
           {e.strengths ? ` · Điểm mạnh: ${e.strengths}` : ""}
           {e.concerns ? ` · Lưu ý: ${e.concerns}` : ""}
         </li>
@@ -322,7 +334,7 @@ function JobPreview({ payload }: { payload: Record<string, unknown> }) {
   if (!job) return null;
   const salary =
     job.salary_min || job.salary_max
-      ? `${(job.salary_min ?? 0).toLocaleString("vi-VN")} – ${(job.salary_max ?? 0).toLocaleString("vi-VN")} ₫`
+      ? `${formatVND(job.salary_min ?? 0)} – ${formatVND(job.salary_max ?? 0)}`
       : "Thỏa thuận";
   return (
     <div className="space-y-1.5">

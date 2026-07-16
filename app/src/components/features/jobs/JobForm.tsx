@@ -151,16 +151,22 @@ export function JobForm({
       return;
     }
     setSubmitting(intent);
-    // trigger() validated already; parse applies defaults + number coercion
-    // (form values are the schema's INPUT type since zod 4 / resolvers 5).
-    const values = JobInputSchema.parse(methods.getValues());
-    const result = await onSubmit(values, intent);
-    setSubmitting(null);
-    if (result.ok) {
-      toast.success(intent === "publish" ? "Đã đăng tuyển." : t.success.draftSaved);
-      onOpenChange(false);
-    } else {
-      toast.error(result.error);
+    try {
+      // trigger() validated already; parse applies defaults + number coercion
+      // (form values are the schema's INPUT type since zod 4 / resolvers 5).
+      const values = JobInputSchema.parse(methods.getValues());
+      const result = await onSubmit(values, intent);
+      if (result.ok) {
+        toast.success(intent === "publish" ? "Đã đăng tuyển." : t.success.draftSaved);
+        onOpenChange(false);
+      } else {
+        toast.error(result.error);
+      }
+    } catch {
+      // parse/resolver divergence must not leave the button stuck loading
+      toast.error(t.error.validation);
+    } finally {
+      setSubmitting(null);
     }
   };
 

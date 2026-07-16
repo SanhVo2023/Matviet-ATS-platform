@@ -122,6 +122,8 @@ export async function startApproval(
     .update(candidates)
     .set({ current_stage: targetStage })
     .where(eq(candidates.id, candidateId));
+  // ADR 0020: supersede open cards (e.g. start_approval) + re-arm the agent.
+  emitAgentEventInBackground({ type: "stage_changed", candidateId, toStage: targetStage });
 
   await notifyStepPending(firstStep, candidateId, cand.full_name, cand.job_id);
 
@@ -287,6 +289,12 @@ export async function decideApproval(
     .update(candidates)
     .set({ current_stage: targetStage })
     .where(eq(candidates.id, r.candidate_id));
+  // ADR 0020: intermediate advances must also reconcile + re-arm the agent.
+  emitAgentEventInBackground({
+    type: "stage_changed",
+    candidateId: r.candidate_id,
+    toStage: targetStage,
+  });
   await notifyStepPending(next.step_kind, r.candidate_id, cand.full_name, cand.job_id, actor.id);
   return { candidateId: r.candidate_id, finalized: false, nextStep: next.step_kind };
 }

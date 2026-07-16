@@ -49,9 +49,17 @@ Design rules:
 | `job_from_intent`  | command-bar sentence                                   | `createJobWithAssignments(..., "open")`                                    |
 
 Dedupe: `dedupe_key` (`ii:`/`sa:`/`co:`/`ns:<id>:<stage>`/`jfi:<uuid>`);
-open/executed/dismissed twins block re-proposal, superseded/failed don't.
-Stage movement supersedes cards that no longer fit
-(`reconcileOpenProposals`).
+open/approved/executed/dismissed twins block re-proposal, superseded/failed
+don't. Stage movement supersedes cards that no longer fit (reconcile in
+events.ts — the stage↔kind validity map lives there, NOT in the repository).
+
+Execution lifecycle: `proposed` → **`approved`** (atomic claim in
+executeProposal — blocks double-taps and the reconcile race from the
+schedule emitter's own stage_changed event) → `executed`/`failed`.
+Stale interview slots don't error into HR's face: the approve tap detects a
+past slot, regenerates a fresh card, and fails the old one (failed doesn't
+block dedupe). `nudge_stale` skips `offer_sent` candidates who never got an
+offer email (approvals set that stage before the email exists).
 
 ## Test hook
 

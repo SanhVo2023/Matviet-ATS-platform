@@ -47,9 +47,19 @@ export function groupTintOf(stage: Stage): string {
   return GROUP_TINT[groupOfStage(stage).id] ?? "bg-slate-100 text-slate-700";
 }
 
+/**
+ * Verdict band boundaries — shared with the agent's invite floor
+ * (agent-flows/events.ts): the agent only auto-proposes interviews for
+ * candidates the UI labels at least "Phù hợp trung bình".
+ */
+export const SCORE_BAND_HIGH_MIN = 75;
+export const SCORE_BAND_MEDIUM_MIN = 55;
+
 /** Plain-language AI score verdict bands (2026-07-08 scoring redesign). */
 export function scoreVerdict(total: number): { label: string; className: string } {
-  if (total >= 75) return { label: "Phù hợp cao", className: "bg-emerald-100 text-emerald-800" };
-  if (total >= 55) return { label: "Phù hợp trung bình", className: "bg-amber-100 text-amber-800" };
+  if (total >= SCORE_BAND_HIGH_MIN)
+    return { label: "Phù hợp cao", className: "bg-emerald-100 text-emerald-800" };
+  if (total >= SCORE_BAND_MEDIUM_MIN)
+    return { label: "Phù hợp trung bình", className: "bg-amber-100 text-amber-800" };
   return { label: "Phù hợp thấp", className: "bg-rose-100 text-rose-700" };
 }

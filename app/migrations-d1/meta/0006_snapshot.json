@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "43eafde4-7e22-4c5a-ab40-3361562bf1c0",
+  "id": "62b60713-3768-4a2e-9b9a-ebe10f48bb8a",
   "prevId": "a738d70c-6e6f-4357-90e2-ad7ecd4be7ba",
   "tables": {
     "accounts": {
@@ -238,6 +238,11 @@
         "idx_proposals_dedupe": {
           "name": "idx_proposals_dedupe",
           "columns": ["dedupe_key", "status"],
+          "isUnique": false
+        },
+        "idx_proposals_candidate": {
+          "name": "idx_proposals_candidate",
+          "columns": ["candidate_id", "status"],
           "isUnique": false
         }
       },
