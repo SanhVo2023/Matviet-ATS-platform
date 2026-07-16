@@ -18,6 +18,8 @@ import {
 } from "@/server/jobs/repository";
 import type { PendingApprovalRow } from "@/server/approvals/repository";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProposalFeed, type FeedProposal } from "@/components/features/agent/ProposalFeed";
+import { listOpenProposals } from "@/server/agent-flows/repository";
 import { StageBadge, JobStatusBadge } from "@/components/primitives/StatusBadge";
 import { CountUp } from "@/components/primitives/CountUp";
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion";
@@ -51,11 +53,12 @@ export default async function HomePage() {
     );
   }
   if (isHr(profile.role)) {
-    const [data, inbox, jobs, counts] = await Promise.all([
+    const [data, inbox, jobs, counts, proposals] = await Promise.all([
       getHrDashboardData(),
       getActionInbox(),
       listJobs(),
       countCandidatesByJob(),
+      listOpenProposals(),
     ]);
     return (
       <HrDashboard
@@ -64,6 +67,17 @@ export default async function HomePage() {
         inbox={inbox}
         jobs={jobs}
         counts={Object.fromEntries(counts.map((c) => [c.job_id, c]))}
+        proposals={proposals.map((p) => ({
+          id: p.id,
+          kind: p.kind,
+          summary: p.summary,
+          reasoning: p.reasoning,
+          payload: p.payload,
+          created_at: p.created_at,
+          candidate_id: p.candidate_id,
+          candidate_name: p.candidate_name,
+          job_title: p.job_title,
+        }))}
       />
     );
   }
@@ -173,12 +187,14 @@ function HrDashboard({
   inbox,
   jobs,
   counts,
+  proposals,
 }: {
   name: string;
   data: Awaited<ReturnType<typeof getHrDashboardData>>;
   inbox: ActionInboxItem[];
   jobs: JobRow[];
   counts: CountsByJob;
+  proposals: FeedProposal[];
 }) {
   const stats = [
     { label: t.dashboard.cards.newCvs, value: data.newCvs7d, href: "/ung-vien", icon: FileText },
@@ -205,6 +221,11 @@ function HrDashboard({
           </h1>
           <p className="mt-1 text-sm text-slate-500">{tf.greeting(name)}</p>
         </header>
+      </FadeIn>
+
+      {/* Agent-prepared actions — approve/edit/dismiss (ADR 0020) */}
+      <FadeIn>
+        <ProposalFeed proposals={proposals} />
       </FadeIn>
 
       {/* "Hôm nay cần làm" — every pending decision, one click from acting (ADR 0015) */}

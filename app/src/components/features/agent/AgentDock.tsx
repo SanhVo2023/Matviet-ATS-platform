@@ -28,10 +28,10 @@ interface Msg {
 }
 
 const SUGGESTIONS = [
+  "Cần 2 nhân viên bán kính cho cửa hàng Quận 7, lương 8-12tr",
   "Tổng quan tuyển dụng của tin … đang thế nào?",
   "So sánh 3 ứng viên điểm cao nhất trong một bảng",
   "Tìm trong kho CV ai biết tiếng Anh",
-  "Tạo vị trí Nhân viên bán kính tại …",
   "Có ứng viên cũ nào phù hợp tin … không?",
   "Nguồn CV nào hiệu quả nhất 90 ngày qua?",
 ];
@@ -48,6 +48,21 @@ export function AgentDock({ role }: { role: UserRole }) {
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [messages, busy]);
+
+  // Command-bar promotion (ADR 0020): Ctrl+K / Cmd+K toggles the assistant
+  // from anywhere; Esc closes it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen((o) => !o);
+      } else if (e.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   if (role !== "admin" && role !== "hr") return null;
 
@@ -117,9 +132,12 @@ export function AgentDock({ role }: { role: UserRole }) {
               <div className="flex-1">
                 <p className="text-sm font-bold">Trợ lý Mắt Việt HR</p>
                 <p className="text-[11px] text-brand-300">
-                  Tìm ứng viên · đặt lịch · soạn email (chờ duyệt)
+                  Tạo vị trí bằng 1 câu · tìm ứng viên · đặt lịch · soạn email
                 </p>
               </div>
+              <kbd className="hidden rounded border border-brand-600 px-1.5 py-0.5 text-[10px] text-brand-300 lg:block">
+                Ctrl K
+              </kbd>
             </header>
 
             <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto overscroll-contain p-4">

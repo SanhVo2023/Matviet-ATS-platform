@@ -41,7 +41,7 @@ export async function composeFromTemplate(
   }
   const rendered = await renderFromTemplate(input.templateCode, vars);
   const requiresApproval = input.forceImmediate ? false : rendered.requires_approval;
-  return enqueueOutbound({
+  const queued = await enqueueOutbound({
     templateCode: rendered.code,
     candidateId: input.candidateId ?? null,
     jobId: input.jobId ?? null,
@@ -53,6 +53,17 @@ export async function composeFromTemplate(
     requiresApproval,
     createdBy: input.createdBy,
   });
+  // ADR 0020: composing the offer from ANY entry point closes the feed's
+  // open compose_offer card. Best-effort.
+  if (input.templateCode === "offer" && input.candidateId) {
+    try {
+      const { completeOpenProposals } = await import("@/server/agent-flows/repository");
+      await completeOpenProposals(input.candidateId, "compose_offer", { email_id: queued.id });
+    } catch (err) {
+      console.warn("[email] closing compose_offer proposal failed:", err);
+    }
+  }
+  return queued;
 }
 
 export interface ComposeAdHocInput {

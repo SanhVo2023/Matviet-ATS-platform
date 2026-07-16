@@ -185,6 +185,29 @@ export async function reconcileOpenProposals(
     );
 }
 
+/**
+ * Close open proposals of a kind for a candidate after the proposed act
+ * happened OUTSIDE the feed (e.g. HR composed the offer email from the
+ * candidate page — the compose_offer card is now done).
+ */
+export async function completeOpenProposals(
+  candidateId: string,
+  kind: ProposalKind,
+  executedRef: Record<string, string>,
+): Promise<void> {
+  const db = await getDb();
+  await db
+    .update(agent_proposals)
+    .set({ status: "executed", decided_at: new Date().toISOString(), executed_ref: executedRef })
+    .where(
+      and(
+        eq(agent_proposals.candidate_id, candidateId),
+        eq(agent_proposals.kind, kind),
+        eq(agent_proposals.status, "proposed"),
+      ),
+    );
+}
+
 /** Feed badge count for the TopBar. */
 export async function countOpenProposals(): Promise<number> {
   const db = await getDb();

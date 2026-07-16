@@ -61,6 +61,8 @@ export const TOOL_POLICY: Record<string, { roles: UserRole[]; mutates: boolean }
   list_jobs: { roles: HR_ADMIN, mutates: false },
   get_job: { roles: HR_ADMIN, mutates: false },
   create_job: { roles: HR_ADMIN, mutates: true },
+  // Propose-first (ADR 0020): produces a review card, not a live job — safe.
+  draft_job_from_intent: { roles: HR_ADMIN, mutates: false },
   update_job: { roles: HR_ADMIN, mutates: true },
   set_job_status: { roles: HR_ADMIN, mutates: true },
   search_cv_content: { roles: HR_ADMIN, mutates: false },
@@ -193,6 +195,21 @@ export const TOOLS: AiToolDef[] = [
       type: "object",
       properties: { job: { type: "string", description: "Tiêu đề (một phần) hoặc UUID" } },
       required: ["job"],
+    },
+  },
+  {
+    name: "draft_job_from_intent",
+    description:
+      "CÁCH MẶC ĐỊNH để tạo vị trí mới từ một câu yêu cầu ('cần 2 nhân viên bán kính Quận 7, lương 8-12tr'). AI tự soạn TOÀN BỘ (phân loại, mô tả, yêu cầu, trọng số) thành MỘT THẺ ĐỀ XUẤT trên trang chính — người dùng xem và bấm Đăng tuyển ở đó. KHÔNG cần hỏi xác nhận trước (thẻ chính là bước duyệt). Chỉ dùng create_job khi người dùng muốn tự đọc/sửa từng trường ngay trong hội thoại.",
+    parameters: {
+      type: "object",
+      properties: {
+        intent: {
+          type: "string",
+          description: "Nguyên văn yêu cầu tuyển dụng của người dùng (một câu là đủ)",
+        },
+      },
+      required: ["intent"],
     },
   },
   {
@@ -795,6 +812,20 @@ function makeExecutor(profile: SessionProfile) {
           })),
           public_url: `/tuyen-dung/${j.id}`,
           admin_url: `/vi-tri/${j.id}`,
+        };
+      }
+      case "draft_job_from_intent": {
+        const intent = String(args.intent ?? "").trim();
+        if (intent.length < 5) return { error: "Thiếu nội dung yêu cầu tuyển dụng." };
+        const { proposeJobFromIntent } = await import("@/server/agent-flows/job-from-intent");
+        const r = await proposeJobFromIntent(intent);
+        if ("error" in r) return { error: r.error };
+        await auditAgent(profile, "agent_proposal", r.id, "agent_draft_job", { intent });
+        return {
+          ok: true,
+          message: `Đã soạn xong: "${r.summary}". Thẻ đề xuất đang chờ trên trang chính — mở ra xem mô tả đầy đủ rồi bấm "Đăng tuyển".`,
+          proposal_id: r.id,
+          review_url: "/",
         };
       }
       case "create_job": {
