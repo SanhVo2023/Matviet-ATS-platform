@@ -19,6 +19,7 @@ import {
 import type { PendingApprovalRow } from "@/server/approvals/repository";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProposalFeed, type FeedProposal } from "@/components/features/agent/ProposalFeed";
+import { DashboardTabs } from "@/components/features/dashboard/DashboardTabs";
 import { listOpenProposals } from "@/server/agent-flows/repository";
 import { StageBadge, JobStatusBadge } from "@/components/primitives/StatusBadge";
 import { CountUp } from "@/components/primitives/CountUp";
@@ -151,10 +152,8 @@ function PositionCard({ job, counts }: { job: JobRow; counts?: JobCandidateCount
 function PositionsSection({ jobs, counts }: { jobs: JobRow[]; counts: CountsByJob }) {
   return (
     <section aria-label={t.nav.jobs}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-          <SectionTitle>Vị trí đang tuyển</SectionTitle>
-        </h2>
+      {/* Section title lives on the tab — only the action stays here. */}
+      <div className="mb-3 flex items-center justify-end gap-3">
         <Link
           href="/vi-tri/moi"
           className="inline-flex items-center gap-1.5 rounded-md bg-accent-400 px-3 py-1.5 text-sm font-semibold text-brand-900 transition-colors hover:bg-accent-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
@@ -213,13 +212,36 @@ function HrDashboard({
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 p-6 lg:p-8">
+    <div className="mx-auto max-w-7xl space-y-5 p-4 lg:p-6">
+      {/* Compact header: greeting left, live counters right — the three huge
+          stat cards folded into pills (2026-07-16 compact redesign). */}
       <FadeIn>
-        <header>
-          <h1 className="text-2xl font-extrabold tracking-tight text-brand-900 lg:text-3xl">
-            {t.nav.dashboard}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">{tf.greeting(name)}</p>
+        <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-brand-900">
+              {t.nav.dashboard}
+            </h1>
+            <p className="mt-0.5 text-sm text-slate-500">{tf.greeting(name)}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {stats.map(({ label, value, href, icon: Icon }) => (
+              <Link
+                key={href + label}
+                href={href}
+                className="group flex items-center gap-2 rounded-lg border border-slate-200 bg-surface-raised px-3 py-1.5 transition-colors hover:border-brand-300 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              >
+                <Icon
+                  className="h-3.5 w-3.5 shrink-0 text-slate-400 group-hover:text-brand-600"
+                  aria-hidden
+                />
+                <CountUp
+                  value={value}
+                  className="text-base font-extrabold tabular-nums leading-none text-brand-900"
+                />
+                <span className="text-xs text-slate-500">{label}</span>
+              </Link>
+            ))}
+          </div>
         </header>
       </FadeIn>
 
@@ -267,126 +289,111 @@ function HrDashboard({
         </section>
       </FadeIn>
 
-      {/* Vị trí merged into the dashboard (control center — Sanh 2026-07-07) */}
+      {/* Reference zone — one tab at a time instead of a long scroll
+          (Sanh 2026-07-16: "compact, tabbed, not everything laid out"). */}
       <FadeIn>
-        <PositionsSection jobs={jobs} counts={counts} />
+        <DashboardTabs
+          counts={{
+            positions: jobs.length,
+            candidates: data.recentCandidates.length,
+            interviews: data.todayInterviews.length,
+          }}
+          positions={<PositionsSection jobs={jobs} counts={counts} />}
+          candidates={<RecentCvPanel candidates={data.recentCandidates} />}
+          interviews={<TodaySchedulePanel interviews={data.todayInterviews} />}
+        />
       </FadeIn>
-
-      <section aria-label="Số liệu nhanh">
-        <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {stats.map(({ label, value, href, icon: Icon }) => (
-            <StaggerItem key={href + label} className="h-full">
-              <Link href={href} className="group block h-full focus-visible:outline-none">
-                <Card className="h-full rounded-lg bg-surface-raised transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-primary-500">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-medium text-slate-500">{label}</p>
-                      <span
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-brand-100 text-brand-600 transition-colors group-hover:bg-brand-900 group-hover:text-accent-400"
-                        aria-hidden
-                      >
-                        <Icon className="h-4 w-4" />
-                      </span>
-                    </div>
-                    <CountUp
-                      value={value}
-                      className="mt-2 block text-3xl font-extrabold tabular-nums text-brand-900"
-                    />
-                  </CardContent>
-                </Card>
-              </Link>
-            </StaggerItem>
-          ))}
-        </Stagger>
-      </section>
-
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <Card className="lg:col-span-7">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle>
-              <SectionTitle>CV mới nhất</SectionTitle>
-            </CardTitle>
-            <Link
-              href="/ung-vien"
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline"
-            >
-              Xem tất cả <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {data.recentCandidates.length > 0 ? (
-              <ul className="divide-y divide-slate-100">
-                {data.recentCandidates.map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      href={`/ung-vien/${c.id}`}
-                      className="flex items-center justify-between gap-3 py-2.5 hover:bg-slate-50 focus-visible:bg-slate-50"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800">{c.full_name}</p>
-                        <p className="truncate text-xs text-slate-500">
-                          {c.job_title ?? "—"} · {formatRelative(c.created_at)}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        {c.ai_score !== null && (
-                          <span className="rounded-full bg-brand-navy px-2 py-0.5 text-xs font-semibold tabular-nums text-white">
-                            {Math.round(c.ai_score)}
-                          </span>
-                        )}
-                        <StageBadge stage={c.current_stage} />
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyLine text="Chưa có ứng viên nào. Thêm CV từ trang Ứng viên hoặc import CSV." />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-5">
-          <CardHeader>
-            <CardTitle>
-              <SectionTitle>{t.dashboard.todaySchedule.title}</SectionTitle>
-            </CardTitle>
-            <CardDescription>
-              {data.todayInterviews.length > 0
-                ? `${data.todayInterviews.length} buổi phỏng vấn hôm nay`
-                : t.empty.interviewsToday}
-            </CardDescription>
-          </CardHeader>
-          {data.todayInterviews.length > 0 && (
-            <CardContent>
-              <ul className="space-y-2">
-                {data.todayInterviews.map((iv) => (
-                  <li key={iv.id}>
-                    <Link
-                      href={`/phong-van/${iv.id}`}
-                      className="flex items-center gap-3 rounded-md border border-slate-100 px-3 py-2 hover:border-slate-200 hover:bg-slate-50"
-                    >
-                      <span className="w-12 shrink-0 text-sm font-semibold tabular-nums text-brand-navy">
-                        {timeVN(iv.scheduled_at)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-slate-800">
-                          {iv.candidate_name}
-                        </span>
-                        <span className="block truncate text-xs text-slate-500">
-                          {iv.job_title ?? "—"}
-                        </span>
-                      </span>
-                      <InterviewTypeIcon type={iv.type} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          )}
-        </Card>
-      </section>
     </div>
+  );
+}
+
+function RecentCvPanel({
+  candidates,
+}: {
+  candidates: Awaited<ReturnType<typeof getHrDashboardData>>["recentCandidates"];
+}) {
+  return (
+    <Card>
+      <CardContent className="pt-4">
+        {candidates.length > 0 ? (
+          <ul className="divide-y divide-slate-100">
+            {candidates.map((c) => (
+              <li key={c.id}>
+                <Link
+                  href={`/ung-vien/${c.id}`}
+                  className="flex items-center justify-between gap-3 py-2.5 hover:bg-slate-50 focus-visible:bg-slate-50"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-slate-800">{c.full_name}</p>
+                    <p className="truncate text-xs text-slate-500">
+                      {c.job_title ?? "—"} · {formatRelative(c.created_at)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {c.ai_score !== null && (
+                      <span className="rounded-full bg-brand-navy px-2 py-0.5 text-xs font-semibold tabular-nums text-white">
+                        {Math.round(c.ai_score)}
+                      </span>
+                    )}
+                    <StageBadge stage={c.current_stage} />
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyLine text="Chưa có ứng viên nào. Thêm CV từ trang Ứng viên hoặc trang tuyển dụng công khai." />
+        )}
+        <div className="mt-2 border-t border-slate-100 pt-2 text-right">
+          <Link
+            href="/ung-vien"
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline"
+          >
+            Xem tất cả <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TodaySchedulePanel({
+  interviews,
+}: {
+  interviews: Awaited<ReturnType<typeof getHrDashboardData>>["todayInterviews"];
+}) {
+  return (
+    <Card>
+      <CardContent className="pt-4">
+        {interviews.length > 0 ? (
+          <ul className="space-y-2">
+            {interviews.map((iv) => (
+              <li key={iv.id}>
+                <Link
+                  href={`/phong-van/${iv.id}`}
+                  className="flex items-center gap-3 rounded-md border border-slate-100 px-3 py-2 hover:border-slate-200 hover:bg-slate-50"
+                >
+                  <span className="w-12 shrink-0 text-sm font-semibold tabular-nums text-brand-navy">
+                    {timeVN(iv.scheduled_at)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-slate-800">
+                      {iv.candidate_name}
+                    </span>
+                    <span className="block truncate text-xs text-slate-500">
+                      {iv.job_title ?? "—"}
+                    </span>
+                  </span>
+                  <InterviewTypeIcon type={iv.type} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyLine text={t.empty.interviewsToday} />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
