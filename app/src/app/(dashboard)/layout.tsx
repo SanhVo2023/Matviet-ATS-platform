@@ -37,10 +37,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       }
     >
-      {/* pb-16 clears the fixed bottom tab bar on mobile */}
-      <div className="pb-16 lg:pb-0">{children}</div>
+      {/* pb-16 clears the fixed bottom tab bar on mobile (< md, aligned with
+          the sidebar's md breakpoint — renovation R2) */}
+      <div className="pb-16 md:pb-0">{children}</div>
       <div className="contents print:hidden">
-        <BottomTabs role={profile.role} />
+        <BottomTabs
+          role={profile.role}
+          fullName={profile.full_name ?? profile.email ?? ""}
+          email={profile.email ?? ""}
+        />
         <AgentDock role={profile.role} />
       </div>
     </AppShell>

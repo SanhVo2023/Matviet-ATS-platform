@@ -6,8 +6,9 @@
  *   - admin / hr: any file
  *   - hiring_manager: only files belonging to candidates on jobs they're
  *     assigned to (job_assignments)
- *   - bod / tap_doan: no direct file access (same as the RLS era — exec
- *     approvers work from the in-app summary, not raw CVs)
+ *   - bod / tap_doan: the CV ONLY of candidates they have an approval step for
+ *     (renovation R2 — execs can read the CV of exactly the people they're
+ *     asked to approve; test/submission files stay forbidden)
  * Keys are the old storage paths unchanged (see src/lib/storage/paths.ts).
  */
 import { and, eq, or } from "drizzle-orm";
@@ -20,6 +21,7 @@ import {
   cv_files,
   job_assignments,
 } from "@/db/schema";
+import { hasApprovalStepForRole } from "@/server/approvals/repository";
 import { assertSafeKey, getFile } from "@/lib/r2";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +34,8 @@ export async function GET(
   if (!profile || !profile.is_active) {
     return new Response("Unauthorized", { status: 401 });
   }
-  if (!["admin", "hr", "hiring_manager"].includes(profile.role)) {
+  const isExec = profile.role === "bod" || profile.role === "tap_doan";
+  if (!["admin", "hr", "hiring_manager"].includes(profile.role) && !isExec) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -49,6 +52,15 @@ export async function GET(
     if (!jobId || !(await isAssignedManager(profile.id, jobId))) {
       return new Response("Forbidden", { status: 403 });
     }
+  } else if (isExec) {
+    // Execs: CV files only, and only for a candidate they approve.
+    const candidateId = await resolveCandidateViaCv(key);
+    if (
+      !candidateId ||
+      !(await hasApprovalStepForRole(candidateId, profile.role as "bod" | "tap_doan"))
+    ) {
+      return new Response("Forbidden", { status: 403 });
+    }
   }
 
   const obj = await getFile(key);
@@ -62,6 +74,19 @@ export async function GET(
   // inline → browsers render PDFs in the preview iframe instead of downloading
   headers.set("content-disposition", "inline");
   return new Response(obj.body as ReadableStream, { headers });
+}
+
+/** CV storage key → candidate_id (CV branch only; null for non-CV keys). */
+async function resolveCandidateViaCv(key: string): Promise<string | null> {
+  const db = await getDb();
+  const row = await db
+    .select({ candidate_id: candidates.id })
+    .from(cv_files)
+    .innerJoin(candidates, eq(candidates.cv_file_id, cv_files.id))
+    .where(or(eq(cv_files.storage_path, key), eq(cv_files.pdf_storage_path, key)))
+    .limit(1)
+    .then((r) => r[0] ?? null);
+  return row?.candidate_id ?? null;
 }
 
 /** Map a storage key back to the job that owns it (CVs, test files, submissions). */

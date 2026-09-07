@@ -7,6 +7,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { LayoutDashboard, Users, Calendar, CheckCircle2, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "./MobileNav";
+import { modulesForRole } from "@/lib/modules";
 import type { Database } from "@/types/db";
 import type { LucideIcon } from "lucide-react";
 
@@ -19,7 +20,7 @@ interface Tab {
   icon: LucideIcon;
 }
 
-const TABS: Tab[] = [
+const ALL_TABS: Tab[] = [
   { key: "overview", href: "/", label: "Tổng quan", icon: LayoutDashboard },
   { key: "candidates", href: "/ung-vien", label: "Ứng viên", icon: Users },
   { key: "interviews", href: "/phong-van", label: "Phỏng vấn", icon: Calendar },
@@ -27,15 +28,29 @@ const TABS: Tab[] = [
 ];
 
 /**
- * Mobile bottom tab bar (< lg) — design-language §6. Four primary
- * destinations + a "Menu" tab that opens the full MobileNav drawer
- * (controlled, its own trigger hidden). A gold dot slides between active
- * tabs via shared layout. Safe-area padded for notched devices.
+ * Mobile bottom tab bar (< md) — design-language §6. The primary destinations
+ * the role can actually reach (an exec sees only Tổng quan + Phê duyệt, not
+ * dead tabs) + a "Thêm" tab that opens the full MobileNav drawer. A gold dot
+ * slides between active tabs. Safe-area padded for notched devices.
  */
-export function BottomTabs({ role }: { role: UserRole }) {
+export function BottomTabs({
+  role,
+  fullName,
+  email,
+}: {
+  role: UserRole;
+  fullName: string;
+  email: string;
+}) {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const [menuOpen, setMenuOpen] = React.useState(false);
+
+  // "/" is every role's home; otherwise keep only tabs whose route the role
+  // has a module for (modulesForRole), so execs don't get bouncing tabs.
+  const allowedHrefs = new Set(modulesForRole(role).map((m) => m.href));
+  const tabs = ALL_TABS.filter((t) => t.href === "/" || allowedHrefs.has(t.href));
+  const gridCols = tabs.length + 1; // + the "Thêm" button
 
   const dotTransition = reduceMotion
     ? { duration: 0 }
@@ -45,10 +60,13 @@ export function BottomTabs({ role }: { role: UserRole }) {
     <>
       <nav
         aria-label="Điều hướng nhanh"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(11,20,48,0.08)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgba(11,20,48,0.08)] md:hidden"
       >
-        <div className="grid grid-cols-5">
-          {TABS.map((tab) => {
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
+        >
+          {tabs.map((tab) => {
             const Icon = tab.icon;
             const active =
               pathname === tab.href || (tab.href !== "/" && pathname.startsWith(`${tab.href}/`));
@@ -68,7 +86,7 @@ export function BottomTabs({ role }: { role: UserRole }) {
                   />
                 )}
                 <Icon
-                  className={cn("h-5 w-5", active ? "text-accent-500" : "text-slate-400")}
+                  className={cn("h-5 w-5", active ? "text-accent-600" : "text-slate-500")}
                   aria-hidden
                 />
                 <span
@@ -90,13 +108,20 @@ export function BottomTabs({ role }: { role: UserRole }) {
             className="flex h-14 flex-col items-center justify-center gap-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
           >
             <Menu className="h-5 w-5 text-slate-400" aria-hidden />
-            <span className="text-[11px] font-medium text-slate-500">Menu</span>
+            <span className="text-[11px] font-medium text-slate-500">Thêm</span>
           </button>
         </div>
       </nav>
 
       {/* Full drawer for everything not on the tab bar; trigger hidden. */}
-      <MobileNav role={role} open={menuOpen} onOpenChange={setMenuOpen} showTrigger={false} />
+      <MobileNav
+        role={role}
+        fullName={fullName}
+        email={email}
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        showTrigger={false}
+      />
     </>
   );
 }

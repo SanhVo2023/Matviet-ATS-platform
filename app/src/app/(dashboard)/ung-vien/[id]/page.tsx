@@ -19,7 +19,7 @@ import {
   listInterviewers,
   listEvaluationsForCandidate,
 } from "@/server/interviews/repository";
-import { listApprovalsForCandidate } from "@/server/approvals/repository";
+import { listApprovalsForCandidate, hasApprovalStepForRole } from "@/server/approvals/repository";
 import { listCandidateEmails } from "@/server/email/repository";
 import { listActiveTemplates } from "@/server/email/templates";
 import { getComposerVarDefaults } from "@/server/email/composer-defaults";
@@ -51,7 +51,7 @@ export async function generateMetadata({
  * happened at each rung + what's next"; the rail holds reference material.
  */
 export default async function CandidateDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const profile = await requireRole(["admin", "hr", "hiring_manager"]);
+  const profile = await requireRole(["admin", "hr", "hiring_manager", "bod", "tap_doan"]);
   const { id } = await params;
 
   const candidate = await getCandidate(id);
@@ -61,6 +61,13 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
   if (profile.role === "hiring_manager") {
     const assignments = await getJobAssignments(candidate.job_id);
     if (!assignments.some((a) => a.manager_user_id === profile.id)) notFound();
+  }
+  // Execs (bod/tap_doan) get a READ-ONLY view of exactly the candidates they're
+  // asked to approve (renovation R2) — scoped by having a step of their kind.
+  const isExec = profile.role === "bod" || profile.role === "tap_doan";
+  if (isExec) {
+    const ok = await hasApprovalStepForRole(candidate.id, profile.role as "bod" | "tap_doan");
+    if (!ok) notFound();
   }
 
   const canManage = profile.role === "admin" || profile.role === "hr";
@@ -165,6 +172,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
         candidate={candidate}
         jobTitle={job?.title ?? null}
         jobId={candidate.job_id}
+        readOnly={isExec}
         aiSummarySlot={
           <CandidateAiSummary
             candidateId={candidate.id}

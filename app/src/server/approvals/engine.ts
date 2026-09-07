@@ -4,6 +4,10 @@ import { getDb } from "@/db";
 import { approvals, candidates, jobs, job_assignments } from "@/db/schema";
 import type { Database } from "@/types/db";
 import { notifyRoles, notifyUsers, jobManagerIds } from "@/server/notifications/service";
+import { emailsByRoles, emailsByIds } from "@/server/notifications/repository";
+import { deliverMail } from "@/server/email/transport";
+import { emailCtaButton } from "@/server/email/layout";
+import { publicEnv } from "@/types/env";
 import { emitAgentEventInBackground } from "@/server/agent-flows/events";
 import { APPROVAL_PRESETS, STEP_LABEL_VI, type FlowType } from "./presets";
 import { transitionStage } from "@/server/candidates/service";
@@ -150,12 +154,41 @@ async function notifyStepPending(
     link: "/phe-duyet",
   };
   const opts = { excludeUserId };
-  if (step === "bod") return notifyRoles(["bod"], payload, opts);
-  if (step === "tap_doan") return notifyRoles(["tap_doan"], payload, opts);
-  if (step === "manager_recommend") {
-    return notifyUsers(await jobManagerIds(jobId), payload, opts);
+
+  // Bell + push (existing) AND a best-effort email so approvers who don't have
+  // the tab open still hear about it (renovation R2 — execs got no email).
+  let emails: string[] = [];
+  if (step === "bod") {
+    await notifyRoles(["bod"], payload, opts);
+    emails = await emailsByRoles(["bod"]);
+  } else if (step === "tap_doan") {
+    await notifyRoles(["tap_doan"], payload, opts);
+    emails = await emailsByRoles(["tap_doan"]);
+  } else if (step === "manager_recommend") {
+    const managerIds = await jobManagerIds(jobId);
+    await notifyUsers(managerIds, payload, opts);
+    emails = await emailsByIds(managerIds);
+  } else {
+    await notifyRoles(["hr", "admin"], payload, opts);
+    emails = await emailsByRoles(["hr", "admin"]);
   }
-  return notifyRoles(["hr", "admin"], payload, opts);
+
+  if (emails.length > 0) {
+    try {
+      await deliverMail({
+        to: emails,
+        subject: `Chờ duyệt: ${candidateName} — ${STEP_LABEL_VI[step]}`,
+        bodyHtml: `
+          <p>Có một hồ sơ đang chờ quyết định của bạn:</p>
+          <p><strong>${candidateName}</strong> — bước "${STEP_LABEL_VI[step]}".</p>
+          ${emailCtaButton(`${publicEnv.appUrl}/phe-duyet`, "Mở hộp Phê duyệt")}
+          <p>Bạn sẽ thấy điểm AI, kết quả phỏng vấn và đề xuất lương ngay trên thẻ duyệt.</p>`,
+      });
+    } catch (err) {
+      // Email is a bonus channel — never fail approval creation over it.
+      console.warn("[approvals] pending-step email failed:", err);
+    }
+  }
 }
 
 /**

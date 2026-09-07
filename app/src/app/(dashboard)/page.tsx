@@ -16,7 +16,8 @@ import {
   type JobRow,
   type JobCandidateCounts,
 } from "@/server/jobs/repository";
-import type { PendingApprovalRow } from "@/server/approvals/repository";
+import type { PendingApprovalRow, PendingApprovalDigest } from "@/server/approvals/repository";
+import { ApprovalDigestCard } from "@/components/features/approvals/ApprovalDigestCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProposalFeed, type FeedProposal } from "@/components/features/agent/ProposalFeed";
 import { DashboardTabs } from "@/components/features/dashboard/DashboardTabs";
@@ -82,8 +83,8 @@ export default async function HomePage() {
       />
     );
   }
-  const steps = await getExecQueueData(profile.id, profile.role as "bod" | "tap_doan");
-  return <ExecApprovalQueue name={profile.full_name ?? "anh/chị"} steps={steps} />;
+  const digests = await getExecQueueData(profile.id, profile.role as "bod" | "tap_doan");
+  return <ExecApprovalQueue name={profile.full_name ?? "anh/chị"} digests={digests} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -490,7 +491,7 @@ function ManagerInbox({
   );
 }
 
-function ExecApprovalQueue({ name, steps }: { name: string; steps: PendingApprovalRow[] }) {
+function ExecApprovalQueue({ name, digests }: { name: string; digests: PendingApprovalDigest[] }) {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6 lg:p-8">
       <FadeIn>
@@ -499,25 +500,28 @@ function ExecApprovalQueue({ name, steps }: { name: string; steps: PendingApprov
             {tf.greeting(name)}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            {steps.length > 0
-              ? `${steps.length} hồ sơ đang chờ quyết định của bạn.`
+            {digests.length > 0
+              ? `${digests.length} hồ sơ đang chờ quyết định của bạn.`
               : "Không có hồ sơ nào chờ duyệt."}
           </p>
         </header>
       </FadeIn>
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <SectionTitle>{t.nav.approvals}</SectionTitle>
-          </CardTitle>
-          {steps.length === 0 && <CardDescription>{t.empty.approvals}</CardDescription>}
-        </CardHeader>
-        {steps.length > 0 && (
-          <CardContent>
-            <ApprovalStepList steps={steps} />
-          </CardContent>
-        )}
-      </Card>
+      {digests.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <SectionTitle>{t.nav.approvals}</SectionTitle>
+            </CardTitle>
+            <CardDescription>{t.empty.approvals}</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {digests.map((d) => (
+            <ApprovalDigestCard key={d.id} d={d} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

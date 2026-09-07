@@ -26,6 +26,10 @@ export function InlineDecide({ approvalId, candidateName }: Props) {
   const [note, setNote] = React.useState("");
 
   const decide = async (decision: "approved" | "rejected") => {
+    if (decision === "rejected" && note.trim().length < 3) {
+      toast.error("Vui lòng nhập lý do từ chối");
+      return;
+    }
     setBusy(decision);
     try {
       const res = await decideApprovalAction(approvalId, decision, note.trim() || undefined);
@@ -51,7 +55,7 @@ export function InlineDecide({ approvalId, candidateName }: Props) {
           onChange={(e) => setNote(e.target.value)}
           rows={2}
           maxLength={500}
-          placeholder="Lý do từ chối (không bắt buộc)"
+          placeholder="Lý do từ chối (bắt buộc)"
           className="text-xs"
         />
         <div className="flex gap-2">
@@ -81,28 +85,27 @@ export function InlineDecide({ approvalId, candidateName }: Props) {
 
   return (
     <div className="flex shrink-0 items-center gap-2">
+      {/* default size (40px) — the exec's primary action, often on a phone */}
       <Button
-        size="sm"
         variant="navy"
         onClick={() => void decide("approved")}
         disabled={busy !== null}
         aria-label={`Duyệt ${candidateName}`}
       >
         {busy === "approved" ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
         ) : (
-          <Check className="h-3.5 w-3.5" aria-hidden />
+          <Check className="h-4 w-4" aria-hidden />
         )}
         Duyệt
       </Button>
       <Button
-        size="sm"
         variant="outline"
         onClick={() => setRejecting(true)}
         disabled={busy !== null}
         aria-label={`Từ chối ${candidateName}`}
       >
-        <X className="h-3.5 w-3.5" aria-hidden />
+        <X className="h-4 w-4" aria-hidden />
         Từ chối
       </Button>
     </div>
