@@ -79,6 +79,7 @@ export function ManualScoreSliders({ candidateId, weights, initialScores }: Prop
                 </span>
               </div>
               <Slider
+                aria-label={t.criterion[k]}
                 min={0}
                 max={100}
                 step={1}

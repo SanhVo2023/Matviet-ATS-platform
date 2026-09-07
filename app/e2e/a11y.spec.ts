@@ -45,10 +45,16 @@ test.describe("axe — signed in", () => {
   });
 
   test("job workspace (kanban)", async ({ page }) => {
-    await page.goto("/");
-    const jobLink = page.locator('a[href*="/vi-tri/"]').first();
-    if ((await jobLink.count()) === 0) test.skip(true, "no jobs in local DB");
-    await page.goto((await jobLink.getAttribute("href"))!);
+    await page.goto("/vi-tri");
+    const jobLink = page
+      .locator('a[href*="/vi-tri/"]')
+      .filter({ hasNot: page.locator('[href$="/moi"]') })
+      .first();
+    const href = (await jobLink.count()) ? await jobLink.getAttribute("href") : null;
+    // Only a real workspace URL (/vi-tri/<id>, not /vi-tri or /vi-tri/moi).
+    const isWorkspace = href && /\/vi-tri\/[^/]+$/.test(href) && !href.endsWith("/moi");
+    test.skip(!isWorkspace, "no seeded job workspace in local DB");
+    await page.goto(href!, { waitUntil: "networkidle" });
     await scan(page, "vi-tri-kanban");
   });
 });

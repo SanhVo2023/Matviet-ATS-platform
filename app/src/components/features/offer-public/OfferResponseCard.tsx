@@ -114,7 +114,7 @@ export function OfferResponseCard({ token, candidateName, jobTitle, responded }:
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-base focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 md:text-sm"
             />
           </div>
           <div className="flex gap-2">
@@ -158,7 +158,11 @@ export function OfferResponseCard({ token, candidateName, jobTitle, responded }:
         </div>
       )}
 
-      {error && <p className="text-sm text-error">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-error-fg">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
