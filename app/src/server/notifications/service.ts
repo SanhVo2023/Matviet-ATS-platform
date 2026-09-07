@@ -135,7 +135,7 @@ export async function runNotificationSweep(): Promise<{ reminders: number }> {
     .from(candidates)
     .where(
       and(
-        eq(candidates.current_stage, "new"),
+        eq(candidates.current_stage, "intake"),
         eq(candidates.is_archived, false),
         lte(candidates.created_at, staleCutoff),
       ),

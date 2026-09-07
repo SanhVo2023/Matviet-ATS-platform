@@ -5,14 +5,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { CandidateUploadSchema } from "@/lib/validation/candidate";
-import { ALL_STAGES, allowedNextStages, type Stage } from "@/lib/validation/candidate";
+import { ALL_STAGES, type Stage } from "@/lib/validation/candidate";
+import type { RejectionReason } from "@/lib/stages";
 import {
   uploadCandidateWithCv,
-  changeStage,
+  transitionStage,
   archiveCandidate,
   updateCandidateContact,
 } from "@/server/candidates/service";
-import { getCandidate } from "@/server/candidates/repository";
 import { CV_MAX_BYTES, isAcceptedCvMime } from "@/lib/storage/paths";
 import { enqueueScoring } from "@/server/scoring/repository";
 import { triggerEdgeFunction } from "@/server/scoring/orchestration";
@@ -180,23 +180,22 @@ function nameFromFilename(filename: string): string {
 export async function changeStageAction(
   candidateId: string,
   nextStage: Stage,
+  reason?: RejectionReason,
+  note?: string,
 ): Promise<ActionResult> {
   await requireRole(["admin", "hr", "hiring_manager"]);
 
   if (!ALL_STAGES.includes(nextStage)) {
     return { ok: false, error: "Giai đoạn không hợp lệ" };
   }
-
-  // Server-side enforcement of the same allowed-transition rules the UI exposes
-  const candidate = await getCandidate(candidateId);
-  if (!candidate) return { ok: false, error: "Không tìm thấy ứng viên" };
-  const allowed = allowedNextStages(candidate.current_stage as Stage);
-  if (!allowed.includes(nextStage)) {
-    return { ok: false, error: "Không thể chuyển sang giai đoạn này" };
+  if (nextStage === "rejected" && !reason) {
+    return { ok: false, error: "Cần chọn lý do từ chối" };
   }
 
   try {
-    await changeStage(candidateId, nextStage);
+    // transitionStage owns the guard, the reason requirement, history, and the
+    // approval-chain cancel — no need to re-check allowedNextStages here.
+    await transitionStage(candidateId, nextStage, { reason, notes: note?.trim() || null });
     revalidatePath("/ung-vien");
     revalidatePath(`/ung-vien/${candidateId}`);
     return { ok: true };

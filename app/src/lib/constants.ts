@@ -69,22 +69,5 @@ export const LIMITS = {
   interviewAttendeesMax: 10,
 } as const;
 
-/** Stage rendering order for the kanban / pipeline. Matches enum pipeline_stage. */
-export const PIPELINE_STAGE_ORDER = [
-  "new",
-  "screening",
-  "screened",
-  "interview_scheduled",
-  "interviewed",
-  "test_sent",
-  "test_done",
-  "recommended",
-  "salary_deal",
-  "bod_review",
-  "tap_doan_review",
-  "offer_sent",
-  "offer_accepted",
-  "hired",
-  "rejected",
-  "withdrew",
-] as const;
+// PIPELINE_STAGE_ORDER removed (renovation R1): the ordered stage list is now
+// PIPELINE_STAGES in @/lib/stages (single source of truth).

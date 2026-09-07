@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, lte, or, asc, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { ai_screenings, candidates, scoring_queue, stage_history } from "@/db/schema";
+import { ai_screenings, candidates, scoring_queue } from "@/db/schema";
 import type { Tables, TablesInsert } from "@/types/db";
 import { CRITERION_CODES, type CriterionCode, type Weights } from "@/lib/ai/gemini/types";
 import { computeWeightedTotal, readWeights } from "./weights";
@@ -14,7 +14,7 @@ type AiScreeningInsert = TablesInsert<"ai_screenings">;
 /**
  * Idempotent enqueue. Inserts a queue row if no live (queued/running) row
  * exists for this candidate, then flips candidates.ai_screening_status='pending'
- * and current_stage='screening' if the candidate is still 'new'.
+ * — scoring no longer changes the stage (ai_screening_status is sub-state).
  *
  * The caller MUST have already passed requireRole(['admin','hr']) —
  * authorization lives in the action layer (single-principal D1, ADR 0011).
@@ -49,28 +49,13 @@ export async function enqueueScoring(
   const queueId = inserted[0]?.id;
   if (!queueId) throw new Error("Không thể đẩy vào queue chấm điểm");
 
-  // 3. Flip candidate status flags. Stage flips only if currently 'new'.
+  // 3. Flip the screening status flag. Renovation R1: scoring no longer moves
+  //    the stage — "đang chấm / đã chấm" is sub-state within `intake`
+  //    (ai_screening_status), not a micro-stage.
   await db
     .update(candidates)
     .set({ ai_screening_status: "pending", ai_screening_error: null })
     .where(eq(candidates.id, candidateId));
-
-  // Bump stage 'new' → 'screening'. D1 has no triggers, so we mirror the old
-  // log_stage_change trigger here: write the stage_history row ourselves when
-  // (and only when) the stage actually flipped.
-  const bumped = await db
-    .update(candidates)
-    .set({ current_stage: "screening" })
-    .where(and(eq(candidates.id, candidateId), eq(candidates.current_stage, "new")))
-    .returning({ id: candidates.id });
-  if (bumped.length > 0) {
-    await db.insert(stage_history).values({
-      candidate_id: candidateId,
-      from_stage: "new",
-      to_stage: "screening",
-      actor_user_id: triggeredBy,
-    });
-  }
 
   return { queue_id: queueId, created: true };
 }

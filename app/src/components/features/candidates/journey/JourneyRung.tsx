@@ -4,7 +4,13 @@ import * as React from "react";
 import { Check, ChevronDown, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { READINESS_DOT, READINESS_TEXT } from "@/lib/stage-visuals";
-import type { Readiness } from "@/lib/validation/candidate";
+import type { StatusTone } from "@/lib/candidate-status";
+
+/** The bits of a derived status a rung header renders. */
+export interface RungReadiness {
+  tone: StatusTone;
+  label: string;
+}
 
 export type RungState = "done" | "current" | "todo";
 
@@ -17,7 +23,7 @@ interface Props {
   /** One-line result recap — always visible on done/current rungs. */
   summary?: React.ReactNode;
   /** Readiness dot+label — shown on the current rung only. */
-  readiness?: Readiness | null;
+  readiness?: RungReadiness | null;
   /** Ghost description shown on todo rungs. */
   ghostText?: string;
   /** Rose "the journey ended here" band (rejected/withdrew). */

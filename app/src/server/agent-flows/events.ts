@@ -24,26 +24,33 @@ import { proposeInterviewInvite, proposeStartApproval, proposeComposeOffer } fro
 export type AgentEvent =
   | { type: "scoring_succeeded"; candidateId: string }
   | { type: "evaluation_submitted"; candidateId: string }
+  | { type: "test_graded"; candidateId: string }
   | { type: "approval_finalized"; candidateId: string; approved: boolean }
   | { type: "offer_responded"; candidateId: string; accepted: boolean }
   | { type: "stage_changed"; candidateId: string; toStage: string }
   | { type: "candidate_archived"; candidateId: string };
 
 /** Idle DAYS before a stale nudge, per stage (sweep.ts shares this). */
+// Renovation R1: re-keyed to the 8 collapsed stages and EXTENDED so the
+// approval + offer waits (previously unwatched — a candidate could sit at
+// bod_review for weeks silently) now get a stale nudge.
 export const STALE_AFTER_DAYS: Record<string, number> = {
-  screened: 3,
-  interviewed: 2,
-  test_sent: 3,
-  test_done: 2,
-  offer_sent: 3,
+  intake: 3,
+  evaluating: 2, // flat fallback when no interview anchors the wait (take-home)
+  approving: 3,
+  offer: 3,
+  offer_accepted: 3,
 };
 
 /**
- * interview_scheduled is watched RELATIVE TO THE INTERVIEW, not the stage
- * change: check 1 day after the (latest) interview should have happened —
- * "phỏng vấn xong mà chưa có đánh giá" was a fully silent gap (audit #2).
+ * `evaluating` is watched RELATIVE TO THE INTERVIEW when one exists, not the
+ * stage change: check 1 day after the (latest) interview should have happened
+ * — "phỏng vấn xong mà chưa có đánh giá" was a fully silent gap (audit #2).
+ * When no interview row exists (e.g. straight to a take-home test) it falls
+ * back to a flat 2-day rule.
  */
 export const INTERVIEW_EVAL_GRACE_DAYS = 1;
+const EVALUATING_FLAT_DAYS = 2;
 
 function envOverrideSeconds(): number | null {
   const override = Number(process.env.AGENT_STALE_OVERRIDE_SECONDS ?? "");
@@ -53,12 +60,15 @@ function envOverrideSeconds(): number | null {
 /** Test hook: override every stale delay (seconds) via env. */
 async function staleDelayFor(candidateId: string, stage: string): Promise<number | null> {
   const override = envOverrideSeconds();
-  if (stage === "interview_scheduled") {
+  if (stage === "evaluating") {
     const anchor = await latestInterviewTime(candidateId);
-    if (!anchor) return null;
-    if (override) return override;
-    const dueMs = anchor + INTERVIEW_EVAL_GRACE_DAYS * 86_400_000 - Date.now();
-    return Math.max(3600, Math.ceil(dueMs / 1000));
+    if (anchor) {
+      if (override) return override;
+      const dueMs = anchor + INTERVIEW_EVAL_GRACE_DAYS * 86_400_000 - Date.now();
+      return Math.max(3600, Math.ceil(dueMs / 1000));
+    }
+    // No interview (take-home only) → flat rule so it's still watched.
+    return override ?? EVALUATING_FLAT_DAYS * 86_400;
   }
   const days = STALE_AFTER_DAYS[stage];
   if (days == null) return null;
@@ -85,9 +95,9 @@ export async function latestInterviewTime(candidateId: string): Promise<number |
  * construction (dedupe key carries the stage), so any movement voids it.
  */
 const VALID_STAGES_BY_KIND: Record<ProposalKind, string[] | "any-movement-voids"> = {
-  interview_invite: ["screened", "new", "screening"],
-  start_approval: ["interviewed", "test_sent", "test_done"],
-  compose_offer: ["offer_sent"],
+  interview_invite: ["intake"],
+  start_approval: ["evaluating"],
+  compose_offer: ["offer"],
   nudge_stale: "any-movement-voids",
   job_from_intent: [], // job-level; never candidate-bound (unreachable here)
 };
@@ -143,29 +153,26 @@ export async function emitAgentEvent(evt: AgentEvent): Promise<void> {
     await reconcileOpenProposals(cand.id, stage);
 
     // One guard for both entry paths (auto-advance after scoring AND manual
-    // move): a well-scored candidate sitting at `screened` gets an invite
-    // proposal.
+    // move): a well-scored candidate still in `intake` gets an invite
+    // proposal. `screened` (scoring done) is now the ai_screening_status.
     const inviteWorthy =
-      (evt.type === "scoring_succeeded" ||
-        (evt.type === "stage_changed" && evt.toStage === "screened")) &&
-      stage === "screened" &&
+      (evt.type === "scoring_succeeded" || evt.type === "stage_changed") &&
+      stage === "intake" &&
       typeof cand.ai_score === "number" &&
       cand.ai_score >= SCORE_BAND_MEDIUM_MIN;
     if (inviteWorthy) await proposeInterviewInvite({ candidate: cand, job });
 
     if (
       (evt.type === "approval_finalized" && evt.approved) ||
-      (evt.type === "stage_changed" && evt.toStage === "offer_sent")
+      (evt.type === "stage_changed" && evt.toStage === "offer")
     ) {
       await proposeComposeOffer({ candidate: cand, job });
     }
 
     // Evaluation in — OR a test graded (test-only roles never get an
     // evaluation; grading is their "kết quả đã có" moment — audit gap #3).
-    if (
-      evt.type === "evaluation_submitted" ||
-      (evt.type === "stage_changed" && evt.toStage === "test_done")
-    ) {
+    // Both now live under the `evaluating` stage.
+    if (evt.type === "evaluation_submitted" || evt.type === "test_graded") {
       await proposeStartApproval({ candidate: cand, job });
     }
 

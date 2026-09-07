@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
-import { groupOfStage, stageReadiness, type Stage } from "@/lib/validation/candidate";
+import { groupOfStage, type Stage } from "@/lib/validation/candidate";
+import { deriveCandidateStatus } from "@/lib/candidate-status";
 import { GROUP_TINT, READINESS_DOT } from "@/lib/stage-visuals";
 import type { Database } from "@/types/db";
 
@@ -25,21 +26,31 @@ export function JobStatusBadge({ status }: { status: JobStatus }) {
  * GROUP (same palette as kanban columns + the journey ladder). Pass `aiStatus`
  * where it's known to add the readiness dot inside the pill.
  */
-export function StageBadge({ stage, aiStatus }: { stage: Stage; aiStatus?: string | null }) {
+export function StageBadge({
+  stage,
+  aiStatus,
+}: {
+  stage: Stage;
+  aiStatus?: "pending" | "success" | "failed" | null;
+}) {
   const group = groupOfStage(stage);
+  const derived =
+    aiStatus !== undefined
+      ? deriveCandidateStatus({ current_stage: stage, ai_screening_status: aiStatus })
+      : null;
   return (
     <span
       className={cn(PILL_CLASS, "gap-1", GROUP_TINT[group.id])}
       title={`${group.label} — ${t.stage[stage]}`}
     >
-      {aiStatus !== undefined ? (
-        <span
-          className={cn(
-            "h-1.5 w-1.5 shrink-0 rounded-full",
-            READINESS_DOT[stageReadiness(stage, aiStatus).tone],
-          )}
-          aria-hidden
-        />
+      {derived ? (
+        <>
+          <span
+            className={cn("h-1.5 w-1.5 shrink-0 rounded-full", READINESS_DOT[derived.tone])}
+            aria-hidden
+          />
+          <span className="sr-only">{derived.label}. </span>
+        </>
       ) : (
         <span aria-hidden>{group.icon}</span>
       )}

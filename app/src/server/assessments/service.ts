@@ -23,6 +23,7 @@ import {
 import { assessmentTestStoragePath, assessmentSubmissionStoragePath } from "@/lib/storage/paths";
 import { renderFromTemplate } from "@/server/email/templates";
 import { emitAgentEventInBackground } from "@/server/agent-flows/events";
+import { transitionStage } from "@/server/candidates/service";
 
 export interface UploadedAssessmentFile {
   buffer: ArrayBuffer;
@@ -105,7 +106,7 @@ export async function createAssessment(
  *      page shows "Đã gửi" without a real submission yet).
  *   4. Render assessment_send template with substitutions.
  *   5. Insert email_messages row (status='queued').
- *   6. Bump candidate.current_stage to 'test_sent' if currently earlier.
+ *   6. Move candidate to 'evaluating' if still at intake (renovation R1).
  *   7. Return { token, signed_link, deadline_at }.
  */
 export async function sendAssessment(
@@ -242,19 +243,10 @@ export async function sendAssessment(
     .set({ submission_id: submissionId })
     .where(eq(assessment_invite_tokens.token, token));
 
-  // 6. Bump candidate stage if currently earlier than test_sent
-  const earlierStages = [
-    "new",
-    "screening",
-    "screened",
-    "interview_scheduled",
-    "interviewed",
-  ] as const;
-  if ((earlierStages as readonly string[]).includes(candidate.current_stage)) {
-    await db
-      .update(candidates)
-      .set({ current_stage: "test_sent" })
-      .where(eq(candidates.id, candidate.id));
+  // 6. Sending a test is part of `evaluating` — pull the candidate in if
+  //    still at intake (no-op once already evaluating or beyond).
+  if (candidate.current_stage === "intake") {
+    await transitionStage(candidate.id, "evaluating", { notes: "Gửi bài test" });
   }
 
   return { token, signed_link: signedLink, deadline_at: expiresAt };
@@ -404,26 +396,10 @@ export async function gradeSubmission(
     })
     .where(eq(assessment_submissions.id, input.submission_id));
 
-  // Bump candidate stage if currently 'test_sent'
-  const cand = await db
-    .select({ current_stage: candidates.current_stage })
-    .from(candidates)
-    .where(eq(candidates.id, sub.candidate_id))
-    .limit(1)
-    .then((r) => r[0] ?? null);
-  if (cand?.current_stage === "test_sent") {
-    await db
-      .update(candidates)
-      .set({ current_stage: "test_done" })
-      .where(eq(candidates.id, sub.candidate_id));
-  }
-
-  // ADR 0020: re-arm the job agent's stale timer for the new stage.
-  emitAgentEventInBackground({
-    type: "stage_changed",
-    candidateId: sub.candidate_id,
-    toStage: "test_done",
-  });
+  // Grading no longer moves the stage — it's sub-state within `evaluating`
+  // (a graded test is "kết quả đã có"). The test_graded event drives the
+  // start-approval proposal.
+  emitAgentEventInBackground({ type: "test_graded", candidateId: sub.candidate_id });
 
   return { ok: true };
 }

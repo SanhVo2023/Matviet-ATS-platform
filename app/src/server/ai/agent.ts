@@ -16,7 +16,8 @@ import {
 } from "@/db/schema";
 import { aiWithTools, aiChat, type AiToolDef, type ChatMessage } from "@/lib/ai/workers-ai";
 import "@/server/ai/runtime";
-import { changeStage } from "@/server/candidates/service";
+import { transitionStage } from "@/server/candidates/service";
+import { REJECTION_REASONS } from "@/lib/stages";
 import { scheduleInterview, cancelInterview } from "@/server/interviews/service";
 import { startApproval } from "@/server/approvals/engine";
 import { enqueueOutbound } from "@/server/email/repository";
@@ -87,7 +88,8 @@ export const TOOLS: AiToolDef[] = [
         query: { type: "string", description: "Một phần tên ứng viên (có dấu hoặc không)" },
         stage: {
           type: "string",
-          description: "Giai đoạn pipeline, ví dụ: new, screened, interview_scheduled, recommended",
+          description:
+            "Giai đoạn pipeline: intake, evaluating, approving, offer, offer_accepted, hired, rejected, withdrew",
         },
         job: { type: "string", description: "Tên (một phần) hoặc UUID vị trí để lọc" },
       },
@@ -118,12 +120,16 @@ export const TOOLS: AiToolDef[] = [
   {
     name: "move_candidate_stage",
     description:
-      "Chuyển ứng viên sang giai đoạn pipeline khác (theo đúng luật chuyển của hệ thống). Giai đoạn: new, screening, screened, interview_scheduled, interviewed, test_sent, test_done, recommended, salary_deal, bod_review, tap_doan_review, offer_sent, offer_accepted, hired, rejected, withdrew. Với hired/rejected/withdrew (không đảo ngược được): BẮT BUỘC hỏi xác nhận trước, chỉ gọi với confirmed=true.",
+      "Chuyển ứng viên sang giai đoạn pipeline khác (theo đúng luật chuyển của hệ thống). Giai đoạn: intake, evaluating, approving, offer, offer_accepted, hired, rejected, withdrew. Với hired/rejected/withdrew (không đảo ngược được): BẮT BUỘC hỏi xác nhận trước, chỉ gọi với confirmed=true. Khi stage=rejected: truyền thêm reason (screened_out|not_approved|offer_declined|withdrawn_by_us|other).",
     parameters: {
       type: "object",
       properties: {
         name_or_id: { type: "string" },
         stage: { type: "string", description: "Giai đoạn đích (giá trị enum tiếng Anh ở trên)" },
+        reason: {
+          type: "string",
+          description: "Lý do từ chối (chỉ khi stage=rejected)",
+        },
         confirmed: {
           type: "boolean",
           description: "Bắt buộc true khi chuyển sang hired/rejected/withdrew",
@@ -573,7 +579,13 @@ function makeExecutor(profile: SessionProfile) {
         if (["hired", "rejected", "withdrew"].includes(stage) && args.confirmed !== true) {
           return NOT_CONFIRMED;
         }
-        await changeStage(c.id, stage);
+        const reason =
+          stage === "rejected"
+            ? (REJECTION_REASONS as readonly string[]).includes(String(args.reason))
+              ? (String(args.reason) as (typeof REJECTION_REASONS)[number])
+              : "other"
+            : undefined;
+        await transitionStage(c.id, stage, { actorUserId: profile.id, reason });
         await auditAgent(profile, "candidates", c.id, "agent_stage_move", {
           from: c.current_stage,
           to: stage,

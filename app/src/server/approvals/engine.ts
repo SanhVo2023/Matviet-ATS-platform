@@ -5,7 +5,8 @@ import { approvals, candidates, jobs, job_assignments } from "@/db/schema";
 import type { Database } from "@/types/db";
 import { notifyRoles, notifyUsers, jobManagerIds } from "@/server/notifications/service";
 import { emitAgentEventInBackground } from "@/server/agent-flows/events";
-import { APPROVAL_PRESETS, STAGE_FOR_PENDING_STEP, STEP_LABEL_VI, type FlowType } from "./presets";
+import { APPROVAL_PRESETS, STEP_LABEL_VI, type FlowType } from "./presets";
+import { transitionStage } from "@/server/candidates/service";
 
 type StepKind = Database["public"]["Enums"]["approval_step_kind"];
 type UserRole = Database["public"]["Enums"]["user_role"];
@@ -71,16 +72,18 @@ export async function startApproval(
 ): Promise<{ approval_ids: string[]; first_step_kind: StepKind; already_started: boolean }> {
   const db = await getDb();
 
-  // Already started?
+  // Already started? Only a PENDING chain blocks a fresh one — a cancelled or
+  // fully-decided chain (e.g. dragged out of the approval column and back)
+  // may be restarted (renovation R1).
   const existing = await db
-    .select({ id: approvals.id })
+    .select({ id: approvals.id, step_kind: approvals.step_kind })
     .from(approvals)
-    .where(eq(approvals.candidate_id, candidateId))
+    .where(and(eq(approvals.candidate_id, candidateId), eq(approvals.status, "pending")))
     .orderBy(asc(approvals.step_index));
   if (existing.length > 0) {
     return {
       approval_ids: existing.map((r) => r.id),
-      first_step_kind: APPROVAL_PRESETS["staff"][0]!, // placeholder; UI uses repository.listApprovalsForCandidate to render
+      first_step_kind: existing[0]!.step_kind,
       already_started: true,
     };
   }
@@ -115,15 +118,9 @@ export async function startApproval(
   const ins = await db.insert(approvals).values(rows).returning({ id: approvals.id });
   if (ins.length === 0) throw new Error("Không tạo được quy trình duyệt");
 
-  // Bump stage to whatever the first pending step implies
+  // Enter the single `approving` stage (which step is pending is derived).
   const firstStep = steps[0]!;
-  const targetStage = STAGE_FOR_PENDING_STEP[firstStep];
-  await db
-    .update(candidates)
-    .set({ current_stage: targetStage })
-    .where(eq(candidates.id, candidateId));
-  // ADR 0020: supersede open cards (e.g. start_approval) + re-arm the agent.
-  emitAgentEventInBackground({ type: "stage_changed", candidateId, toStage: targetStage });
+  await transitionStage(candidateId, "approving", { notes: "Bắt đầu chuỗi duyệt" });
 
   await notifyStepPending(firstStep, candidateId, cand.full_name, cand.job_id);
 
@@ -223,10 +220,11 @@ export async function decideApproval(
 
   // 2. Resolve next state of the candidate
   if (decision === "rejected") {
-    await db
-      .update(candidates)
-      .set({ current_stage: "rejected" })
-      .where(eq(candidates.id, r.candidate_id));
+    await transitionStage(r.candidate_id, "rejected", {
+      actorUserId: actor.id,
+      reason: "not_approved",
+      notes: `Từ chối ở bước "${STEP_LABEL_VI[r.step_kind]}"`,
+    });
     await notifyRoles(
       ["hr", "admin"],
       {
@@ -259,11 +257,11 @@ export async function decideApproval(
   const next = siblings.find((s) => s.status === "pending");
 
   if (!next) {
-    // Fully approved — fire offer
-    await db
-      .update(candidates)
-      .set({ current_stage: "offer_sent" })
-      .where(eq(candidates.id, r.candidate_id));
+    // Fully approved — enter the offer stage.
+    await transitionStage(r.candidate_id, "offer", {
+      actorUserId: actor.id,
+      notes: "Duyệt xong toàn bộ",
+    });
     await notifyRoles(
       ["hr", "admin"],
       {
@@ -283,18 +281,8 @@ export async function decideApproval(
     return { candidateId: r.candidate_id, finalized: true, nextStep: null };
   }
 
-  // Move stage to whatever the next pending step implies
-  const targetStage = STAGE_FOR_PENDING_STEP[next.step_kind];
-  await db
-    .update(candidates)
-    .set({ current_stage: targetStage })
-    .where(eq(candidates.id, r.candidate_id));
-  // ADR 0020: intermediate advances must also reconcile + re-arm the agent.
-  emitAgentEventInBackground({
-    type: "stage_changed",
-    candidateId: r.candidate_id,
-    toStage: targetStage,
-  });
+  // Intermediate advance: the stage stays `approving` (which step is pending
+  // is derived) — just notify the next decider. No stage write, no event.
   await notifyStepPending(next.step_kind, r.candidate_id, cand.full_name, cand.job_id, actor.id);
   return { candidateId: r.candidate_id, finalized: false, nextStep: next.step_kind };
 }

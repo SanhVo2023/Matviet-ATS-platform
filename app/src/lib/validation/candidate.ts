@@ -1,7 +1,18 @@
 /**
- * Zod schemas for candidate upload + edit forms.
+ * Zod schemas for candidate upload + edit forms, plus the kanban stage-group
+ * mapping. The stage ENUM + transition guard live in `@/lib/stages` (single
+ * source of truth, renovation R1); this module re-exports them so existing
+ * importers keep compiling, and owns only the board-grouping presentation.
  */
 import { z } from "zod";
+import { allowedNextStages as _allowedNextStages, type Stage } from "@/lib/stages";
+
+export {
+  PIPELINE_STAGES as ALL_STAGES,
+  allowedNextStages,
+  isValidTransition,
+  type Stage,
+} from "@/lib/stages";
 
 // E.164 or Vietnamese local mobile patterns: tolerant — we just normalize.
 const PHONE_RE = /^[+\d][\d\s\-().]{6,20}$/;
@@ -25,59 +36,20 @@ export const CandidateUploadSchema = z.object({
 
 export type CandidateUploadInput = z.infer<typeof CandidateUploadSchema>;
 
-/**
- * Pipeline stage transitions allowed from the UI dropdown.
- * Most transitions are open, but we lock down a few obvious mistakes:
- *   - Once `hired`, only `withdrew` (rare reversal) is offered
- *   - Once `rejected` or `withdrew`, no further transitions (HR clones to a new candidate row instead)
- */
-export const ALL_STAGES = [
-  "new",
-  "screening",
-  "screened",
-  "interview_scheduled",
-  "interviewed",
-  "test_sent",
-  "test_done",
-  "recommended",
-  "salary_deal",
-  "bod_review",
-  "tap_doan_review",
-  "offer_sent",
-  "offer_accepted",
-  "hired",
-  "rejected",
-  "withdrew",
-] as const;
-
-export type Stage = (typeof ALL_STAGES)[number];
-
-const TERMINAL = new Set<Stage>(["rejected", "withdrew"]);
-const HIRED_NEXT = new Set<Stage>(["withdrew"]);
-
-export function allowedNextStages(current: Stage): Stage[] {
-  if (TERMINAL.has(current)) return [];
-  if (current === "hired") return [...HIRED_NEXT];
-  return ALL_STAGES.filter((s) => s !== current);
-}
-
 // ---------------------------------------------------------------------------
-// Super-stage groups (ADR 0015, tightened to 4 BUSINESS columns — Sanh
-// 2026-07-07): the kanban BOARD shows 4 columns + a toggleable "Đã đóng";
-// the DB keeps all 16 detailed stages (history, reports, agent untouched).
-// Cards show a READINESS dot+label (see stageReadiness); the table
-// StageDropdown still reaches every sub-stage.
+// Kanban stage-groups. With the 16→8 collapse (renovation R1) the groups are
+// now near 1:1 with stages; the board still shows 4 business columns + a
+// toggleable "Đã đóng". `canonical` = the stage a drop onto the column moves
+// the card to (null = the Offer column, which starts the approval chain).
 // ---------------------------------------------------------------------------
 
 export interface StageGroup {
   id: string;
-  /** Emoji column marker (business language, per Sanh's spec). */
+  /** Emoji column marker (R4 will convert to lucide app-wide). */
   icon: string;
   label: string;
-  /** One-line business description shown under the column header. */
   description: string;
   stages: readonly Stage[];
-  /** Stage a drop maps to; null = special handling (Offer column starts the approval chain). */
   canonical: Stage | null;
 }
 
@@ -87,23 +59,23 @@ export const STAGE_GROUPS: readonly StageGroup[] = [
     icon: "📥",
     label: "Tiếp nhận & Sàng lọc",
     description: "Hồ sơ mới từ các kênh, chờ AI chấm và lọc sơ bộ.",
-    stages: ["new", "screening", "screened"],
-    canonical: "screened",
+    stages: ["intake"],
+    canonical: "intake",
   },
   {
     id: "g_eval",
     icon: "🗣️",
     label: "Đánh giá & Phỏng vấn",
     description: "Ứng viên đang làm test, phỏng vấn HR hoặc Trưởng bộ phận.",
-    stages: ["interview_scheduled", "interviewed", "test_sent", "test_done"],
-    canonical: "interview_scheduled",
+    stages: ["evaluating"],
+    canonical: "evaluating",
   },
   {
     id: "g_offer",
     icon: "🤝",
     label: "Đề nghị làm việc",
-    description: "Đạt yêu cầu — đang duyệt đề xuất, tham chiếu và đàm phán lương.",
-    stages: ["recommended", "salary_deal", "bod_review", "tap_doan_review", "offer_sent"],
+    description: "Đạt yêu cầu — đang duyệt đề xuất và gửi offer.",
+    stages: ["approving", "offer"],
     canonical: null,
   },
   {
@@ -116,8 +88,7 @@ export const STAGE_GROUPS: readonly StageGroup[] = [
   },
 ] as const;
 
-/** Rejected/withdrew — hidden behind a toggle chip; NOT a drop target
- * (rejecting is a consequential action, done from the detail page/table). */
+/** Rejected/withdrew — hidden behind a toggle chip; NOT a drop target. */
 export const CLOSED_GROUP: StageGroup = {
   id: "g_closed",
   icon: "🗂️",
@@ -132,61 +103,13 @@ export function groupOfStage(s: Stage): StageGroup {
   return STAGE_GROUPS.find((g) => g.stages.includes(s)) ?? STAGE_GROUPS[0]!;
 }
 
-// ---------------------------------------------------------------------------
-// Readiness — the card's status COLOR (Sanh 2026-07-07): green = gate passed,
-// ready for the next column; gray = waiting on someone; red = HR must act.
-// Always paired with a text label (never color alone — color-blind safe).
-// Derived purely from current_stage + ai_screening_status; the approval
-// engine sets offer_sent the moment the chain fully approves, so that stage
-// reads "approved — compose/await the offer".
-// ---------------------------------------------------------------------------
-
-export type ReadinessTone = "ready" | "waiting" | "blocked" | "done";
-
-export interface Readiness {
-  tone: ReadinessTone;
-  label: string;
-}
-
-const STAGE_READINESS: Record<Stage, Readiness> = {
-  new: { tone: "waiting", label: "Chờ xử lý" },
-  screening: { tone: "waiting", label: "AI đang chấm" },
-  screened: { tone: "ready", label: "Sẵn sàng phỏng vấn" },
-  interview_scheduled: { tone: "waiting", label: "Chờ phỏng vấn" },
-  interviewed: { tone: "ready", label: "Sẵn sàng đề xuất" },
-  test_sent: { tone: "waiting", label: "Chờ làm test" },
-  test_done: { tone: "ready", label: "Sẵn sàng đề xuất" },
-  recommended: { tone: "waiting", label: "Đang chờ duyệt" },
-  salary_deal: { tone: "waiting", label: "Đang chờ duyệt" },
-  bod_review: { tone: "waiting", label: "BOD đang duyệt" },
-  tap_doan_review: { tone: "waiting", label: "Tập đoàn đang duyệt" },
-  offer_sent: { tone: "ready", label: "Duyệt xong — offer" },
-  offer_accepted: { tone: "ready", label: "Chốt nhận việc" },
-  hired: { tone: "done", label: "Đã tuyển" },
-  rejected: { tone: "blocked", label: "Từ chối" },
-  withdrew: { tone: "waiting", label: "Rút lui" },
-};
-
-export function stageReadiness(stage: Stage, aiStatus?: string | null): Readiness {
-  // A broken AI screening needs a human BEFORE the pipeline can move —
-  // only relevant while the candidate is still in intake.
-  if (
-    (aiStatus === "failed" || aiStatus === "needs_review") &&
-    groupOfStage(stage).id === "g_intake"
-  ) {
-    return { tone: "blocked", label: "Cần xử lý chấm AI" };
-  }
-  return STAGE_READINESS[stage];
-}
-
 /**
- * Which detailed stage a drop onto `group` maps to for a card currently in
- * `current`. Falls back to the first *allowed* stage in the group so e.g.
- * hired → Đóng lands on `withdrew` (rejected isn't reachable from hired).
- * Null = the move is not allowed at all.
+ * Which stage a drop onto `group` maps to for a card currently in `current`,
+ * or null when the move isn't allowed. `g_offer` returns "approving" (the
+ * board special-cases it to start the approval chain).
  */
 export function resolveGroupTarget(current: Stage, group: StageGroup): Stage | null {
-  const allowed = allowedNextStages(current);
-  if (group.canonical && allowed.includes(group.canonical)) return group.canonical;
-  return group.stages.find((s) => allowed.includes(s)) ?? null;
+  const target = group.canonical ?? (group.id === "g_offer" ? "approving" : null);
+  if (!target) return null;
+  return _allowedNextStages(current).includes(target) ? target : null;
 }

@@ -1,10 +1,22 @@
 import "server-only";
-import { and, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { candidates, cv_files, job_assignments, stage_history, users } from "@/db/schema";
+import {
+  candidates,
+  cv_files,
+  job_assignments,
+  stage_history,
+  users,
+  interviews,
+  interview_evaluations,
+  assessment_submissions,
+  approvals,
+} from "@/db/schema";
+import { deriveCandidateStatus, type DerivedStatus } from "@/lib/candidate-status";
 import type { Database, Tables } from "@/types/db";
 
 export type CandidateRow = Tables<"candidates">;
+export type CandidateWithStatus = CandidateRow & { derived: DerivedStatus };
 export type CvFileRow = Tables<"cv_files">;
 export type StageHistoryRow = Tables<"stage_history">;
 export type Stage = Database["public"]["Enums"]["pipeline_stage"];
@@ -53,6 +65,98 @@ export async function listCandidates(filters: CandidateListFilters = {}): Promis
     .from(candidates)
     .where(and(...conds))
     .orderBy(desc(candidates.created_at));
+}
+
+/**
+ * Attach a DerivedStatus to each candidate (renovation R1) with a handful of
+ * batched IN-queries instead of per-row lookups — so kanban cards, the table,
+ * and the dashboard all show the same "waiting on whom, how many days".
+ */
+export async function attachDerivedStatus(
+  rows: CandidateRow[],
+  now?: number,
+): Promise<CandidateWithStatus[]> {
+  if (rows.length === 0) return [];
+  const db = await getDb();
+  const ids = rows.map((r) => r.id);
+
+  const [lastChanges, nextInterviews, owedEval, pendingSteps, submissions] = await Promise.all([
+    db
+      .select({
+        candidate_id: stage_history.candidate_id,
+        at: sql<string>`MAX(${stage_history.at})`,
+      })
+      .from(stage_history)
+      .where(inArray(stage_history.candidate_id, ids))
+      .groupBy(stage_history.candidate_id),
+    db
+      .select({
+        candidate_id: interviews.candidate_id,
+        at: sql<string>`MIN(${interviews.scheduled_at})`,
+      })
+      .from(interviews)
+      .where(and(inArray(interviews.candidate_id, ids), eq(interviews.status, "scheduled")))
+      .groupBy(interviews.candidate_id),
+    // completed interviews with no evaluation row → owes an evaluation
+    db
+      .select({ candidate_id: interviews.candidate_id })
+      .from(interviews)
+      .leftJoin(interview_evaluations, eq(interview_evaluations.interview_id, interviews.id))
+      .where(
+        and(
+          inArray(interviews.candidate_id, ids),
+          eq(interviews.status, "completed"),
+          isNull(interview_evaluations.id),
+        ),
+      ),
+    // lowest pending approval step per candidate
+    db
+      .select({
+        candidate_id: approvals.candidate_id,
+        step_kind: approvals.step_kind,
+        step_index: approvals.step_index,
+      })
+      .from(approvals)
+      .where(and(inArray(approvals.candidate_id, ids), eq(approvals.status, "pending")))
+      .orderBy(approvals.step_index),
+    db
+      .select({
+        candidate_id: assessment_submissions.candidate_id,
+        submitted_at: assessment_submissions.submitted_at,
+        score: assessment_submissions.score,
+        created_at: assessment_submissions.created_at,
+      })
+      .from(assessment_submissions)
+      .where(inArray(assessment_submissions.candidate_id, ids))
+      .orderBy(desc(assessment_submissions.created_at)),
+  ]);
+
+  const lastMap = new Map(lastChanges.map((r) => [r.candidate_id, r.at]));
+  const nextIvMap = new Map(nextInterviews.map((r) => [r.candidate_id, r.at]));
+  const owedSet = new Set(owedEval.map((r) => r.candidate_id));
+  const stepMap = new Map<string, (typeof pendingSteps)[number]["step_kind"]>();
+  for (const s of pendingSteps)
+    if (!stepMap.has(s.candidate_id)) stepMap.set(s.candidate_id, s.step_kind);
+  const subMap = new Map<string, { submitted_at: string | null; score: number | null }>();
+  for (const s of submissions)
+    if (!subMap.has(s.candidate_id))
+      subMap.set(s.candidate_id, { submitted_at: s.submitted_at, score: s.score });
+
+  return rows.map((r) => {
+    const sub = subMap.get(r.id);
+    return {
+      ...r,
+      derived: deriveCandidateStatus(r, {
+        now,
+        lastStageChangeAt: lastMap.get(r.id) ?? r.created_at,
+        nextInterviewAt: nextIvMap.get(r.id) ?? null,
+        awaitingEvaluation: owedSet.has(r.id),
+        testAwaitingSubmission: !!sub && !sub.submitted_at,
+        testAwaitingGrade: !!sub?.submitted_at && sub.score == null,
+        pendingApprovalStep: stepMap.get(r.id) ?? null,
+      }),
+    };
+  });
 }
 
 export async function getCandidate(id: string): Promise<CandidateRow | null> {

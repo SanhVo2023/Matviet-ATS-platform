@@ -16,8 +16,7 @@ import { t } from "@/lib/i18n";
 import type { FunnelSuperStageDatum } from "@/server/reports/types";
 
 const SUPER_LABEL: Record<string, string> = {
-  applied: "Mới",
-  screening: "Sàng lọc",
+  applied: "Tiếp nhận",
   interview: "Phỏng vấn",
   approval: "Phê duyệt",
   offer: "Offer",

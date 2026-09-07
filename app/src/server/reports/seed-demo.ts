@@ -49,16 +49,10 @@ const VN_NAMES = [
 
 const SOURCES = ["manual_upload", "csv_import", "topcv_api", "referral", "email_inbox"] as const;
 const STAGES_TIMELINE: Array<{ stage: Stage; daysAfter: number }> = [
-  { stage: "new", daysAfter: 0 },
-  { stage: "screening", daysAfter: 1 },
-  { stage: "screened", daysAfter: 2 },
-  { stage: "interview_scheduled", daysAfter: 4 },
-  { stage: "interviewed", daysAfter: 7 },
-  { stage: "test_sent", daysAfter: 9 },
-  { stage: "test_done", daysAfter: 12 },
-  { stage: "recommended", daysAfter: 14 },
-  { stage: "salary_deal", daysAfter: 16 },
-  { stage: "offer_sent", daysAfter: 18 },
+  { stage: "intake", daysAfter: 0 },
+  { stage: "evaluating", daysAfter: 4 },
+  { stage: "approving", daysAfter: 14 },
+  { stage: "offer", daysAfter: 18 },
   { stage: "offer_accepted", daysAfter: 20 },
   { stage: "hired", daysAfter: 22 },
 ];
@@ -67,8 +61,8 @@ const STAGES_TIMELINE: Array<{ stage: Stage; daysAfter: number }> = [
 const DISTRIBUTION: Array<{ count: number; finalStage: Stage }> = [
   { count: 10, finalStage: "hired" },
   { count: 8, finalStage: "offer_accepted" },
-  { count: 6, finalStage: "interviewed" },
-  { count: 3, finalStage: "screening" },
+  { count: 6, finalStage: "evaluating" },
+  { count: 3, finalStage: "intake" },
   { count: 3, finalStage: "rejected" },
 ];
 

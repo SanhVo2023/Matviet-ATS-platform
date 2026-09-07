@@ -1,19 +1,11 @@
 import type { FunnelSuperStage, Stage } from "./types";
 
-/** All 16 pipeline stages in canonical order. */
+/** All 8 pipeline stages in canonical order (renovation R1). */
 export const ALL_STAGES: Stage[] = [
-  "new",
-  "screening",
-  "screened",
-  "interview_scheduled",
-  "interviewed",
-  "test_sent",
-  "test_done",
-  "recommended",
-  "salary_deal",
-  "bod_review",
-  "tap_doan_review",
-  "offer_sent",
+  "intake",
+  "evaluating",
+  "approving",
+  "offer",
   "offer_accepted",
   "hired",
   "rejected",
@@ -21,22 +13,14 @@ export const ALL_STAGES: Stage[] = [
 ];
 
 /**
- * 16 pipeline stages collapse into 7 supersets for the funnel chart. The
- * tooltip exposes the per-stage breakdown.
+ * Stages collapse into funnel supersets. `intake` IS the applied bucket now
+ * (AI screening is sub-state, not a stage). The tooltip exposes the count.
  */
 export const STAGE_TO_SUPER: Record<Stage, FunnelSuperStage> = {
-  new: "applied",
-  screening: "screening",
-  screened: "screening",
-  interview_scheduled: "interview",
-  interviewed: "interview",
-  test_sent: "interview",
-  test_done: "interview",
-  recommended: "approval",
-  salary_deal: "approval",
-  bod_review: "approval",
-  tap_doan_review: "approval",
-  offer_sent: "offer",
+  intake: "applied",
+  evaluating: "interview",
+  approving: "approval",
+  offer: "offer",
   offer_accepted: "offer",
   hired: "hired",
   rejected: "rejected",
@@ -45,20 +29,16 @@ export const STAGE_TO_SUPER: Record<Stage, FunnelSuperStage> = {
 
 /**
  * Adjacent-stage pairs used by the conversion chart. Skips the terminal
- * branches (`rejected`, `withdrew`) — those are dead ends, not conversions.
+ * branches (`rejected`, `withdrew`) — dead ends, not conversions.
+ *
+ * NOTE: a candidate taking the intake→approving skip path (kanban drag past
+ * evaluating) won't be counted as crossing evaluating, so that conversion
+ * reads slightly low. Acceptable for a low-volume internal funnel.
  */
 export const ORDERED_STAGE_PAIRS: Array<[Stage, Stage]> = [
-  ["new", "screening"],
-  ["screening", "screened"],
-  ["screened", "interview_scheduled"],
-  ["interview_scheduled", "interviewed"],
-  ["interviewed", "test_sent"],
-  ["test_sent", "test_done"],
-  ["test_done", "recommended"],
-  ["recommended", "salary_deal"],
-  ["salary_deal", "bod_review"],
-  ["bod_review", "tap_doan_review"],
-  ["tap_doan_review", "offer_sent"],
-  ["offer_sent", "offer_accepted"],
+  ["intake", "evaluating"],
+  ["evaluating", "approving"],
+  ["approving", "offer"],
+  ["offer", "offer_accepted"],
   ["offer_accepted", "hired"],
 ];

@@ -1,17 +1,25 @@
-import type { Stage } from "@/lib/validation/candidate";
+import type { Stage } from "@/lib/stages";
 
 /**
- * Stage-driven next actions (ADR 0019): ONE obvious thing to do per stage,
+ * Stage-driven next actions (ADR 0019): the obvious thing(s) to do per stage,
  * shown on the current rung of the candidate journey. Pure policy — the
  * RungActions component maps keys to real dialogs/server actions.
  *
  * Deliberately NOT here:
- *  - retry/manual scoring (lives inside the rung-1 ScoringTab content)
- *  - send test (lives inside the rung-2 AssessmentsTab content)
- *  - approve/decline steps (live inside the rung-3 ApprovalsTab content)
- *  - compose offer email (rendered server-side into the rung-3 offer block)
+ *  - retry/manual scoring (lives inside the intake ScoringTab content)
+ *  - send test (lives inside the evaluating AssessmentsTab content)
+ *  - approve/decline steps (live inside the approving ApprovalsTab content)
+ *  - compose offer email (rendered server-side into the offer block)
+ *
+ * Every open stage names at least one action (renovation R1 — previously 11 of
+ * 16 stages offered only "reject" or, for managers, nothing).
  */
-export type NextActionKey = "schedule_interview" | "start_approval" | "mark_hired" | "reject";
+export type NextActionKey =
+  | "schedule_interview"
+  | "start_approval"
+  | "mark_hired"
+  | "reject"
+  | "withdraw";
 
 export interface NextAction {
   key: NextActionKey;
@@ -27,15 +35,11 @@ export function nextActionsFor(stage: Stage, role: Role): NextAction[] {
 
   const actions: NextAction[] = [];
   switch (stage) {
-    case "screened":
+    case "intake":
       if (canOperate)
         actions.push({ key: "schedule_interview", label: "Đặt lịch phỏng vấn", primary: true });
       break;
-    case "interview_scheduled":
-      if (canOperate) actions.push({ key: "schedule_interview", label: "Đặt thêm lịch" });
-      break;
-    case "interviewed":
-    case "test_done":
+    case "evaluating":
       if (canPropose)
         actions.push({ key: "start_approval", label: "Đề xuất tuyển", primary: true });
       if (canOperate) actions.push({ key: "schedule_interview", label: "Phỏng vấn vòng nữa" });
@@ -44,15 +48,19 @@ export function nextActionsFor(stage: Stage, role: Role): NextAction[] {
       if (canOperate)
         actions.push({ key: "mark_hired", label: "Xác nhận đã tuyển", primary: true });
       break;
+    // approving / offer: the primary action lives in the tab content
+    // (approve-decide / compose-offer), so no journey button — only the
+    // quiet reject + withdraw below.
     default:
       break;
   }
 
-  // Reject is always available to HR/admin while the record is open —
-  // deliberately quiet (secondary + confirm step).
+  // Reject + withdraw are available to HR/admin while the record is open —
+  // deliberately quiet (secondary; reject opens the reason picker).
   const CLOSED: Stage[] = ["hired", "rejected", "withdrew"];
   if (canOperate && !CLOSED.includes(stage)) {
     actions.push({ key: "reject", label: "Từ chối" });
+    actions.push({ key: "withdraw", label: "Ứng viên rút hồ sơ" });
   }
   return actions;
 }

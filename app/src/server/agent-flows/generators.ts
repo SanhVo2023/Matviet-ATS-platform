@@ -215,27 +215,15 @@ export async function proposeNudgeStale(args: {
   const { candidate, job, idleDays } = args;
   const stage = candidate.current_stage;
   const stageLabel = (t.stage as Record<string, string>)[stage] ?? stage;
-  // Interview happened, no evaluation yet → nudge the TEAM with the right words.
-  if (stage === "interview_scheduled") {
-    await createProposal({
-      jobId: job.id,
-      candidateId: candidate.id,
-      kind: "nudge_stale",
-      summary: `PV của ${candidate.full_name} đã diễn ra — chưa có đánh giá`,
-      reasoning: `Buổi phỏng vấn đã qua ${idleDays} ngày mà chưa người phỏng vấn nào nhập đánh giá. Duyệt = nhắc người phỏng vấn qua thông báo.`,
-      payload: { action: "remind_team", stage, idle_days: idleDays },
-      dedupeKey: `ns:${candidate.id}:${stage}`,
-    });
-    return;
-  }
-  // approvals set stage=offer_sent BEFORE any offer email exists (the
-  // compose_offer card is the prompt to send it). Nudging the candidate
-  // about an offer they never received would be wrong — and the open
-  // compose_offer card already reminds the team. Skip.
-  if (stage === "offer_sent" && !(await hasOfferEmail(candidate.id))) return;
-  // Waiting on the CANDIDATE → draft a reminder email; waiting on the TEAM →
-  // internal nudge to whoever owns the next move.
-  const waitingOnCandidate = stage === "test_sent" || stage === "offer_sent";
+  // The `offer` stage is set the moment the chain fully approves — BEFORE any
+  // offer email exists (the compose_offer card is the prompt to send it).
+  // Nudging the candidate about an offer they never received would be wrong,
+  // and the open compose_offer card already reminds the team. Skip.
+  if (stage === "offer" && !(await hasOfferEmail(candidate.id))) return;
+  // Waiting on the CANDIDATE → draft a reminder email (only `offer` with a
+  // sent email is unambiguously candidate-waiting from stage alone); everything
+  // else → internal nudge to whoever owns the next move.
+  const waitingOnCandidate = stage === "offer";
 
   await createProposal({
     jobId: job.id,
@@ -256,9 +244,7 @@ export async function proposeNudgeStale(args: {
               subject: `Mắt Việt — nhắc về quy trình tuyển dụng vị trí ${job.title}`,
               body_html:
                 `<p>Kính gửi ${candidate.full_name},</p>` +
-                (stage === "offer_sent"
-                  ? `<p>Mắt Việt đã gửi thư mời nhận việc cho vị trí <strong>${job.title}</strong> và rất mong nhận được phản hồi của bạn. Nếu bạn cần thêm thời gian hoặc có câu hỏi, xin cứ trả lời email này.</p>`
-                  : `<p>Mắt Việt đã gửi bài kiểm tra cho vị trí <strong>${job.title}</strong> và chưa nhận được bài làm của bạn. Nếu link đã hết hạn hoặc bạn cần hỗ trợ, xin trả lời email này.</p>`) +
+                `<p>Mắt Việt đã gửi thư mời nhận việc cho vị trí <strong>${job.title}</strong> và rất mong nhận được phản hồi của bạn. Nếu bạn cần thêm thời gian hoặc có câu hỏi, xin cứ trả lời email này.</p>` +
                 `<p>Trân trọng,<br/>Phòng Nhân sự Mắt Việt</p>`,
             },
           }

@@ -33,6 +33,7 @@ const SOURCE_FILTERS = [
   "csv_import",
   "topcv_api",
   "referral",
+  "careers_page",
 ] as const;
 
 export function CandidatesListClient({ initialCandidates, jobs }: Props) {
@@ -78,10 +79,10 @@ export function CandidatesListClient({ initialCandidates, jobs }: Props) {
   // Group stages into top filter chips for screen real estate; full filter via dropdown.
   const TOP_STAGE_CHIPS: Array<(typeof STAGE_FILTERS)[number]> = [
     "all",
-    "new",
-    "screened",
-    "interview_scheduled",
-    "offer_sent",
+    "intake",
+    "evaluating",
+    "approving",
+    "offer",
     "hired",
     "rejected",
   ];

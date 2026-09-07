@@ -6,12 +6,12 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { cn } from "@/lib/utils";
 import type { StageGroup } from "@/lib/validation/candidate";
 import { GROUP_ACCENT } from "@/lib/stage-visuals";
-import type { CandidateRow } from "@/server/candidates/repository";
+import type { CandidateWithStatus } from "@/server/candidates/repository";
 import { KanbanCard } from "./KanbanCard";
 
 interface Props {
   group: StageGroup;
-  candidates: CandidateRow[];
+  candidates: CandidateWithStatus[];
   /** When false, dropping onto this column is rejected client-side (validation) — visual cue only. */
   acceptsDrop: boolean;
   /** Rendered at the top of the card list (the intake column's PDF drop target). */

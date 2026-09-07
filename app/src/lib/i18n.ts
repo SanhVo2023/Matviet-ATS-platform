@@ -83,22 +83,29 @@ export const t = {
 
   // Matches enum pipeline_stage — 16 values
   stage: {
-    new: "Mới",
-    screening: "Đang chấm",
-    screened: "Đã chấm",
-    interview_scheduled: "Đã xếp lịch PV",
-    interviewed: "Đã PV",
-    test_sent: "Đã gửi test",
-    test_done: "Đã làm test",
-    recommended: "Đề xuất",
-    salary_deal: "Đang deal lương",
-    bod_review: "BOD đang duyệt",
-    tap_doan_review: "Tập đoàn đang duyệt",
-    offer_sent: "Đã gửi offer",
+    intake: "Tiếp nhận",
+    evaluating: "Đánh giá",
+    approving: "Chờ duyệt",
+    offer: "Đã gửi offer",
     offer_accepted: "Đã nhận offer",
     hired: "Đã tuyển",
     rejected: "Từ chối",
     withdrew: "Rút hồ sơ",
+  },
+  rejectionReason: {
+    screened_out: "Không qua sàng lọc",
+    not_approved: "Không được duyệt",
+    offer_declined: "Ứng viên từ chối offer",
+    withdrawn_by_us: "Đóng vị trí / rút đề nghị",
+    other: "Lý do khác",
+  },
+  waitingOn: {
+    hr: "Chờ HR",
+    manager: "Chờ Trưởng phòng",
+    candidate: "Chờ ứng viên",
+    bod: "Chờ BOD",
+    tap_doan: "Chờ Tập đoàn",
+    ai: "Chờ AI",
   },
 
   // Matches enum candidate_source

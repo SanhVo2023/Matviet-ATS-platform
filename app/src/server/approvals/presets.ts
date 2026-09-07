@@ -38,17 +38,6 @@ export const STEP_LABEL_VI: Record<StepKind, string> = {
   tap_doan: "Quản lý Tập đoàn duyệt",
 };
 
-/**
- * Derive the candidate stage to land in WHILE a given step is the active
- * pending step. Used so the kanban + list views show the right column.
- */
-export const STAGE_FOR_PENDING_STEP: Record<
-  StepKind,
-  Database["public"]["Enums"]["pipeline_stage"]
-> = {
-  hr_recommend: "recommended",
-  manager_recommend: "recommended",
-  salary_deal: "salary_deal",
-  bod: "bod_review",
-  tap_doan: "tap_doan_review",
-};
+// STAGE_FOR_PENDING_STEP is gone (renovation R1): every pending step now maps
+// to the single `approving` stage; which step is pending is DERIVED sub-state
+// (deriveCandidateStatus reads the lowest pending approvals row).

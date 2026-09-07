@@ -14,9 +14,9 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   // Dev-server rendering is slow even warmed — budgets sized for that, not
-  // for production speed.
-  timeout: 60_000,
-  expect: { timeout: 10_000 },
+  // for production speed. The setup project pays cold-compile on first hit.
+  timeout: 120_000,
+  expect: { timeout: 12_000 },
   retries: process.env.CI ? 2 : 0,
   // next dev on one machine can't serve many parallel first-renders.
   workers: 2,

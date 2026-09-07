@@ -5,10 +5,10 @@ import {
   STAGE_GROUPS,
   CLOSED_GROUP,
   groupOfStage,
-  stageReadiness,
   type Stage,
   type StageGroup,
 } from "@/lib/validation/candidate";
+import { deriveCandidateStatus, type StatusRelated } from "@/lib/candidate-status";
 import { scoreVerdict } from "@/lib/stage-visuals";
 import { STEP_LABEL_VI } from "@/server/approvals/presets";
 import type { CandidateRow, StageHistoryRow } from "@/server/candidates/repository";
@@ -49,7 +49,7 @@ interface Props {
   actorNames: Record<string, string>;
   currentUserOwnsManagerStep: boolean;
   history: StageHistoryRow[];
-  /** Server-prepared compose button for the offer email (stage offer_sent). */
+  /** Server-prepared compose button for the offer email (stage offer). */
   offerComposeSlot?: React.ReactNode;
 }
 
@@ -71,7 +71,7 @@ export function CandidateJourney(props: Props) {
     ? [...history].reverse().find((h) => CLOSED_GROUP.stages.includes(h.to_stage as Stage))
     : undefined;
   // Where the candidate stopped climbing: group of the stage they left from.
-  const anchorStage: Stage = isClosed ? ((exitRow?.from_stage as Stage) ?? "new") : stage;
+  const anchorStage: Stage = isClosed ? ((exitRow?.from_stage as Stage) ?? "intake") : stage;
   const anchorIdx = Math.max(
     0,
     STAGE_GROUPS.findIndex((g) => g.id === groupOfStage(anchorStage).id),
@@ -86,7 +86,26 @@ export function CandidateJourney(props: Props) {
   const eventsFor = (group: StageGroup) =>
     history.filter((h) => groupOfStage(h.to_stage as Stage).id === group.id);
 
-  const readiness = stageReadiness(stage, candidate.ai_screening_status);
+  // Derived status from the rows the page already loaded (no extra queries).
+  const nextInterview = props.interviews
+    .filter((iv) => iv.status === "scheduled")
+    .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))[0];
+  const completedNoEval = props.interviews.some(
+    (iv) => iv.status === "completed" && !props.evaluations.some((e) => e.interview_id === iv.id),
+  );
+  const pendingStep = [...props.approvals]
+    .filter((a) => a.status === "pending")
+    .sort((a, b) => a.step_index - b.step_index)[0]?.step_kind;
+  const related: StatusRelated = {
+    lastStageChangeAt: history.length ? history[history.length - 1]!.at : candidate.created_at,
+    nextInterviewAt: nextInterview?.scheduled_at ?? null,
+    awaitingEvaluation: completedNoEval,
+    testAwaitingSubmission: !!props.latestSubmission && !props.latestSubmission.submitted_at,
+    testAwaitingGrade:
+      !!props.latestSubmission?.submitted_at && props.latestSubmission.score == null,
+    pendingApprovalStep: pendingStep ?? null,
+  };
+  const readiness = deriveCandidateStatus(candidate, related);
 
   return (
     <ol aria-label="Hành trình tuyển dụng">
@@ -201,7 +220,7 @@ function rungSummary(groupId: string, props: Props): React.ReactNode {
       if (approved === total) {
         return candidate.offer_response === "accepted"
           ? `Duyệt xong ${approved}/${total} · Offer đã được nhận`
-          : `Duyệt xong ${approved}/${total} · ${candidate.current_stage === "offer_sent" ? "Chờ ứng viên phản hồi offer" : "Sẵn sàng gửi offer"}`;
+          : `Duyệt xong ${approved}/${total} · ${candidate.current_stage === "offer" ? "Chờ ứng viên phản hồi offer" : "Sẵn sàng gửi offer"}`;
       }
       return `Duyệt ${approved}/${total} bước — ${pending ? STEP_LABEL_VI[pending.step_kind] : "đang xử lý"}`;
     }
@@ -310,7 +329,7 @@ function OfferBlock({
 }) {
   const stage = candidate.current_stage;
   const relevant =
-    stage === "offer_sent" || candidate.offer_response != null || candidate.offer_token != null;
+    stage === "offer" || candidate.offer_response != null || candidate.offer_token != null;
   if (!relevant) return null;
 
   return (
@@ -329,7 +348,7 @@ function OfferBlock({
           {candidate.offer_responded_at ? ` — ${formatDateTime(candidate.offer_responded_at)}` : ""}
           {candidate.offer_response_note ? ` · "${candidate.offer_response_note}"` : ""}
         </p>
-      ) : stage === "offer_sent" ? (
+      ) : stage === "offer" ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <p className="text-slate-600">
             Duyệt xong — soạn thư mời nhận việc (link chấp nhận tự chèn vào mẫu Offer).
