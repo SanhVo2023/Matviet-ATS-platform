@@ -135,17 +135,21 @@ export function CandidatesListClient({ initialCandidates, jobs }: Props) {
         className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3"
         aria-label="Lọc danh sách"
       >
-        <Segmented
-          id="candidates-stage"
-          size="sm"
-          aria-label="Lọc theo giai đoạn"
-          options={TOP_STAGE_CHIPS.map((s) => ({
-            value: s,
-            label: s === "all" ? "Tất cả" : t.stage[s as Stage],
-          }))}
-          value={stage}
-          onChange={(s) => setStage(s)}
-        />
+        {/* Scroll the chip strip within itself on narrow screens instead of
+            overflowing the page body (renovation R4 — mobile). */}
+        <div className="-mx-1 max-w-full overflow-x-auto px-1">
+          <Segmented
+            id="candidates-stage"
+            size="sm"
+            aria-label="Lọc theo giai đoạn"
+            options={TOP_STAGE_CHIPS.map((s) => ({
+              value: s,
+              label: s === "all" ? "Tất cả" : t.stage[s as Stage],
+            }))}
+            value={stage}
+            onChange={(s) => setStage(s)}
+          />
+        </div>
 
         <span className="mx-1 hidden h-5 w-px bg-slate-200 md:inline" />
 

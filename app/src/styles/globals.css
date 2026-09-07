@@ -122,10 +122,19 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
+  /* The page must never scroll sideways — wide content (tables, kanban,
+   * diagrams) scrolls inside its own overflow-x-auto container. Applied to
+   * BOTH html and body: the e2e invariant measures documentElement, and body
+   * overflow doesn't govern the root scroll. `clip` (not `hidden`) so it
+   * doesn't create a scroll container or break position: sticky. Renovation R4. */
+  html {
+    overflow-x: clip;
+  }
   body {
     @apply bg-surface font-sans text-foreground;
     font-feature-settings: "cv11", "ss01";
     font-variation-settings: normal;
+    overflow-x: clip;
   }
 
   /* Print (QR poster): hide app chrome, restore natural flow. The AppShell
