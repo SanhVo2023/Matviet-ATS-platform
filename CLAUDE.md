@@ -54,8 +54,20 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
   - **R4 UI/a11y:** kanban DnD functional-bug fix + sensors, iOS-zoom inputs, ApplyForm inline validation, mobile no-h-scroll. Cosmetic codemods DEFERRED (documented in `app/.claude/CLAUDE.md`).
   - **R5 hardening (ADR 0022):** AI cost caps ($5/$25 breaker), boot-env assert, global-error boundary, pre-commit gitleaks+typecheck, CI gitleaks+e2e. Full Sentry SDK wrap DEFERRED (needs deploy smoke test). shadcn = design system, light-only.
   - **124 vitest pass; e2e green.** Design system posture: **shadcn/ui + Tailwind v3.4** (ADR 0022, supersedes 0016's app-wide Astryx) — Astryx shell-only, **dark mode CLOSED**.
-- **LAUNCH-BLOCKING OPS (gated on user + Linux/CI):** push local main→origin; prod D1 migrate 0007+0008 **and** deploy in ONE window (8-stage data breaks old 16-stage code); run "Khóa tài khoản demo"; verify secrets + add SENTRY_DSN; invite real accounts. These outward-facing actions are also blocked by the harness auto-mode classifier — user runs them via `!` or a Bash permission rule. Deploy must run off this Windows box (diacritics workerd `next build` crash).
-- **Local main is ~16 commits ahead of origin/main** — pushing to the protected default branch needs Sanh's go-ahead.
+- **LAUNCH DONE (2026-09-07):** the renovation is LIVE in production (Worker version `307c773c`).
+  Executed cutover: backup prod D1 → apply migrations 0007+0008 → build+deploy (via the ASCII
+  junction `E:\NEW APP\HR imrovement\MatVietHR` that dodges the diacritics workerd build crash) →
+  verify. Prod now on the 8-stage model (58 candidates mapped clean, zero legacy values); site
+  HTTP 200; demo `@matviet.test` accounts locked (banned + deactivated + sessions killed + hashes
+  rotated); secrets `BETTER_AUTH_SECRET` + `CRON_SECRET` present; local main pushed to origin.
+  **Build workaround:** `opennextjs-cloudflare build`/`deploy` MUST run from the ASCII junction
+  path, not the diacritics path (workerd crashes). Fixed a real prerender bug en route:
+  `(dashboard)/khong-co-quyen` needed `force-dynamic` (better-auth throws on default secret at
+  build, Worker secrets are build-time-absent).
+- **Still open (need Sanh — real PII / optional):** invite real accounts (chị Hương, store
+  managers, BOD/Tập đoàn) via the invite flow (needs their real emails; admin `sanh.vlt@matkinh.com.vn`
+  + `hr1@matkinh.com.vn` already exist); optionally add `SENTRY_DSN` and wire the full
+  `@sentry/cloudflare` worker wrap (deferred — needs a deploy smoke test).
 - **Windows dev quirk:** workerd crashes when started from this repo path (diacritics) during `next build` — `initOpenNextCloudflareForDev()` is guarded to dev-only in `next.config.ts`. `wrangler dev` / `d1` commands work fine.
 
 ## Modules (`app/src/server/*`) — keep in sync after every PR

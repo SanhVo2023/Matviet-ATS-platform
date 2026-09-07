@@ -68,3 +68,7 @@ supabase/.temp
 # e2e fixture stash (written by e2e/global-setup.ts)
 /e2e/.seed.json
 /e2e/.auth/
+
+# Local production D1 backups/exports (contain prod data — never commit)
+backup-*.sql
+*.d1-backup.sql
