@@ -204,7 +204,7 @@ export const t = {
     ai_quota: "AI tạm dừng — tiếp tục sau {{reset_time}}.",
     ai_failed: "Không chấm điểm được CV. Vui lòng review thủ công.",
     session_expired: "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.",
-    too_many_attempts: "Sai mật khẩu nhiều lần. Vui lòng thử lại sau 1 giờ.",
+    too_many_attempts: "Quá nhiều lần thử — vui lòng đợi vài phút rồi thử lại.",
     invalidCredentials: "Email hoặc mật khẩu không đúng.",
   },
 
@@ -221,7 +221,8 @@ export const t = {
     scheduled: "Đã đặt lịch phỏng vấn.",
     scoreUpdated: "Đã cập nhật điểm.",
     imported: "Đã nhập {{count}} ứng viên.",
-    passwordReset: "Đã gửi email đặt lại mật khẩu.",
+    passwordReset:
+      "Nếu email tồn tại trong hệ thống, liên kết đặt lại mật khẩu đã được gửi. Không nhận được trong vài phút? Liên hệ quản trị viên.",
     signedIn: "Chào mừng quay lại, {{name}}.",
   },
 

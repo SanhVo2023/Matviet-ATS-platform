@@ -28,6 +28,13 @@ function authorized(req: Request): boolean {
 
 export async function POST(req: Request): Promise<Response> {
   if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Same env guard as the admin-UI seed button: demo fixtures never in prod.
+  if (process.env.ALLOW_DEMO_SEED !== "true") {
+    return NextResponse.json(
+      { ok: false, error: "Demo seed disabled (set ALLOW_DEMO_SEED=true)" },
+      { status: 403 },
+    );
+  }
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
   const result = await runFullDemoSeed(appUrl);
   if (result.alreadySeeded) {

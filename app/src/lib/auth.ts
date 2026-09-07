@@ -58,10 +58,11 @@ export async function requireSession(): Promise<SessionProfile> {
 }
 
 /** Like `requireSession` but additionally enforces the user's role is in `allowed`.
- * Redirects to / on mismatch (the user lands on their own role's home). */
+ * Redirects to /khong-co-quyen on mismatch so the user sees WHY instead of a
+ * silent bounce home. */
 export async function requireRole(allowed: UserRole[]): Promise<SessionProfile> {
   const profile = await requireSession();
-  if (!allowed.includes(profile.role)) redirect("/");
+  if (!allowed.includes(profile.role)) redirect("/khong-co-quyen");
   return profile;
 }
 

@@ -162,6 +162,27 @@ export const verifications = sqliteTable("verifications", {
   updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
 
+// better-auth database-backed rate limiting (storage: "database"). Property
+// names (key/count/lastRequest) are the adapter contract — do not rename.
+export const rate_limits = sqliteTable(
+  "rate_limits",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull(),
+    count: integer("count").notNull(),
+    lastRequest: integer("last_request").notNull(),
+  },
+  (t) => [index("idx_rate_limits_key").on(t.key), index("idx_rate_limits_last").on(t.lastRequest)],
+);
+
+// Per-email login lockout ledger (auth-server hooks; policy in server/auth/lockout.ts).
+export const login_attempts = sqliteTable("login_attempts", {
+  email: text("email").primaryKey(),
+  fail_count: integer("fail_count").notNull().default(0),
+  last_fail_at: text("last_fail_at"),
+  locked_until: text("locked_until"),
+});
+
 // ---------------------------------------------------------------------------
 // HRIS foundation (ADR 0012) — person-centric core. ATS writes `people` only;
 // positions/employees stay empty until the employee-management build group.

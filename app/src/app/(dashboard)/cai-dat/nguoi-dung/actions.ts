@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { getAuth } from "@/lib/auth-server";
+import { getAuth, type MailErrorRef } from "@/lib/auth-server";
+import { generateTempPassword } from "@/lib/passwords";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -22,13 +23,6 @@ const CreateSchema = z.object({
 export type InviteResult =
   | { ok: true; userId: string; tempPassword: string }
   | { ok: false; error: string };
-
-/** Random 12-char temp password with mixed classes (shown to the admin exactly once). */
-function generateTempPassword(): string {
-  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$%";
-  const bytes = crypto.getRandomValues(new Uint8Array(12));
-  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
-}
 
 /**
  * Admin-only: create a user account with a temporary password (better-auth admin
@@ -75,7 +69,9 @@ export async function inviteUser(formData: FormData): Promise<InviteResult> {
 
 export type ToggleResult = { ok: true } | { ok: false; error: string };
 
-/** Admin-only: activate/deactivate an account (soft ban). Deactivation also
+/** Admin-only: activate/deactivate an account. Deactivation writes BOTH
+ * `is_active` (app checks) and better-auth's `banned` (the field the sign-in
+ * endpoint actually gates on — `is_active` alone never blocked sign-in), and
  * deletes the user's sessions so open tabs bounce to login immediately. */
 export async function setUserActive(userId: string, active: boolean): Promise<ToggleResult> {
   const me = await requireRole(["admin"]);
@@ -83,13 +79,51 @@ export async function setUserActive(userId: string, active: boolean): Promise<To
     return { ok: false, error: "Không thể tự vô hiệu tài khoản của chính mình" };
   }
   const db = await getDb();
-  await db.update(users).set({ isActive: active }).where(eq(users.id, userId));
+  await db
+    .update(users)
+    .set({
+      isActive: active,
+      banned: !active,
+      banReason: active ? null : "Vô hiệu hóa bởi quản trị viên",
+    })
+    .where(eq(users.id, userId));
   if (!active) await revokeUserSessions(userId);
   await auditUserAdmin(me.id, userId, active ? "admin_activate_user" : "admin_deactivate_user", {
     active,
   });
   revalidatePath("/cai-dat/nguoi-dung");
   return { ok: true };
+}
+
+const SetPasswordSchema = z.object({
+  user_id: z.string().min(1),
+  new_password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự").max(128),
+});
+
+/**
+ * Admin-only: directly set another user's password (better-auth admin plugin).
+ * The offline fallback when reset email fails or a user is locked out.
+ * Revokes the target's sessions so old devices must sign in again.
+ */
+export async function setUserPasswordAction(input: unknown): Promise<ToggleResult> {
+  const me = await requireRole(["admin"]);
+  const parsed = SetPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dữ liệu không hợp lệ" };
+  }
+  const { user_id, new_password } = parsed.data;
+  try {
+    const auth = await getAuth();
+    await auth.api.setUserPassword({
+      headers: await headers(),
+      body: { userId: user_id, newPassword: new_password },
+    });
+    await revokeUserSessions(user_id);
+    await auditUserAdmin(me.id, user_id, "admin_set_password", {});
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Không đặt được mật khẩu" };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -166,10 +200,20 @@ export async function sendResetEmailAction(userId: string): Promise<ToggleResult
     .get();
   if (!target) return { ok: false, error: "Không tìm thấy người dùng" };
   try {
-    const auth = await getAuth();
+    // better-auth swallows send errors internally (logged only) — the ref is
+    // how we learn the mail never left, so the admin sees a REAL failure toast
+    // instead of a false "đã gửi".
+    const mailError: MailErrorRef = { current: null };
+    const auth = await getAuth({ mailError });
     await auth.api.requestPasswordReset({
       body: { email: target.email, redirectTo: "/dat-lai-mat-khau/moi" },
     });
+    if (mailError.current) {
+      return {
+        ok: false,
+        error: `Không gửi được email — kiểm tra dịch vụ gửi thư. (${mailError.current})`,
+      };
+    }
     await auditUserAdmin(me.id, userId, "admin_send_reset", { email: target.email });
     return { ok: true };
   } catch (err) {
@@ -182,10 +226,17 @@ export async function requestMyPasswordResetAction(): Promise<ToggleResult> {
   const me = await requireSession();
   if (!me.email) return { ok: false, error: "Tài khoản chưa có email" };
   try {
-    const auth = await getAuth();
+    const mailError: MailErrorRef = { current: null };
+    const auth = await getAuth({ mailError });
     await auth.api.requestPasswordReset({
       body: { email: me.email, redirectTo: "/dat-lai-mat-khau/moi" },
     });
+    if (mailError.current) {
+      return {
+        ok: false,
+        error: `Không gửi được email — kiểm tra dịch vụ gửi thư. (${mailError.current})`,
+      };
+    }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Không gửi được email" };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import { sanitizeNextPath } from "@/lib/safe-next";
 import { t } from "@/lib/i18n";
 
-export function LoginForm() {
+export function LoginForm({ staleSession = false }: { staleSession?: boolean }) {
   const router = useRouter();
   const search = useSearchParams();
-  const next = search.get("next") || "/";
+  const next = sanitizeNextPath(search.get("next"));
   const errorParam = search.get("error");
 
   const [email, setEmail] = useState("");
@@ -24,13 +25,27 @@ export function LoginForm() {
     errorParam === "inactive" ? "Tài khoản đã bị vô hiệu. Liên hệ quản trị viên." : null,
   );
 
+  // The browser holds a cookie whose session no longer exists — clear it once
+  // so the optimistic middleware stops treating this visitor as signed in.
+  const clearedStale = useRef(false);
+  useEffect(() => {
+    if (staleSession && !clearedStale.current) {
+      clearedStale.current = true;
+      authClient.signOut().catch(() => {});
+    }
+  }, [staleSession]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     const { error: signInError } = await authClient.signIn.email({ email, password });
     if (signInError) {
-      setError(t.error.invalidCredentials);
+      if (signInError.status === 429) {
+        setError(signInError.message || t.error.too_many_attempts);
+      } else {
+        setError(t.error.invalidCredentials);
+      }
       setSubmitting(false);
       return;
     }
