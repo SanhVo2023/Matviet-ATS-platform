@@ -390,16 +390,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function FieldRow({
   label,
+  htmlFor,
   error,
   children,
 }: {
   label: string;
+  /** id of the control this label describes (a11y — renovation R4). */
+  htmlFor?: string;
   error?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {error ? (
         <p role="alert" className="text-xs text-error-fg">

@@ -27,16 +27,26 @@ export function ApplyForm({ jobId, jobTitle }: Props) {
   const [submitting, setSubmitting] = React.useState(false);
   const [done, setDone] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [touched, setTouched] = React.useState<Record<string, boolean>>({});
   const openedAt = React.useRef(Date.now());
   const honeypotRef = React.useRef<HTMLInputElement>(null);
+  const nameRef = React.useRef<HTMLInputElement>(null);
+  const phoneRef = React.useRef<HTMLInputElement>(null);
+  const emailRef = React.useRef<HTMLInputElement>(null);
 
-  const canSubmit =
-    !submitting &&
-    fullName.trim().length >= 2 &&
-    /\S+@\S+\.\S+/.test(email) &&
-    phone.trim().length >= 8 &&
-    !!file &&
-    consent;
+  // Per-field validation — shown inline once a field is touched or on submit
+  // (renovation R4: the old form only disabled the submit button with no
+  // explanation, the app's single worst conversion blocker).
+  const fieldErrors = {
+    fullName: fullName.trim().length < 2 ? "Vui lòng nhập họ tên" : null,
+    phone: phone.trim().length < 8 ? "Số điện thoại chưa hợp lệ" : null,
+    email: /\S+@\S+\.\S+/.test(email) ? null : "Email chưa hợp lệ",
+    file: !file ? "Vui lòng chọn file CV (PDF)" : null,
+    consent: !consent ? "Vui lòng đồng ý điều khoản" : null,
+  };
+  const isValid = Object.values(fieldErrors).every((e) => e === null);
+  const touch = (k: string) => setTouched((s) => ({ ...s, [k]: true }));
+  const show = (k: keyof typeof fieldErrors) => (touched[k] ? fieldErrors[k] : null);
 
   const onFileChange = (f: File | null) => {
     setError(null);
@@ -55,7 +65,14 @@ export function ApplyForm({ jobId, jobTitle }: Props) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit || !file) return;
+    if (!isValid || !file) {
+      // Reveal every error and jump focus to the first offending field.
+      setTouched({ fullName: true, phone: true, email: true, file: true, consent: true });
+      if (fieldErrors.fullName) nameRef.current?.focus();
+      else if (fieldErrors.phone) phoneRef.current?.focus();
+      else if (fieldErrors.email) emailRef.current?.focus();
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -84,8 +101,11 @@ export function ApplyForm({ jobId, jobTitle }: Props) {
 
   if (done) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-lg bg-emerald-50 p-8 text-center">
-        <CheckCircle2 className="h-10 w-10 text-emerald-600" aria-hidden />
+      <div
+        role="status"
+        className="flex flex-col items-center gap-3 rounded-lg bg-success-bg p-8 text-center"
+      >
+        <CheckCircle2 className="h-10 w-10 text-success-fg" aria-hidden />
         <h3 className="text-lg font-semibold text-brand-900">Đã nhận hồ sơ của bạn!</h3>
         <p className="text-sm text-slate-600">
           Cảm ơn bạn đã ứng tuyển vị trí <strong>{jobTitle}</strong>. Email xác nhận đang được gửi
@@ -104,12 +124,19 @@ export function ApplyForm({ jobId, jobTitle }: Props) {
           </Label>
           <Input
             id="apply-name"
+            ref={nameRef}
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
+            onBlur={() => touch("fullName")}
             autoComplete="name"
             maxLength={120}
-            required
+            aria-invalid={!!show("fullName")}
           />
+          {show("fullName") ? (
+            <p role="alert" className="text-xs text-error-fg">
+              {show("fullName")}
+            </p>
+          ) : null}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="apply-phone">
@@ -117,14 +144,22 @@ export function ApplyForm({ jobId, jobTitle }: Props) {
           </Label>
           <Input
             id="apply-phone"
+            ref={phoneRef}
             type="tel"
+            inputMode="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            onBlur={() => touch("phone")}
             autoComplete="tel"
             placeholder="0901 234 567"
             maxLength={20}
-            required
+            aria-invalid={!!show("phone")}
           />
+          {show("phone") ? (
+            <p role="alert" className="text-xs text-error-fg">
+              {show("phone")}
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="space-y-1.5">
@@ -133,13 +168,21 @@ export function ApplyForm({ jobId, jobTitle }: Props) {
         </Label>
         <Input
           id="apply-email"
+          ref={emailRef}
           type="email"
+          inputMode="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          onBlur={() => touch("email")}
           autoComplete="email"
           maxLength={200}
-          required
+          aria-invalid={!!show("email")}
         />
+        {show("email") ? (
+          <p role="alert" className="text-xs text-error-fg">
+            {show("email")}
+          </p>
+        ) : null}
       </div>
 
       {/* Honeypot — invisible to humans, irresistible to bots */}
@@ -159,7 +202,7 @@ export function ApplyForm({ jobId, jobTitle }: Props) {
         </Label>
         <label
           htmlFor="apply-cv"
-          className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500 transition-colors hover:border-primary-400 hover:bg-primary-50/40"
+          className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500 transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 hover:border-primary-400 hover:bg-primary-50/40"
         >
           <Upload className="h-4 w-4" aria-hidden />
           {file ? (
@@ -173,16 +216,27 @@ export function ApplyForm({ jobId, jobTitle }: Props) {
           type="file"
           accept="application/pdf"
           className="sr-only"
-          onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            touch("file");
+            onFileChange(e.target.files?.[0] ?? null);
+          }}
         />
+        {show("file") ? (
+          <p role="alert" className="text-xs text-error-fg">
+            {show("file")}
+          </p>
+        ) : null}
       </div>
 
       <label className="flex items-start gap-2 text-xs text-slate-600">
         <input
           type="checkbox"
           checked={consent}
-          onChange={(e) => setConsent(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+          onChange={(e) => {
+            touch("consent");
+            setConsent(e.target.checked);
+          }}
+          className="mt-0.5 h-5 w-5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
         />
         <span>
           Tôi đồng ý cho Mắt Việt thu thập và xử lý thông tin cá nhân trong hồ sơ này cho mục đích
@@ -190,10 +244,21 @@ export function ApplyForm({ jobId, jobTitle }: Props) {
           <span className="text-error">*</span>
         </span>
       </label>
+      {show("consent") ? (
+        <p role="alert" className="text-xs text-error-fg">
+          {show("consent")}
+        </p>
+      ) : null}
 
-      {error && <p className="text-sm text-error">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-error-fg">
+          {error}
+        </p>
+      )}
 
-      <Button type="submit" disabled={!canSubmit} className="w-full sm:w-auto">
+      {/* Button stays ENABLED — an invalid submit reveals inline errors and
+          focuses the first one, rather than a dead grey button. */}
+      <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
         Gửi hồ sơ ứng tuyển
       </Button>

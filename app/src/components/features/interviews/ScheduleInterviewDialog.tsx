@@ -199,7 +199,7 @@ export function ScheduleInterviewDialog({
                     />
                     <span className="flex-1 text-sm text-slate-700">{u.full_name ?? u.id}</span>
                     <span className="text-[10px] uppercase tracking-wide text-slate-500">
-                      {u.role}
+                      {t.userRole[u.role as keyof typeof t.userRole] ?? u.role}
                     </span>
                   </label>
                 ))

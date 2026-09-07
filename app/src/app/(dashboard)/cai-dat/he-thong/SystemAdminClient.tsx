@@ -30,8 +30,21 @@ const FEATURE_LABEL: Record<string, string> = {
   general: "Khác",
 };
 
+const QUEUE_STATUS_LABEL: Record<string, string> = {
+  queued: "Đang chờ",
+  running: "Đang chạy",
+  succeeded: "Xong",
+  failed: "Lỗi",
+  cancelled: "Đã hủy",
+  pending_approval: "Chờ duyệt",
+  sent: "Đã gửi",
+  delivered: "Đã nhận",
+  received: "Nhận vào",
+};
+
 function usd(n: number): string {
-  return `$${n.toFixed(4)}`;
+  // USD cost formatted with vi-VN grouping (no $ symbol drift in a VN UI).
+  return `${n.toLocaleString("vi-VN", { minimumFractionDigits: 4, maximumFractionDigits: 4 })} USD`;
 }
 
 interface Props {
@@ -357,7 +370,7 @@ function QueueBox({ title, rows }: { title: string; rows: Array<{ status: string
         <ul className="mt-2 space-y-1">
           {rows.map((r) => (
             <li key={r.status} className="flex justify-between text-sm">
-              <span className="text-slate-600">{r.status}</span>
+              <span className="text-slate-600">{QUEUE_STATUS_LABEL[r.status] ?? r.status}</span>
               <span className="font-semibold tabular-nums text-brand-900">{r.n}</span>
             </li>
           ))}

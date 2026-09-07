@@ -49,7 +49,9 @@ export function SourceEffectivenessTable({ rows }: { rows: SourceEffectivenessRo
                   <HireRatePill rate={r.hire_rate} />
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums text-slate-700">
-                  {r.avg_days_to_hire != null ? `${r.avg_days_to_hire.toFixed(1)}d` : "—"}
+                  {r.avg_days_to_hire != null
+                    ? `${r.avg_days_to_hire.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} ngày`
+                    : "—"}
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums text-slate-700">
                   {r.avg_ai_score != null ? r.avg_ai_score.toFixed(1) : "—"}

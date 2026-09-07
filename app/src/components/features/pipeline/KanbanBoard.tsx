@@ -8,11 +8,14 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import {
   STAGE_GROUPS,
   CLOSED_GROUP,
@@ -79,8 +82,13 @@ export function KanbanBoard({ candidates: initial, jobId }: Props) {
     [activeId, rows],
   );
 
-  // 5px activation distance → click-to-link is unaffected by accidental tiny drags.
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  // Pointer (desktop, 5px slop), Touch (long-press so a swipe still scrolls
+  // the column), and Keyboard (grip handle → Space → arrows → Space).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const handleDragStart = (e: DragStartEvent) => {
     setActiveId(String(e.active.id));
@@ -182,7 +190,7 @@ export function KanbanBoard({ candidates: initial, jobId }: Props) {
         </button>
       </div>
 
-      <div className="flex h-[calc(100vh-13rem)] gap-3 overflow-x-auto px-1 pb-3">
+      <div className="flex h-[calc(100dvh-17rem)] gap-3 overflow-x-auto px-1 pb-3 md:h-[calc(100dvh-13rem)]">
         {STAGE_GROUPS.map((g) => (
           <KanbanColumn
             key={g.id}

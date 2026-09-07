@@ -127,6 +127,7 @@ export function InterviewReviewForm({ interviewId, candidateId, existing }: Prop
                 <span className="font-mono tabular-nums text-slate-600">{scores[k]}</span>
               </div>
               <Slider
+                aria-label={CRIT_LABEL[k]}
                 min={0}
                 max={100}
                 step={1}
