@@ -43,6 +43,17 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Verify the actual deployable artifact — the OpenNext→Cloudflare Worker
+      # bundle that `npm run deploy` produces (a superset of `next build`). This
+      # is where Cloudflare-specific bundling issues surface (e.g. the cloudflare:*
+      # / agents package quirk). It cannot be built on the Windows dev box
+      # (workerd crashes on the diacritics repo path), so Linux CI is the first
+      # place it runs. Non-blocking for now: once it's proven green on a real
+      # run, drop `continue-on-error` to make it a required gate before deploy.
+      - name: Build Cloudflare Worker bundle (deploy artifact)
+        run: npx opennextjs-cloudflare build
+        continue-on-error: true
+
   gitleaks:
     name: secret scan
     runs-on: ubuntu-latest
