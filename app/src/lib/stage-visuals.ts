@@ -2,23 +2,25 @@
  * ONE stage language (ADR 0019): the single source of truth for how a
  * candidate's pipeline state LOOKS anywhere in the app — kanban, candidate
  * table, journey ladder, dashboard, timeline. Colors key off the 4 business
- * groups (lib/validation/candidate.ts STAGE_GROUPS) and the readiness tone
- * (stageReadiness) — never off the 16 raw stages.
+ * groups (lib/validation/candidate.ts STAGE_GROUPS) and the derived status
+ * tone (deriveCandidateStatus) — never off raw stages.
  *
- * The reports funnel keeps its own 7-bucket ANALYTIC grouping on purpose
- * (documented exception in ADR 0019).
+ * The reports funnel keeps its own ANALYTIC grouping on purpose (documented
+ * exception in ADR 0019).
  */
-import { groupOfStage, type ReadinessTone, type Stage } from "@/lib/validation/candidate";
+import { groupOfStage } from "@/lib/validation/candidate";
+import type { Stage } from "@/lib/stages";
+import type { StatusTone } from "@/lib/candidate-status";
 
 /** Status dot — ALWAYS paired with a text label next to it (color-blind safe). */
-export const READINESS_DOT: Record<ReadinessTone, string> = {
+export const READINESS_DOT: Record<StatusTone, string> = {
   ready: "bg-emerald-500",
   waiting: "bg-slate-300",
   blocked: "bg-rose-500",
   done: "bg-emerald-600 ring-2 ring-emerald-200",
 };
 
-export const READINESS_TEXT: Record<ReadinessTone, string> = {
+export const READINESS_TEXT: Record<StatusTone, string> = {
   ready: "text-emerald-700",
   waiting: "text-slate-500",
   blocked: "text-rose-600",

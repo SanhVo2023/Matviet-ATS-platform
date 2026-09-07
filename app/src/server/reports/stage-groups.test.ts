@@ -9,11 +9,11 @@ describe("STAGE_TO_SUPER", () => {
   });
 
   it("maps the funnel correctly", () => {
-    expect(STAGE_TO_SUPER.new).toBe("applied");
-    expect(STAGE_TO_SUPER.screened).toBe("screening");
-    expect(STAGE_TO_SUPER.interviewed).toBe("interview");
-    expect(STAGE_TO_SUPER.salary_deal).toBe("approval");
-    expect(STAGE_TO_SUPER.offer_sent).toBe("offer");
+    expect(STAGE_TO_SUPER.intake).toBe("applied");
+    expect(STAGE_TO_SUPER.evaluating).toBe("interview");
+    expect(STAGE_TO_SUPER.approving).toBe("approval");
+    expect(STAGE_TO_SUPER.offer).toBe("offer");
+    expect(STAGE_TO_SUPER.offer_accepted).toBe("offer");
     expect(STAGE_TO_SUPER.hired).toBe("hired");
     expect(STAGE_TO_SUPER.rejected).toBe("rejected");
     expect(STAGE_TO_SUPER.withdrew).toBe("rejected");
@@ -21,9 +21,9 @@ describe("STAGE_TO_SUPER", () => {
 });
 
 describe("ORDERED_STAGE_PAIRS", () => {
-  it("13 adjacent pairs from new to hired", () => {
-    expect(ORDERED_STAGE_PAIRS.length).toBe(13);
-    expect(ORDERED_STAGE_PAIRS[0]).toEqual(["new", "screening"]);
+  it("5 adjacent pairs from intake to hired", () => {
+    expect(ORDERED_STAGE_PAIRS.length).toBe(5);
+    expect(ORDERED_STAGE_PAIRS[0]).toEqual(["intake", "evaluating"]);
     expect(ORDERED_STAGE_PAIRS[ORDERED_STAGE_PAIRS.length - 1]).toEqual([
       "offer_accepted",
       "hired",

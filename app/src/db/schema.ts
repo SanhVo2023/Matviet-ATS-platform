@@ -24,24 +24,11 @@ export const USER_ROLES = ["admin", "hr", "hiring_manager", "bod", "tap_doan"] a
 export const JOB_STATUSES = ["draft", "open", "paused", "closed", "filled"] as const;
 export const FLOW_TYPES = ["staff", "management"] as const;
 export const ROLE_FAMILIES = ["sales", "optician", "office", "manager", "custom"] as const;
-export const PIPELINE_STAGES = [
-  "new",
-  "screening",
-  "screened",
-  "interview_scheduled",
-  "interviewed",
-  "test_sent",
-  "test_done",
-  "recommended",
-  "salary_deal",
-  "bod_review",
-  "tap_doan_review",
-  "offer_sent",
-  "offer_accepted",
-  "hired",
-  "rejected",
-  "withdrew",
-] as const;
+// Pipeline stages — single source of truth in @/lib/stages (renovation R1,
+// collapsed 16 → 8). Re-exported here for the Drizzle text-enum + downstream
+// db-type derivation.
+export { PIPELINE_STAGES, REJECTION_REASONS } from "@/lib/stages";
+import { PIPELINE_STAGES, REJECTION_REASONS } from "@/lib/stages";
 export const CANDIDATE_SOURCES = [
   "manual_upload",
   "email_inbox",
@@ -63,7 +50,7 @@ export const INTERVIEW_STATUSES = ["scheduled", "completed", "cancelled", "no_sh
 export const INTERVIEW_TYPES = ["in_person", "phone", "video"] as const;
 export const INTERVIEWER_ROLES = ["interviewer", "observer"] as const;
 export const RECOMMENDATIONS = ["strong_yes", "yes", "maybe", "no"] as const;
-export const APPROVAL_STATUSES = ["pending", "approved", "rejected"] as const;
+export const APPROVAL_STATUSES = ["pending", "approved", "rejected", "cancelled"] as const;
 export const APPROVAL_STEP_KINDS = [
   "hr_recommend",
   "manager_recommend",
@@ -359,7 +346,7 @@ export const candidates = sqliteTable(
     source: text("source", { enum: CANDIDATE_SOURCES }).notNull().default("manual_upload"),
     source_meta: text("source_meta", { mode: "json" }).$type<Json>().notNull().default({}),
     referrer_user_id: text("referrer_user_id").references(() => users.id),
-    current_stage: text("current_stage", { enum: PIPELINE_STAGES }).notNull().default("new"),
+    current_stage: text("current_stage", { enum: PIPELINE_STAGES }).notNull().default("intake"),
     cv_file_id: text("cv_file_id").references(() => cv_files.id),
     cv_text: text("cv_text"),
     parsed: text("parsed", { mode: "json" }).$type<Json>(),
@@ -370,6 +357,9 @@ export const candidates = sqliteTable(
       .notNull()
       .default("pending"),
     ai_screening_error: text("ai_screening_error"),
+    /** Set when current_stage = 'rejected' (required by transitionStage guard);
+     * distinguishes screen-out / not-approved / offer-declined / withdrawn. */
+    rejection_reason: text("rejection_reason", { enum: REJECTION_REASONS }),
     /** Ambient AI (ADR 0018): persisted summary — seeded from scoring's
      * overall_summary, refreshed on demand from the full dossier. */
     ai_summary: text("ai_summary"),

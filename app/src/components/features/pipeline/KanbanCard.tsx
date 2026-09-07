@@ -7,13 +7,12 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { formatRelative } from "@/lib/vi-format";
-import { stageReadiness, type Stage } from "@/lib/validation/candidate";
 import { READINESS_DOT, READINESS_TEXT } from "@/lib/stage-visuals";
 import { t } from "@/lib/i18n";
-import type { CandidateRow } from "@/server/candidates/repository";
+import type { CandidateWithStatus } from "@/server/candidates/repository";
 
 interface Props {
-  candidate: CandidateRow;
+  candidate: CandidateWithStatus;
   /** When true, card is rendered inside <DragOverlay> — disable hover styles + interactivity. */
   overlay?: boolean;
 }
@@ -36,7 +35,7 @@ export function KanbanCard({ candidate, overlay }: Props) {
     transition,
   };
 
-  const readiness = stageReadiness(candidate.current_stage as Stage, candidate.ai_screening_status);
+  const readiness = candidate.derived;
 
   return (
     <div
@@ -86,8 +85,12 @@ export function KanbanCard({ candidate, overlay }: Props) {
             )}
           >
             {readiness.label}
+            {(readiness.tone === "waiting" || readiness.tone === "blocked") &&
+            readiness.daysWaiting > 0
+              ? ` · ${readiness.daysWaiting} ngày`
+              : ""}
           </span>
-          <span className="shrink-0 text-[10px] text-slate-400">
+          <span className="shrink-0 text-[10px] text-slate-500">
             {formatRelative(candidate.updated_at)}
           </span>
         </div>

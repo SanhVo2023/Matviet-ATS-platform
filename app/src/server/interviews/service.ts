@@ -18,6 +18,7 @@ import {
 import { publicEnv } from "@/types/env";
 import { notifyUsers } from "@/server/notifications/service";
 import { emitAgentEventInBackground } from "@/server/agent-flows/events";
+import { transitionStage } from "@/server/candidates/service";
 import { formatDateTime } from "@/lib/vi-format";
 
 /**
@@ -27,7 +28,7 @@ import { formatDateTime } from "@/lib/vi-format";
  *  1. Resolve job_id from the candidate.
  *  2. Insert interviews row.
  *  3. Insert interview_attendees rows (one per attendee_id).
- *  4. Bump candidate.current_stage to 'interview_scheduled' if it's an earlier stage.
+ *  4. Move candidate to 'evaluating' if still at intake (renovation R1).
  *  5. Best-effort: create the Outlook event (Teams link for video interviews) and
  *     persist graph_event_id + teams_link. Graph being down never blocks the
  *     schedule — the interview simply has no Outlook invite (visible in UI as
@@ -91,20 +92,21 @@ export async function scheduleInterview(
     throw err;
   }
 
-  // 3. Bump candidate stage (only forward — never roll back)
-  if (["new", "screening", "screened"].includes(candidate.current_stage)) {
-    await db
-      .update(candidates)
-      .set({ current_stage: "interview_scheduled" })
-      .where(eq(candidates.id, candidate.id));
+  // 3. Move to evaluating (only forward — transitionStage no-ops if already
+  //    there or further, and writes stage_history + supersedes cards).
+  if (candidate.current_stage === "intake") {
+    await transitionStage(candidate.id, "evaluating", {
+      actorUserId: createdBy,
+      notes: "Đặt lịch phỏng vấn",
+    });
+  } else {
+    // Already ≥ evaluating: still supersede open invite/nudge cards + re-arm.
+    emitAgentEventInBackground({
+      type: "stage_changed",
+      candidateId: candidate.id,
+      toStage: candidate.current_stage,
+    });
   }
-  // ADR 0020: scheduling supersedes open invite/nudge cards + re-arms the
-  // job agent — regardless of whether the bump above applied.
-  emitAgentEventInBackground({
-    type: "stage_changed",
-    candidateId: candidate.id,
-    toStage: "interview_scheduled",
-  });
 
   // 4. Outlook event + Teams link (best-effort, G7)
   try {
@@ -242,7 +244,7 @@ export async function submitEvaluation(
   if (!row) throw new Error("Không lưu được đánh giá");
   const evalId = row.id;
 
-  // Mark interview completed + bump candidate stage if currently before 'interviewed'
+  // Mark interview completed (stage stays 'evaluating' — grading/eval is sub-state)
   await db
     .update(interviews)
     .set({ status: "completed" })
@@ -262,14 +264,10 @@ export async function submitEvaluation(
       .where(eq(candidates.id, cid))
       .limit(1)
       .then((r) => r[0] ?? null);
-    if (cand) {
-      const stage = String(cand.current_stage);
-      if (["new", "screening", "screened", "interview_scheduled"].includes(stage)) {
-        await db
-          .update(candidates)
-          .set({ current_stage: "interviewed" })
-          .where(eq(candidates.id, cid));
-      }
+    // Evaluation submitted before scheduling flowed the stage (rare) — pull
+    // the candidate into `evaluating`; usually a no-op (already there).
+    if (cand && cand.current_stage === "intake") {
+      await transitionStage(cid, "evaluating", { notes: "Đánh giá phỏng vấn" });
     }
     // Agent-driven hiring (ADR 0020): evaluation in → prepared "trình duyệt"
     // proposal with the eval digest. Off the request path.

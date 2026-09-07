@@ -204,7 +204,7 @@ export async function getActionInbox(): Promise<ActionInboxItem[]> {
         .where(
           and(
             eq(candidates.is_archived, false),
-            eq(candidates.current_stage, "new"),
+            eq(candidates.current_stage, "intake"),
             lt(candidates.created_at, threeDaysAgo),
           ),
         )
@@ -226,7 +226,7 @@ export async function getActionInbox(): Promise<ActionInboxItem[]> {
         .where(
           and(
             eq(candidates.is_archived, false),
-            eq(candidates.current_stage, "offer_sent"),
+            eq(candidates.current_stage, "offer"),
             sql`${candidates.offer_responded_at} IS NULL`,
           ),
         )

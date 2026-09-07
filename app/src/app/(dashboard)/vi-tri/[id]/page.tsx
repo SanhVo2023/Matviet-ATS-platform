@@ -5,7 +5,7 @@ import { Briefcase, ListIcon } from "lucide-react";
 import { eq, inArray } from "drizzle-orm";
 import { requireRole } from "@/lib/auth";
 import { getJob, getJobAssignments, listJobs } from "@/server/jobs/repository";
-import { listCandidates } from "@/server/candidates/repository";
+import { listCandidates, attachDerivedStatus } from "@/server/candidates/repository";
 import { getDb } from "@/db";
 import { departments, users } from "@/db/schema";
 import { Button } from "@/components/ui/button";
@@ -138,7 +138,7 @@ export default async function JobWorkspacePage({ params }: { params: Promise<{ i
       ) : (
         // Board renders even with zero candidates — the intake column's PDF
         // drop target IS the start of the process (ADR 0017).
-        <KanbanBoard candidates={candidates} jobId={job.id} />
+        <KanbanBoard candidates={await attachDerivedStatus(candidates)} jobId={job.id} />
       )}
     </div>
   );

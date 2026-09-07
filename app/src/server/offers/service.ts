@@ -2,10 +2,11 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/db";
-import { candidates, jobs, stage_history } from "@/db/schema";
+import { candidates, jobs } from "@/db/schema";
 import { publicEnv } from "@/types/env";
 import { notifyRoles } from "@/server/notifications/service";
 import { emitAgentEventInBackground } from "@/server/agent-flows/events";
+import { transitionStage } from "@/server/candidates/service";
 
 /**
  * Offer magic link (G12) — the candidate-facing accept/decline flow.
@@ -124,19 +125,16 @@ export async function respondToOffer(
 
   const db = await getDb();
   const nowIso = new Date().toISOString();
-  const nextStage = input.decision === "accepted" ? ("hired" as const) : ("rejected" as const);
   const startDate =
     input.decision === "accepted" && input.expected_start_date?.match(/^\d{4}-\d{2}-\d{2}$/)
       ? input.expected_start_date
       : null;
 
-  // Guarded on still-unanswered — protects against a double-submit race.
-  const prev = await db
-    .select({ current_stage: candidates.current_stage })
-    .from(candidates)
-    .where(eq(candidates.id, offer.candidate_id))
-    .limit(1)
-    .then((r) => r[0] ?? null);
+  // Write ONLY the offer-response fields under the double-submit race guard;
+  // the stage move (and its history + guard) is handled by transitionStage
+  // once we've won the race. Accept → offer_accepted (HR still confirms the
+  // hire — no more ghost stage); decline → rejected with the offer_declined
+  // reason (an offer decline is NOT an ordinary reject).
   const updated = await db
     .update(candidates)
     .set({
@@ -144,7 +142,6 @@ export async function respondToOffer(
       offer_responded_at: nowIso,
       offer_response_note: input.note?.trim().slice(0, 500) || null,
       expected_start_date: startDate,
-      current_stage: nextStage,
     })
     .where(
       and(
@@ -161,16 +158,21 @@ export async function respondToOffer(
     return { ok: false, error: "Liên kết không hợp lệ" };
   }
 
-  await db.insert(stage_history).values({
-    candidate_id: offer.candidate_id,
-    from_stage: prev?.current_stage ?? null,
-    to_stage: nextStage,
-    actor_user_id: null,
-    notes:
-      input.decision === "accepted" ? "Ứng viên nhận việc qua liên kết" : "Ứng viên từ chối offer",
-  });
+  await transitionStage(
+    offer.candidate_id,
+    input.decision === "accepted" ? "offer_accepted" : "rejected",
+    {
+      actorUserId: null,
+      reason: input.decision === "declined" ? "offer_declined" : undefined,
+      notes:
+        input.decision === "accepted"
+          ? "Ứng viên nhận offer qua liên kết"
+          : "Ứng viên từ chối offer",
+      emit: "none", // we fire the richer offer_responded event below
+    },
+  );
 
-  // ADR 0020: terminal stage — the job agent stops watching this candidate
+  // ADR 0020: terminal/near-terminal — the job agent reconciles this candidate
   // and open proposals get superseded.
   emitAgentEventInBackground({
     type: "offer_responded",

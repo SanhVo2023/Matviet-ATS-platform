@@ -69,7 +69,11 @@ export function CandidateHeader({ candidate, jobTitle, jobId, aiSummarySlot }: P
 
       {/* Own row on phones so the name column isn't squeezed to one word/line */}
       <div className="w-full shrink-0 sm:w-auto">
-        <StageDropdown candidateId={candidate.id} currentStage={candidate.current_stage} />
+        <StageDropdown
+          candidateId={candidate.id}
+          candidateName={candidate.full_name}
+          currentStage={candidate.current_stage}
+        />
       </div>
 
       {aiSummarySlot ? (

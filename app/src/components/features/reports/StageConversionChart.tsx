@@ -16,18 +16,10 @@ import { t } from "@/lib/i18n";
 import type { StageConversionRow } from "@/server/reports/types";
 
 const STAGE_SHORT: Record<string, string> = {
-  new: "Mới",
-  screening: "Sàng",
-  screened: "Đã sàng",
-  interview_scheduled: "Đặt lịch",
-  interviewed: "PV",
-  test_sent: "Gửi test",
-  test_done: "Đã test",
-  recommended: "Đề xuất",
-  salary_deal: "Lương",
-  bod_review: "BOD",
-  tap_doan_review: "Tập đoàn",
-  offer_sent: "Offer",
+  intake: "Tiếp nhận",
+  evaluating: "Đánh giá",
+  approving: "Duyệt",
+  offer: "Offer",
   offer_accepted: "Nhận",
   hired: "Tuyển",
 };

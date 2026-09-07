@@ -28,7 +28,6 @@ export interface FunnelStageDatum {
 /** 5 supersets shown in the chart; full breakdown lives in tooltips. */
 export type FunnelSuperStage =
   | "applied"
-  | "screening"
   | "interview"
   | "approval"
   | "offer"

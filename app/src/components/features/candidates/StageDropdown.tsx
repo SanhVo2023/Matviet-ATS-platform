@@ -11,29 +11,43 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StageBadge } from "@/components/primitives/StatusBadge";
+import { RejectReasonDialog } from "@/components/features/candidates/RejectReasonDialog";
 import { allowedNextStages, type Stage } from "@/lib/validation/candidate";
+import type { RejectionReason } from "@/lib/stages";
 import { changeStageAction } from "@/app/(dashboard)/ung-vien/actions";
 import { t } from "@/lib/i18n";
 
 interface Props {
   candidateId: string;
+  candidateName?: string;
   currentStage: Stage;
   /** Disable transitions (e.g. for non-HR users with read-only access). */
   readOnly?: boolean;
 }
 
-export function StageDropdown({ candidateId, currentStage, readOnly }: Props) {
+export function StageDropdown({ candidateId, candidateName, currentStage, readOnly }: Props) {
   const router = useRouter();
   const [pending, setPending] = React.useState(false);
+  const [rejectOpen, setRejectOpen] = React.useState(false);
   const allowed = allowedNextStages(currentStage);
 
-  const change = async (next: Stage) => {
+  const change = async (next: Stage, reason?: RejectionReason, note?: string) => {
     setPending(true);
-    const r = await changeStageAction(candidateId, next);
+    const r = await changeStageAction(candidateId, next, reason, note);
     setPending(false);
     if (!r.ok) toast.error(r.error);
-    else toast.success(t.success.saved);
-    router.refresh();
+    else {
+      toast.success(t.success.saved);
+      setRejectOpen(false);
+      router.refresh();
+    }
+  };
+
+  const onSelect = (next: Stage) => {
+    // Rejecting requires a reason — funnel through the picker instead of the
+    // direct action (which would 400 without one).
+    if (next === "rejected") setRejectOpen(true);
+    else void change(next);
   };
 
   if (readOnly || allowed.length === 0) {
@@ -59,11 +73,18 @@ export function StageDropdown({ candidateId, currentStage, readOnly }: Props) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
         {allowed.map((s) => (
-          <DropdownMenuItem key={s} onSelect={() => change(s)}>
+          <DropdownMenuItem key={s} onSelect={() => onSelect(s)}>
             {t.stage[s]}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
+      <RejectReasonDialog
+        open={rejectOpen}
+        onOpenChange={setRejectOpen}
+        candidateName={candidateName ?? "ứng viên"}
+        onConfirm={(reason, note) => change("rejected", reason, note)}
+        busy={pending}
+      />
     </DropdownMenu>
   );
 }

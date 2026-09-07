@@ -131,7 +131,6 @@ export async function getFunnelData(filter: ReportFilter): Promise<FunnelSuperSt
 
   const order: FunnelSuperStage[] = [
     "applied",
-    "screening",
     "interview",
     "approval",
     "offer",

@@ -30,7 +30,9 @@ export async function loginAsAdmin(page: Page): Promise<void> {
   await page.getByLabel("Email").fill(E2E_EMAIL);
   await page.getByLabel("Mật khẩu", { exact: false }).first().fill(E2E_PASSWORD);
   await page.getByRole("button", { name: /đăng nhập/i }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/dang-nhap"), { timeout: 45_000 });
+  // Generous: cold `next dev` compiles the sign-in route + candidate pages on
+  // first hit (Windows first-compile can run 30-60s).
+  await page.waitForURL((url) => !url.pathname.startsWith("/dang-nhap"), { timeout: 90_000 });
 }
 
 /** The page body must never scroll horizontally (audit: mobile tables). */

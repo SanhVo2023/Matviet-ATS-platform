@@ -2,12 +2,15 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Loader2, Send, UserCheck, XCircle } from "lucide-react";
+import { CalendarPlus, Loader2, LogOut, Send, UserCheck, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { ScheduleInterviewDialog } from "@/components/features/interviews/ScheduleInterviewDialog";
+import { RejectReasonDialog } from "@/components/features/candidates/RejectReasonDialog";
 import { nextActionsFor, type NextAction } from "@/lib/next-actions";
 import type { Stage } from "@/lib/validation/candidate";
+import type { RejectionReason } from "@/lib/stages";
 import { changeStageAction } from "@/app/(dashboard)/ung-vien/actions";
 import { startApprovalAction } from "@/app/(dashboard)/phong-van/actions";
 
@@ -24,32 +27,42 @@ const ICONS: Record<NextAction["key"], typeof Send> = {
   start_approval: Send,
   mark_hired: UserCheck,
   reject: XCircle,
+  withdraw: LogOut,
 };
 
 /**
  * The current rung's action bar (ADR 0019): stage-driven, role-filtered —
- * the ONE obvious next move plus quiet secondaries. Reject is two-step
- * (click again to confirm) so a consequential action never fires by accident.
+ * the ONE obvious next move plus quiet secondaries. Reject opens a reason
+ * picker (renovation R1) so a consequential, now-categorized action never
+ * fires by accident.
  */
 export function RungActions({ candidateId, candidateName, stage, role, interviewers }: Props) {
   const router = useRouter();
   const [scheduleOpen, setScheduleOpen] = React.useState(false);
+  const [rejectOpen, setRejectOpen] = React.useState(false);
   const [pending, setPending] = React.useState<string | null>(null);
-  const [confirmReject, setConfirmReject] = React.useState(false);
 
   const actions = nextActionsFor(stage, role);
   if (actions.length === 0) return null;
 
+  const doReject = async (reason: RejectionReason, note: string) => {
+    setPending("reject");
+    try {
+      const res = await changeStageAction(candidateId, "rejected", reason, note);
+      if (!res.ok) toast.error(res.error);
+      else {
+        toast.success("Đã chuyển hồ sơ sang Từ chối.");
+        setRejectOpen(false);
+        router.refresh();
+      }
+    } finally {
+      setPending(null);
+    }
+  };
+
   const run = async (key: NextAction["key"]) => {
-    if (key === "schedule_interview") {
-      setScheduleOpen(true);
-      return;
-    }
-    if (key === "reject" && !confirmReject) {
-      setConfirmReject(true);
-      window.setTimeout(() => setConfirmReject(false), 4000);
-      return;
-    }
+    if (key === "schedule_interview") return setScheduleOpen(true);
+    if (key === "reject") return setRejectOpen(true);
     setPending(key);
     try {
       if (key === "start_approval") {
@@ -60,12 +73,11 @@ export function RungActions({ candidateId, candidateName, stage, role, interview
       } else if (key === "mark_hired") {
         const res = await changeStageAction(candidateId, "hired");
         if (!res.ok) toast.error(res.error);
-        else toast.success("Đã ghi nhận: ứng viên chính thức được tuyển. 🎉");
-      } else if (key === "reject") {
-        const res = await changeStageAction(candidateId, "rejected");
+        else toast.success("Đã ghi nhận: ứng viên chính thức được tuyển.");
+      } else if (key === "withdraw") {
+        const res = await changeStageAction(candidateId, "withdrew");
         if (!res.ok) toast.error(res.error);
-        else toast.success("Đã chuyển hồ sơ sang Từ chối.");
-        setConfirmReject(false);
+        else toast.success("Đã ghi nhận: ứng viên rút hồ sơ.");
       }
       router.refresh();
     } finally {
@@ -77,16 +89,17 @@ export function RungActions({ candidateId, candidateName, stage, role, interview
     <div className="flex flex-wrap items-center gap-2">
       {actions.map((a) => {
         const Icon = ICONS[a.key];
-        const isReject = a.key === "reject";
+        const isQuiet = a.key === "reject" || a.key === "withdraw";
         return (
           <Button
             key={a.key}
             type="button"
             size="sm"
-            variant={a.primary ? "navy" : isReject ? "ghost" : "outline"}
-            className={
-              isReject ? "ml-auto text-rose-600 hover:bg-rose-50 hover:text-rose-700" : undefined
-            }
+            variant={a.primary ? "navy" : isQuiet ? "ghost" : "outline"}
+            className={cn(
+              a.key === "reject" && "ml-auto text-rose-600 hover:bg-rose-50 hover:text-rose-700",
+              a.key === "withdraw" && "text-slate-500 hover:bg-slate-50",
+            )}
             disabled={pending !== null}
             onClick={() => run(a.key)}
           >
@@ -95,7 +108,7 @@ export function RungActions({ candidateId, candidateName, stage, role, interview
             ) : (
               <Icon className="h-4 w-4" aria-hidden />
             )}
-            {isReject && confirmReject ? "Bấm lần nữa để xác nhận" : a.label}
+            {a.label}
           </Button>
         );
       })}
@@ -106,6 +119,13 @@ export function RungActions({ candidateId, candidateName, stage, role, interview
         candidateId={candidateId}
         candidateName={candidateName}
         interviewers={interviewers}
+      />
+      <RejectReasonDialog
+        open={rejectOpen}
+        onOpenChange={setRejectOpen}
+        candidateName={candidateName}
+        onConfirm={doReject}
+        busy={pending === "reject"}
       />
     </div>
   );

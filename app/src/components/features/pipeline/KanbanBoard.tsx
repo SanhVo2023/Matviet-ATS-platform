@@ -21,7 +21,8 @@ import {
   type Stage,
   type StageGroup,
 } from "@/lib/validation/candidate";
-import type { CandidateRow } from "@/server/candidates/repository";
+import { deriveCandidateStatus } from "@/lib/candidate-status";
+import type { CandidateWithStatus } from "@/server/candidates/repository";
 import { changeStageAction } from "@/app/(dashboard)/ung-vien/actions";
 import { startApprovalAction } from "@/app/(dashboard)/phong-van/actions";
 import { t } from "@/lib/i18n";
@@ -31,9 +32,16 @@ import { KanbanCard } from "./KanbanCard";
 import { IntakeDropCard } from "./IntakeDropCard";
 
 interface Props {
-  candidates: CandidateRow[];
+  candidates: CandidateWithStatus[];
   /** Job context — used in error messages + future bulk actions. */
   jobId: string;
+}
+
+/** Optimistic re-stage: update stage + a coarse derived (server refresh
+ * replaces it with the exact waiting-on/days). */
+function restage(r: CandidateWithStatus, stage: Stage): CandidateWithStatus {
+  const next = { ...r, current_stage: stage };
+  return { ...next, derived: deriveCandidateStatus(next, {}) };
 }
 
 /**
@@ -45,9 +53,9 @@ interface Props {
  * that column is never a drop target (rejecting is a consequential action,
  * done from the detail page/table).
  */
-function groupRows(rows: CandidateRow[]): Record<string, CandidateRow[]> {
+function groupRows(rows: CandidateWithStatus[]): Record<string, CandidateWithStatus[]> {
   const out = Object.fromEntries(
-    [...STAGE_GROUPS, CLOSED_GROUP].map((g) => [g.id, [] as CandidateRow[]]),
+    [...STAGE_GROUPS, CLOSED_GROUP].map((g) => [g.id, [] as CandidateWithStatus[]]),
   );
   for (const r of rows) {
     out[groupOfStage(r.current_stage as Stage).id]!.push(r);
@@ -57,7 +65,7 @@ function groupRows(rows: CandidateRow[]): Record<string, CandidateRow[]> {
 
 export function KanbanBoard({ candidates: initial, jobId }: Props) {
   const router = useRouter();
-  const [rows, setRows] = React.useState<CandidateRow[]>(initial);
+  const [rows, setRows] = React.useState<CandidateWithStatus[]>(initial);
   React.useEffect(() => setRows(initial), [initial]);
 
   const [showClosed, setShowClosed] = React.useState(false);
@@ -93,13 +101,11 @@ export function KanbanBoard({ candidates: initial, jobId }: Props) {
     const currentStage = card.current_stage as Stage;
     if (group.stages.includes(currentStage)) return; // dropped within own group — no-op
 
-    // "Đề nghị làm việc" drop = start the approval chain (it bumps the stage
-    // itself via STAGE_FOR_PENDING_STEP and notifies the first decider).
+    // "Đề nghị làm việc" drop = start the approval chain (transitionStage
+    // moves the card to `approving` and notifies the first decider).
     if (group.id === "g_offer") {
       const prevRows = rows;
-      setRows((cur) =>
-        cur.map((r) => (r.id === card.id ? { ...r, current_stage: "recommended" } : r)),
-      );
+      setRows((cur) => cur.map((r) => (r.id === card.id ? restage(r, "approving") : r)));
       const res = await startApprovalAction(card.id);
       if (!res.ok) {
         setRows(prevRows);
@@ -122,11 +128,15 @@ export function KanbanBoard({ candidates: initial, jobId }: Props) {
       return;
     }
 
+    // Dragging OUT of the approval column back to evaluation cancels the live
+    // chain — confirm first since it's consequential.
+    if (currentStage === "approving" && target === "evaluating") {
+      if (!window.confirm("Chuỗi duyệt hiện tại sẽ bị hủy. Tiếp tục?")) return;
+    }
+
     // Optimistic move — replace the card's stage in local state.
     const prevRows = rows;
-    setRows((current) =>
-      current.map((r) => (r.id === card.id ? { ...r, current_stage: target } : r)),
-    );
+    setRows((current) => current.map((r) => (r.id === card.id ? restage(r, target) : r)));
 
     const res = await changeStageAction(card.id, target);
     if (!res.ok) {
