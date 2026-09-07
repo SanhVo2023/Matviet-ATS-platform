@@ -60,10 +60,10 @@ export function Sidebar({ role, fullName, email }: SidebarProps) {
   const showHeaders = groups.length > 1;
 
   return (
-    // hidden lg:block — mobile navigation is BottomTabs; the rail would
-    // overlay content on phones otherwise.
+    // hidden md:block — matches the AppShell's md sidenav breakpoint + the
+    // BottomTabs md:hidden, so there's no 768-1023px dead rail (renovation R2).
     <div
-      className={cn("mv-side-rail hidden h-full lg:block", !collapsed && "mv-side-rail-expanded")}
+      className={cn("mv-side-rail hidden h-full md:block", !collapsed && "mv-side-rail-expanded")}
       onMouseEnter={expand}
       onMouseLeave={collapseSoon}
       onFocusCapture={expand}

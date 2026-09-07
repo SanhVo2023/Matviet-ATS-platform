@@ -126,6 +126,33 @@ export async function userIdsByRoles(roles: string[]): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
+/** Active users' emails by role (renovation R2 — approval-pending emails). */
+export async function emailsByRoles(roles: string[]): Promise<string[]> {
+  if (roles.length === 0) return [];
+  const db = await getDb();
+  const rows = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(
+      and(
+        inArray(users.role, roles as (typeof users.$inferSelect.role)[]),
+        eq(users.isActive, true),
+      ),
+    );
+  return rows.map((r) => r.email).filter((e): e is string => !!e);
+}
+
+/** Active users' emails by id. */
+export async function emailsByIds(ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const db = await getDb();
+  const rows = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(and(inArray(users.id, ids), eq(users.isActive, true)));
+  return rows.map((r) => r.email).filter((e): e is string => !!e);
+}
+
 // ---------------------------------------------------------------------------
 // Push subscriptions
 // ---------------------------------------------------------------------------

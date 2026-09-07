@@ -12,6 +12,8 @@ interface Props {
   candidate: CandidateRow;
   jobTitle: string | null;
   jobId: string;
+  /** Read-only (exec view) — the stage dropdown becomes a static badge. */
+  readOnly?: boolean;
   /** AI summary block (2026-07-16 merge) — lives INSIDE the header card. */
   aiSummarySlot?: React.ReactNode;
 }
@@ -22,7 +24,7 @@ interface Props {
  * slot on an empty state). WHERE the candidate is and WHAT happened lives
  * in the journey ladder below; contact lives in the reference rail.
  */
-export function CandidateHeader({ candidate, jobTitle, jobId, aiSummarySlot }: Props) {
+export function CandidateHeader({ candidate, jobTitle, jobId, readOnly, aiSummarySlot }: Props) {
   const stage = candidate.current_stage as Stage;
   const isClosed = groupOfStage(stage).id === CLOSED_GROUP.id;
 
@@ -73,6 +75,7 @@ export function CandidateHeader({ candidate, jobTitle, jobId, aiSummarySlot }: P
           candidateId={candidate.id}
           candidateName={candidate.full_name}
           currentStage={candidate.current_stage}
+          readOnly={readOnly}
         />
       </div>
 

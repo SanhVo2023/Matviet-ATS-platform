@@ -8,6 +8,8 @@ import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { Logo } from "./Logo";
+import { NotificationBell } from "./NotificationBell";
+import { AccountMenu } from "./AccountMenu";
 import { modulesForRole, MODULE_GROUP_LABELS, type ModuleGroup } from "@/lib/modules";
 import type { Database } from "@/types/db";
 
@@ -17,6 +19,10 @@ const GROUP_ORDER: ModuleGroup[] = ["recruiting", "hris", "system"];
 
 interface MobileNavProps {
   role: UserRole;
+  /** Account footer identity — brings the bell, push opt-in, đổi mật khẩu and
+   * sign-out to mobile (they lived only in the desktop sidebar before). */
+  fullName?: string;
+  email?: string;
   /** Controlled open state — pass together with `onOpenChange`. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -32,6 +38,8 @@ interface MobileNavProps {
  */
 export function MobileNav({
   role,
+  fullName,
+  email,
   open: openProp,
   onOpenChange,
   showTrigger = true,
@@ -118,6 +126,15 @@ export function MobileNav({
               </div>
             ))}
           </nav>
+
+          {/* Account footer — bell (with push opt-in), đổi mật khẩu, đăng xuất.
+              The mobile persona had NONE of these before (audit). */}
+          {fullName !== undefined && email !== undefined ? (
+            <div className="flex flex-col gap-1 border-t border-white/10 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2">
+              <NotificationBell expanded />
+              <AccountMenu fullName={fullName} email={email} role={role} expanded />
+            </div>
+          ) : null}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

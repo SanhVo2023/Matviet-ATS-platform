@@ -4,7 +4,9 @@ import { getDb } from "@/db";
 import { approvals, candidates, interviews, jobs, email_messages } from "@/db/schema";
 import {
   listPendingApprovalsForUser,
+  listPendingApprovalDigestsForUser,
   type PendingApprovalRow,
+  type PendingApprovalDigest,
 } from "@/server/approvals/repository";
 import { listInterviews, type InterviewRow } from "@/server/interviews/repository";
 
@@ -166,8 +168,8 @@ export async function getManagerInboxData(
 export async function getExecQueueData(
   userId: string,
   role: "bod" | "tap_doan",
-): Promise<PendingApprovalRow[]> {
-  return listPendingApprovalsForUser(userId, role);
+): Promise<PendingApprovalDigest[]> {
+  return listPendingApprovalDigestsForUser(userId, role);
 }
 
 // ---------------------------------------------------------------------------

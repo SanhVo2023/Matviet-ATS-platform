@@ -17,6 +17,10 @@ export async function decideApprovalAction(
   if (decision !== "approved" && decision !== "rejected") {
     return { ok: false, error: "Quyết định không hợp lệ" };
   }
+  // Reject requires a rationale (renovation R2) — UI gating isn't access control.
+  if (decision === "rejected" && (!notes || notes.trim().length < 3)) {
+    return { ok: false, error: "Vui lòng nhập lý do từ chối" };
+  }
   try {
     const r = await decideApproval(
       approvalId,
