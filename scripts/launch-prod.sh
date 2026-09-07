@@ -8,10 +8,16 @@
 # site. This script backs up first, applies migrations, then deploys — and
 # aborts the moment any step fails.
 #
-# WHERE TO RUN: a Linux / macOS / CI box (or a Windows checkout on a path with
-# NO diacritics) where `wrangler` is logged in to the matviet Cloudflare account.
-# It CANNOT run on the primary Windows dev path — workerd crashes building the
-# Worker bundle there (diacritics in "Mắt Việt HR").
+# WHERE TO RUN: anywhere `wrangler` is logged in to the matviet Cloudflare
+# account — including THIS Windows box. The only catch is the build step:
+# workerd crashes building the Worker bundle from a path containing diacritics
+# ("Mắt Việt HR"). The fix (verified 2026-09-07) is a directory junction that
+# gives the same files an ASCII path. One was already created at:
+#     E:\NEW APP\HR imrovement\MatVietHR   ->  ...\Mắt Việt HR
+# So on Windows, run this script from the junction in Git Bash:
+#     cd "/e/NEW APP/HR imrovement/MatVietHR/app" && bash ../scripts/launch-prod.sh
+# (Recreate the junction if missing:  cmd //c mklink /J "E:\NEW APP\HR imrovement\MatVietHR" "E:\NEW APP\HR imrovement\Mắt Việt HR")
+# On Linux/macOS/CI there is no diacritics issue — run it from the repo directly.
 #
 # PREREQUISITES:
 #   - `git push origin main` already done (so this deploys the reviewed code).
