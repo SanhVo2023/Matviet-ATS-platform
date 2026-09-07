@@ -1,12 +1,24 @@
 #!/usr/bin/env sh
-# Pre-commit hook — runs lint-staged inside app/ where the JS toolchain lives.
-# Skip if no JS/TS files staged (e.g. when only docs change).
+# Pre-commit hook (renovation R5): secret scan + prettier + typecheck.
+# Skips the JS toolchain when no app/ JS/TS files are staged (docs-only commits).
 
 set -e
+
+# Secret scan — hard gate when gitleaks is installed; CI enforces it regardless
+# so a machine without gitleaks can still commit (with a nudge).
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact
+else
+  echo "[pre-commit] gitleaks not found — skipping local secret scan (CI enforces it)."
+  echo "             install: winget install Gitleaks.Gitleaks  |  brew install gitleaks"
+fi
 
 STAGED_JS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^app/.*\.(ts|tsx|js|jsx|css|md)$' || true)
 
 if [ -n "$STAGED_JS" ]; then
   cd app
   npx lint-staged
+  # Whole-project typecheck (tsc --noEmit) — catches type breaks a per-file
+  # prettier pass can't. Fast against the warm TS server.
+  npm run typecheck
 fi

@@ -13,6 +13,23 @@ import handler from "./.open-next/worker.js";
 
 const CRON_ROUTES = ["/api/scoring/drain", "/api/emails/drain", "/api/notifications/cron"];
 
+/** One-time-per-isolate boot check (renovation R5): without CRON_SECRET every
+ * cron drain 503s and CVs spin forever with no user-visible signal. Log loudly
+ * (and to Sentry when configured) — never throw, the app must still serve. */
+let bootChecked = false;
+function assertBootEnv(env: CloudflareEnv): void {
+  if (bootChecked) return;
+  bootChecked = true;
+  if (!env.CRON_SECRET) {
+    console.error(
+      "[boot] CRON_SECRET is missing — cron drains will 503 and scoring/email queues will never flush. Set it via `wrangler secret put CRON_SECRET`.",
+    );
+  }
+  if (!env.BETTER_AUTH_SECRET) {
+    console.error("[boot] BETTER_AUTH_SECRET is missing — sessions cannot be signed.");
+  }
+}
+
 /** Invoke one of the app's own API routes in-process (no public round-trip). */
 async function invokeRoute(
   path: string,
@@ -42,9 +59,13 @@ function isIdleResult(status: number, body: string): boolean {
 }
 
 export default {
-  fetch: handler.fetch,
+  fetch(request: Request, env: CloudflareEnv, ctx: ExecutionContext) {
+    assertBootEnv(env);
+    return handler.fetch(request, env, ctx);
+  },
 
   async scheduled(controller: ScheduledController, env: CloudflareEnv, ctx: ExecutionContext) {
+    assertBootEnv(env);
     for (const path of CRON_ROUTES) {
       try {
         const res = await invokeRoute(path, env, ctx);

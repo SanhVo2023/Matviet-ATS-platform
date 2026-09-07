@@ -51,6 +51,8 @@ interface Props {
   ai: {
     currentModel: string;
     enabled: boolean;
+    todaySpend: number;
+    circuitTripped: boolean;
     choices: Array<{ id: string; label: string; note: string }>;
     usageByFeature: Array<{
       feature: string;
@@ -112,6 +114,19 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Cost guardrail state (renovation R5) */}
+          <div
+            className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${
+              ai.circuitTripped ? "bg-error-bg text-error-fg" : "bg-slate-50 text-slate-600"
+            }`}
+          >
+            <span>
+              Chi phí AI hôm nay: <strong>{usd(ai.todaySpend)}</strong>
+            </span>
+            {ai.circuitTripped ? (
+              <span className="font-semibold">⛔ Đã đạt hạn mức — AI tạm ngắt tới nửa đêm</span>
+            ) : null}
+          </div>
           <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
             {ai.choices.map((c) => (
               <label
