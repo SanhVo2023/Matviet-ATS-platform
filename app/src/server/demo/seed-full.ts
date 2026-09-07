@@ -21,6 +21,7 @@ import {
 } from "@/db/schema";
 import { putFile } from "@/lib/r2";
 import { getAuth } from "@/lib/auth-server";
+import { generateTempPassword } from "@/lib/passwords";
 import { seedDemoData } from "@/server/reports/seed-demo";
 import type { VerifiedCriteria } from "@/lib/ai/gemini/types";
 
@@ -35,7 +36,6 @@ import type { VerifiedCriteria } from "@/lib/ai/gemini/types";
  * Idempotent: refuses to run twice (marker = job code DEMO-SALES-01).
  */
 
-const DEMO_PASSWORD = "MatViet@2026";
 const nowIso = () => new Date().toISOString();
 const daysFromNow = (d: number, h = 9) => {
   const t = new Date(Date.now() + d * 86_400_000);
@@ -130,9 +130,12 @@ export async function runFullDemoSeed(appUrl: string): Promise<FullSeedResult> {
   if (!admin) throw new Error("Chưa có tài khoản admin — chạy /api/setup trước.");
 
   // ---- 1. Demo accounts (better-auth-compatible scrypt hash) ----------------
+  // Password is random per run (never a repo-committed constant) and returned
+  // once in the seed result; after that, recover via admin "Đặt mật khẩu mới".
+  const demoPassword = generateTempPassword(16);
   const authInstance = await getAuth();
   const ctx = await authInstance.$context;
-  const passwordHash = await ctx.password.hash(DEMO_PASSWORD);
+  const passwordHash = await ctx.password.hash(demoPassword);
 
   const demoUsers = [
     { name: "Bùi Thị Hương (Demo)", email: "huong.demo@matviet.test", role: "hr" as const },
@@ -618,7 +621,7 @@ export async function runFullDemoSeed(appUrl: string): Promise<FullSeedResult> {
   const reports = await seedDemoData();
 
   return {
-    users: demoUsers.map((u) => ({ email: u.email, password: DEMO_PASSWORD, role: u.role })),
+    users: demoUsers.map((u) => ({ email: u.email, password: demoPassword, role: u.role })),
     jobs: 3,
     richCandidates: rich.length,
     reportCandidates: reports.candidates_created,

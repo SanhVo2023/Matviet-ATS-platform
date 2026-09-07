@@ -15,6 +15,7 @@ import {
   revokeUserSessionsAction,
   seedDemoAction,
   unseedDemoAction,
+  lockDemoUsersAction,
 } from "./actions";
 
 const FEATURE_LABEL: Record<string, string> = {
@@ -73,6 +74,9 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
   const [pending, start] = useTransition();
   const [model, setModel] = useState(ai.currentModel);
   const [enabled, setEnabled] = useState(ai.enabled);
+  // Seed result (incl. the one-time demo password) persists on the page —
+  // a toast alone disappears before anyone can note the credentials down.
+  const [seedInfo, setSeedInfo] = useState<string | null>(null);
 
   const act = (fn: () => Promise<{ ok: boolean; message?: string; error?: string }>) =>
     start(async () => {
@@ -111,7 +115,7 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
                     name="ai-model"
                     checked={model === c.id}
                     onChange={() => setModel(c.id)}
-                    className="accent-[#fbc312]"
+                    className="accent-accent-400"
                   />
                   <span className="text-sm font-semibold text-brand-900">{c.label}</span>
                 </span>
@@ -240,18 +244,45 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
             Bộ dữ liệu thử nghiệm đầy đủ (tài khoản, ứng viên, phỏng vấn, duyệt…).
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => act(seedDemoAction)} disabled={pending}>
-            Tạo dữ liệu demo
-          </Button>
-          <Button
-            variant="outline"
-            className="text-error-fg hover:bg-error-bg/40"
-            onClick={() => act(unseedDemoAction)}
-            disabled={pending}
-          >
-            <Trash2 className="h-4 w-4" aria-hidden /> Xoá ứng viên demo (báo cáo)
-          </Button>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() =>
+                start(async () => {
+                  const r = await seedDemoAction();
+                  if (r.ok) {
+                    setSeedInfo(r.message ?? null);
+                    toast.success("Đã tạo dữ liệu demo — thông tin đăng nhập hiển thị bên dưới.");
+                  } else toast.error(r.error);
+                })
+              }
+              disabled={pending}
+            >
+              Tạo dữ liệu demo
+            </Button>
+            <Button
+              variant="outline"
+              className="text-error-fg hover:bg-error-bg/40"
+              onClick={() => act(unseedDemoAction)}
+              disabled={pending}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden /> Xoá ứng viên demo (báo cáo)
+            </Button>
+            <Button
+              variant="outline"
+              className="text-error-fg hover:bg-error-bg/40"
+              onClick={() => act(lockDemoUsersAction)}
+              disabled={pending}
+            >
+              <LogOut className="h-4 w-4" aria-hidden /> Khóa tài khoản demo
+            </Button>
+          </div>
+          {seedInfo ? (
+            <p className="rounded-md border border-accent-400 bg-accent-50 px-3 py-2 text-sm text-slate-700">
+              {seedInfo}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

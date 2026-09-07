@@ -27,16 +27,17 @@ export function middleware(request: NextRequest) {
   if (!sessionCookie && !isPublicRoute(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/dang-nhap";
-    url.searchParams.set("next", pathname);
+    // Drop the protected route's OWN query string from the login URL, then
+    // carry the full original path+query in `next` (so filters survive login).
+    url.search = "";
+    url.searchParams.set("next", pathname + request.nextUrl.search);
     return NextResponse.redirect(url);
   }
 
-  if (sessionCookie && pathname === "/dang-nhap") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
+  // NOTE: no cookie-presence bounce away from /dang-nhap. A cookie whose
+  // session was revoked would ping-pong between that bounce and
+  // requireSession's redirect (ERR_TOO_MANY_REDIRECTS). The login page itself
+  // checks for a REAL session server-side and redirects signed-in users home.
 
   return NextResponse.next();
 }

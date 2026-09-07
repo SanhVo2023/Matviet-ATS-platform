@@ -3,7 +3,17 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { MoreHorizontal, Pencil, KeyRound, UserX, UserCheck, Loader2 } from "lucide-react";
+import {
+  MoreHorizontal,
+  Pencil,
+  KeyRound,
+  UserX,
+  UserCheck,
+  Loader2,
+  Copy,
+  Dices,
+  ShieldCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +32,13 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { t } from "@/lib/i18n";
-import { updateUserAction, sendResetEmailAction, setUserActive } from "./actions";
+import { generateTempPassword } from "@/lib/passwords";
+import {
+  updateUserAction,
+  sendResetEmailAction,
+  setUserActive,
+  setUserPasswordAction,
+} from "./actions";
 import type { Database } from "@/types/db";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
@@ -46,11 +62,13 @@ interface Props {
 export function UserRowActions({ user, departments, isSelf }: Props) {
   const router = useRouter();
   const [editOpen, setEditOpen] = React.useState(false);
+  const [pwdOpen, setPwdOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [name, setName] = React.useState(user.name);
   const [role, setRole] = React.useState<UserRole>(user.role);
   const [deptId, setDeptId] = React.useState(user.departmentId ?? "");
   const [phone, setPhone] = React.useState(user.phone ?? "");
+  const [newPassword, setNewPassword] = React.useState("");
 
   const run = async (fn: () => Promise<{ ok: boolean; error?: string }>, okMsg: string) => {
     setBusy(true);
@@ -93,6 +111,14 @@ export function UserRowActions({ user, departments, isSelf }: Props) {
             }
           >
             <KeyRound className="mr-2 h-3.5 w-3.5" aria-hidden /> Gửi email đặt lại mật khẩu
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              setNewPassword(generateTempPassword());
+              setPwdOpen(true);
+            }}
+          >
+            <ShieldCheck className="mr-2 h-3.5 w-3.5" aria-hidden /> Đặt mật khẩu mới (trực tiếp)
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {user.isActive ? (
@@ -197,6 +223,76 @@ export function UserRowActions({ user, departments, isSelf }: Props) {
             >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
               Lưu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pwdOpen} onOpenChange={setPwdOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Đặt mật khẩu mới: {user.email}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-500">
+              Dùng khi người dùng bị khóa ngoài và email đặt lại không tới được. Mật khẩu hiển thị
+              MỘT lần — sao chép và gửi trực tiếp cho {user.name}. Các phiên đăng nhập cũ sẽ bị đăng
+              xuất.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="sp-password">Mật khẩu mới (tối thiểu 8 ký tự)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="sp-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="font-mono"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Tạo mật khẩu ngẫu nhiên"
+                  onClick={() => setNewPassword(generateTempPassword())}
+                >
+                  <Dices className="h-4 w-4" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Sao chép mật khẩu"
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(newPassword)
+                      .then(() => toast.success("Đã sao chép mật khẩu"))
+                      .catch(() => toast.error("Không sao chép được — hãy chép thủ công"));
+                  }}
+                >
+                  <Copy className="h-4 w-4" aria-hidden />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPwdOpen(false)} disabled={busy}>
+              Hủy
+            </Button>
+            <Button
+              onClick={() =>
+                void run(
+                  () => setUserPasswordAction({ user_id: user.id, new_password: newPassword }),
+                  `Đã đặt mật khẩu mới cho ${user.name} — các phiên cũ đã đăng xuất.`,
+                ).then((ok) => {
+                  if (ok) setPwdOpen(false);
+                })
+              }
+              disabled={busy || newPassword.length < 8}
+            >
+              {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
+              Đặt mật khẩu
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import { ArrowLeft, Printer, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BRAND } from "@/lib/brand";
 
 interface Props {
   jobId: string;
@@ -24,7 +25,7 @@ export function QrPoster({ jobId, jobTitle, location, applyUrl, jobOpen }: Props
       width: 260,
       margin: 1,
       errorCorrectionLevel: "M",
-      color: { dark: "#13245C", light: "#FFFFFF" },
+      color: { dark: BRAND.navy, light: BRAND.white },
     });
   }, [applyUrl]);
 

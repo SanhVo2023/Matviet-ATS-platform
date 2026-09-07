@@ -107,7 +107,7 @@ export function AgentDock({ role }: { role: UserRole }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Đóng Trợ lý AI" : "Mở Trợ lý AI"}
-        className="h-13 w-13 fixed bottom-20 right-4 z-40 flex items-center justify-center rounded-full bg-accent-400 p-3.5 text-brand-900 shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 lg:bottom-6 lg:right-6"
+        className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent-400 text-brand-900 shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 lg:bottom-6 lg:right-6"
       >
         {open ? (
           <X className="h-5 w-5" aria-hidden />

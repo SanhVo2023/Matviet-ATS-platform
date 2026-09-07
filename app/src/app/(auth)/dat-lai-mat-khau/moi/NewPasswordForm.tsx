@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +22,13 @@ export function NewPasswordForm() {
 
   if (!token) {
     return (
-      <div role="alert" className="rounded-md bg-error-bg/40 px-3 py-2 text-sm text-error-fg">
-        Liên kết không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu đặt lại mật khẩu mới.
+      <div className="space-y-3">
+        <div role="alert" className="rounded-md bg-error-bg/40 px-3 py-2 text-sm text-error-fg">
+          Liên kết không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu đặt lại mật khẩu mới.
+        </div>
+        <Button asChild variant="outline" className="w-full">
+          <Link href="/dat-lai-mat-khau">Yêu cầu liên kết mới</Link>
+        </Button>
       </div>
     );
   }

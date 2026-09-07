@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { buildReportPayload } from "@/server/reports/queries";
 import { parseReportFilter } from "@/server/reports/filter";
 import { formatDate } from "@/lib/vi-format";
+import { BRAND_ARGB } from "@/lib/brand";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export async function GET(req: Request): Promise<Response> {
   wb.creator = "Mắt Việt HR";
   wb.created = new Date();
 
-  const NAVY = "FF13245C";
+  const NAVY = BRAND_ARGB.navy;
   const headerStyle: Partial<ExcelJS.Style> = {
     font: { bold: true, color: { argb: "FFFFFFFF" } },
     fill: {
