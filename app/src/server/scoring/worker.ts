@@ -39,6 +39,7 @@ import {
 import type { ParsedCv, ScoreResult, Weights, CriterionCode } from "@/lib/ai/gemini/types";
 import { notifyRoles } from "@/server/notifications/service";
 import { emitAgentEvent } from "@/server/agent-flows/events";
+import { isAiEnabled } from "@/server/settings/repository";
 import { readWeights, computeWeightedTotalFromVerified, applyEvidenceDiscount } from "./weights";
 import { validateEvidence } from "./evidence";
 import { getRubricForJob, rubricGuidanceMap } from "./rubric";
@@ -66,17 +67,29 @@ export interface ScoringOutcome {
  * D1 statement keyed on the picked id + expected status.
  */
 export async function runScoringJob(candidateId?: string): Promise<ScoringOutcome> {
+  // Kill switch (renovation R3): when AI is off, leave rows QUEUED — don't
+  // claim + fail them. Re-enabling then just resumes; before this fix every
+  // queued CV failed permanently the moment the switch was flipped.
+  if (!(await isAiEnabled())) return { status: "idle" };
+
   const queueRow = await claimJob(candidateId);
   if (!queueRow) return { status: "idle" };
 
   const start = Date.now();
-  const db = await getDb();
   try {
-    const screeningId = await processJob(queueRow);
-    await db
-      .update(scoring_queue)
-      .set({ status: "succeeded", completed_at: new Date().toISOString(), last_error: null })
-      .where(eq(scoring_queue.id, queueRow.id));
+    // processJob claims the queue completion itself (ownership guard) and
+    // reports whether the candidates denorm was applied.
+    const { screeningId, denormApplied } = await processJob(queueRow);
+    if (!denormApplied) {
+      // A manual score won the race — the AI result is kept as history but is
+      // not the candidate's score. Don't notify/propose off a superseded run.
+      return {
+        status: "succeeded",
+        candidate_id: queueRow.candidate_id,
+        screening_id: screeningId,
+        duration_ms: Date.now() - start,
+      };
+    }
     // Renovation R1: no stage advance — scoring completion is sub-state
     // (ai_screening_status='success'), the candidate stays in `intake`.
     await notifyScoringOutcome(queueRow.candidate_id, screeningId);
@@ -143,7 +156,7 @@ async function claimJob(candidateId?: string): Promise<QueueRow | null> {
   return claimed[0]!;
 }
 
-async function processJob(q: QueueRow): Promise<string> {
+async function processJob(q: QueueRow): Promise<{ screeningId: string; denormApplied: boolean }> {
   const db = await getDb();
 
   const candidate = await db
@@ -248,6 +261,26 @@ async function processJob(q: QueueRow): Promise<string> {
     .returning({ id: ai_screenings.id });
   const screeningId = inserted[0]!.id;
 
+  // Ownership guard (renovation R3): claim the queue completion BEFORE the
+  // candidates denorm. If HR recorded a manual score while we ran, that
+  // cancels the queue row — the claim wins 0 rows and we keep the
+  // ai_screenings history but do NOT clobber the manual candidates.ai_score.
+  const claimed = await db
+    .update(scoring_queue)
+    .set({ status: "succeeded", completed_at: nowIso, last_error: null })
+    .where(
+      and(
+        eq(scoring_queue.id, q.id),
+        eq(scoring_queue.status, "running"),
+        eq(scoring_queue.attempts, q.attempts),
+      ),
+    )
+    .returning({ id: scoring_queue.id });
+  if (claimed.length === 0) {
+    console.warn("[scoring] completion lost the race (manual score?) — denorm skipped");
+    return { screeningId, denormApplied: false };
+  }
+
   // Explicit denormalization (was the bump_candidate_score trigger in Postgres)
   // Ambient AI (ADR 0018): the score pass already writes an overall_summary —
   // seed candidates.ai_summary with it so the profile shows a narrative
@@ -274,7 +307,7 @@ async function processJob(q: QueueRow): Promise<string> {
   // (their "name" is just the filename) and only those get renamed.
   await backfillContactFields(q.candidate_id, passOne.parsed);
 
-  return screeningId;
+  return { screeningId, denormApplied: true };
 }
 
 async function backfillContactFields(candidateId: string, parsed: ParsedCv): Promise<void> {
@@ -519,6 +552,9 @@ function isRetriable(err: unknown): boolean {
   if (msg.includes("schema") || msg.includes("không hợp lệ") || msg.includes("không tìm thấy"))
     return false;
   return (
+    // Kill switch flipped mid-claim: treat as retriable so re-enabling
+    // recovers it, rather than a permanent failure (renovation R3).
+    msg.includes("ai đang tắt") ||
     msg.includes("rate") ||
     msg.includes("429") ||
     msg.includes("quota") ||

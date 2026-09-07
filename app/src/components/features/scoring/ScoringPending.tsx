@@ -13,7 +13,7 @@ interface Props {
 }
 
 const POLL_MS = 3_000;
-const TOO_LONG_MS = 60_000;
+const TOO_LONG_MS = 180_000;
 
 /**
  * Soft polling: every 3s the page server-component re-runs (router.refresh()),

@@ -7,9 +7,10 @@ import { getDb } from "@/db";
 import { sessions, users, accounts } from "@/db/schema";
 import { getAuth } from "@/lib/auth-server";
 import { generateTempPassword } from "@/lib/passwords";
-import { setSetting, SETTING_KEYS } from "@/server/settings/repository";
+import { getSetting, setSetting, SETTING_KEYS } from "@/server/settings/repository";
 import { AI_MODEL_CHOICES } from "@/lib/ai/workers-ai";
 import { runScoringJob } from "@/server/scoring/worker";
+import { requeueAiDisabledFailures } from "@/server/scoring/repository";
 import { drainQueue } from "@/server/email/sender";
 import { runFullDemoSeed } from "@/server/demo/seed-full";
 import { unseedDemoData } from "@/server/reports/seed-demo";
@@ -25,12 +26,22 @@ export async function updateAiSettingsAction(input: {
   if (!AI_MODEL_CHOICES.some((m) => m.id === input.model)) {
     return { ok: false, error: "Model không nằm trong danh sách cho phép" };
   }
+  const wasEnabled = (await getSetting(SETTING_KEYS.aiEnabled)) !== "false";
   await setSetting(SETTING_KEYS.aiModel, input.model);
   await setSetting(SETTING_KEYS.aiEnabled, input.enabled ? "true" : "false");
+
+  // Re-enabling the kill switch resurrects the CVs that failed while it was off.
+  let requeued = 0;
+  if (input.enabled && !wasEnabled) {
+    requeued = await requeueAiDisabledFailures();
+  }
+
   revalidatePath("/cai-dat/he-thong");
   return {
     ok: true,
-    message: `Đã lưu: ${input.model.split("/").pop()} · AI ${input.enabled ? "bật" : "tắt"} (hiệu lực trong ~30 giây)`,
+    message:
+      `Đã lưu: ${input.model.split("/").pop()} · AI ${input.enabled ? "bật" : "tắt"} (hiệu lực trong ~30 giây)` +
+      (requeued > 0 ? ` · đã xếp lại ${requeued} hồ sơ chờ chấm` : ""),
   };
 }
 

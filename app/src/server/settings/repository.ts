@@ -43,3 +43,8 @@ export const SETTING_KEYS = {
   aiModel: "ai_model",
   aiEnabled: "ai_enabled", // "true" | "false"
 } as const;
+
+/** AI master switch — true unless an admin explicitly turned it off. */
+export async function isAiEnabled(): Promise<boolean> {
+  return (await getSetting(SETTING_KEYS.aiEnabled)) !== "false";
+}

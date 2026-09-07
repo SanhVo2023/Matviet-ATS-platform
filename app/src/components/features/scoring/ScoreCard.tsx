@@ -25,6 +25,8 @@ interface Props {
   weights: Weights;
   summary?: string | null;
   scoredAt: string;
+  /** Screening model — "manual" gets a "Chấm thủ công" badge (renovation R3). */
+  model?: string | null;
   /** Show "weights changed" hint above the card if the latest screening pre-dates a weight change. */
   weightsChanged?: boolean;
 }
@@ -50,6 +52,7 @@ export function ScoreCard({
   weights,
   summary,
   scoredAt,
+  model,
   weightsChanged,
 }: Props) {
   const [detailsOpen, setDetailsOpen] = React.useState(false);
@@ -90,7 +93,15 @@ export function ScoreCard({
         <span className={cn("rounded-full px-3 py-1 text-sm font-semibold", verdict.className)}>
           {verdict.label}
         </span>
-        <span className="text-xs text-slate-400">
+        {model === "manual" ? (
+          <span
+            className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600"
+            title="Điểm do HR chấm tay, không phải AI"
+          >
+            Chấm thủ công
+          </span>
+        ) : null}
+        <span className="text-xs text-slate-500">
           {t.score.scoredAt}: <time dateTime={scoredAt}>{formatRelative(scoredAt)}</time>
         </span>
       </div>

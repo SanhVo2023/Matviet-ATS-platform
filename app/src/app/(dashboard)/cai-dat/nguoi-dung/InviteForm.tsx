@@ -29,7 +29,11 @@ export function InviteForm({ departments }: { departments: Department[] }) {
         return;
       }
       setTempPassword(result.tempPassword);
-      toast.success(t.success.invited);
+      toast.success(
+        result.emailSent
+          ? "Đã tạo tài khoản và gửi email chào mừng."
+          : "Đã tạo tài khoản — email chưa gửi được, hãy đưa mật khẩu tạm trực tiếp.",
+      );
       // Reset by relying on the form's defaultValues + key reset
       const form = document.getElementById("invite-form") as HTMLFormElement | null;
       form?.reset();

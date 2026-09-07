@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, gte, inArray, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, type SQL } from "drizzle-orm";
 import { getDb } from "@/db";
 import { interviews, interview_attendees, interview_evaluations, users } from "@/db/schema";
 import type { Database, Tables } from "@/types/db";
@@ -42,6 +42,39 @@ export async function listInterviews(filters: InterviewListFilters = {}): Promis
     .from(interviews)
     .where(conds.length > 0 ? and(...conds) : undefined)
     .orderBy(asc(interviews.scheduled_at));
+}
+
+/**
+ * Completed interviews (last 30 days) with NO evaluation row yet — the "chờ
+ * đánh giá" list (renovation R3). Scoped to a manager's attendee interviews
+ * when `forUserId` is set; all such interviews for HR/admin otherwise.
+ */
+export async function listInterviewsOwedEvaluation(
+  opts: { forUserId?: string } = {},
+): Promise<InterviewRow[]> {
+  const db = await getDb();
+  const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const conds: SQL[] = [
+    eq(interviews.status, "completed"),
+    gte(interviews.scheduled_at, cutoff),
+    isNull(interview_evaluations.id),
+  ];
+  if (opts.forUserId) {
+    const rows = await db
+      .select({ interview_id: interview_attendees.interview_id })
+      .from(interview_attendees)
+      .where(eq(interview_attendees.user_id, opts.forUserId));
+    const ids = rows.map((r) => r.interview_id);
+    if (ids.length === 0) return [];
+    conds.push(inArray(interviews.id, ids));
+  }
+  const rows = await db
+    .select({ interview: interviews })
+    .from(interviews)
+    .leftJoin(interview_evaluations, eq(interview_evaluations.interview_id, interviews.id))
+    .where(and(...conds))
+    .orderBy(desc(interviews.scheduled_at));
+  return rows.map((r) => r.interview);
 }
 
 export async function getInterview(id: string): Promise<InterviewRow | null> {

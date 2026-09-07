@@ -221,7 +221,7 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
           <CardTitle className="flex items-center gap-2">
             <PlayCircle className="h-4 w-4 text-accent-600" aria-hidden /> Hàng đợi nền
           </CardTitle>
-          <CardDescription>Cron tự chạy mỗi 5 phút; nút dưới chạy ngay lập tức.</CardDescription>
+          <CardDescription>Cron tự chạy mỗi phút; nút dưới chạy ngay lập tức.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">

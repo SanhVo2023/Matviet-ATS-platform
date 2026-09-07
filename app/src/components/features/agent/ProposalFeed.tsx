@@ -65,7 +65,27 @@ const KIND_META: Record<
 };
 
 export function ProposalFeed({ proposals }: { proposals: FeedProposal[] }) {
-  if (proposals.length === 0) return null;
+  // Empty state (renovation R3): keep the section visible so a new HR user
+  // discovers the feature on a quiet day — it used to vanish entirely.
+  if (proposals.length === 0) {
+    return (
+      <section aria-label="Trợ lý đề xuất" className="space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent-100">
+            <Sparkles className="h-3.5 w-3.5 text-accent-600" aria-hidden />
+          </span>
+          <h2 className="text-base font-bold text-brand-900">Trợ lý đề xuất</h2>
+        </div>
+        <div className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-6 text-center">
+          <p className="text-sm font-medium text-slate-700">Trợ lý chưa có đề xuất mới</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Khi có hồ sơ phù hợp, trợ lý sẽ đề xuất lịch phỏng vấn, trình duyệt và nhắc việc — bạn
+            chỉ cần một chạm để duyệt.
+          </p>
+        </div>
+      </section>
+    );
+  }
   return (
     <section aria-label="Trợ lý đề xuất" className="space-y-3">
       <div className="flex items-center gap-2">
