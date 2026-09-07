@@ -3,6 +3,7 @@ import { configureAiRuntime, computeAiCost } from "@/lib/ai/workers-ai";
 import { getDb } from "@/db";
 import { ai_usage_log } from "@/db/schema";
 import { getSetting, SETTING_KEYS } from "@/server/settings/repository";
+import { isCircuitTripped, checkAfterUsage } from "@/server/ai/cost-guard";
 
 /**
  * Side-effect module: wires the AI provider to runtime settings (admin-chosen
@@ -12,7 +13,9 @@ import { getSetting, SETTING_KEYS } from "@/server/settings/repository";
  */
 configureAiRuntime({
   modelOverride: () => getSetting(SETTING_KEYS.aiModel),
-  enabledCheck: async () => (await getSetting(SETTING_KEYS.aiEnabled)) !== "false",
+  // AI is on unless the admin killed it OR today's spend tripped the hard cap.
+  enabledCheck: async () =>
+    (await getSetting(SETTING_KEYS.aiEnabled)) !== "false" && !(await isCircuitTripped()),
   usageSink: (e) => {
     void (async () => {
       const db = await getDb();
@@ -24,6 +27,8 @@ configureAiRuntime({
         cost_usd: computeAiCost(e.model, e.usage.in, e.usage.out),
         user_id: e.userId ?? null,
       });
+      // Soft alert / hard breaker off the inference path.
+      await checkAfterUsage();
     })().catch(() => {
       // never let usage logging break inference
     });

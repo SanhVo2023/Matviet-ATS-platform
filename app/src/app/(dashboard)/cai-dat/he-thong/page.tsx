@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { getDb } from "@/db";
 import { ai_usage_log, email_messages, scoring_queue, sessions, users } from "@/db/schema";
 import { getSetting, SETTING_KEYS } from "@/server/settings/repository";
+import { getTodaySpendUsd, isCircuitTripped } from "@/server/ai/cost-guard";
 import { AI_MODEL_CHOICES, DEFAULT_AI_MODEL } from "@/lib/ai/workers-ai";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { SystemAdminClient } from "./SystemAdminClient";
@@ -16,9 +17,11 @@ export default async function SystemAdminPage() {
   await requireRole(["admin"]);
   const db = await getDb();
 
-  const [modelSetting, enabledSetting] = await Promise.all([
+  const [modelSetting, enabledSetting, todaySpend, circuitTripped] = await Promise.all([
     getSetting(SETTING_KEYS.aiModel),
     getSetting(SETTING_KEYS.aiEnabled),
+    getTodaySpendUsd(),
+    isCircuitTripped(),
   ]);
   const currentModel = modelSetting ?? process.env.AI_MODEL ?? DEFAULT_AI_MODEL;
   const aiEnabled = enabledSetting !== "false";
@@ -110,6 +113,8 @@ export default async function SystemAdminPage() {
         ai={{
           currentModel,
           enabled: aiEnabled,
+          todaySpend,
+          circuitTripped,
           choices: AI_MODEL_CHOICES,
           usageByFeature: usageByFeature.map((u) => ({
             feature: u.feature,
