@@ -8,6 +8,11 @@ import { t } from "@/lib/i18n";
 
 export const metadata: Metadata = { title: "Không có quyền truy cập" };
 
+// Auth-gated: reads the session (better-auth), which is unavailable at build
+// time (Worker secrets are runtime-only). Force dynamic so it is never
+// statically prerendered — matches every other (dashboard) route.
+export const dynamic = "force-dynamic";
+
 /** Landing page for requireRole failures — replaces the old silent
  * redirect("/") that made wrong-role clicks look like a broken app. */
 export default async function NoPermissionPage() {
