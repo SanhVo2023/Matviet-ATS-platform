@@ -158,7 +158,7 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
                 type="checkbox"
                 checked={enabled}
                 onChange={(e) => setEnabled(e.target.checked)}
-                className="h-4 w-4 accent-[#fbc312]"
+                className="h-4 w-4 accent-accent-400"
               />
               Bật tính năng AI (tắt = ngắt toàn bộ: chấm điểm, trợ lý, soạn thảo)
             </label>
