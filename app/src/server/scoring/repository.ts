@@ -25,7 +25,7 @@ export async function enqueueScoring(
 ): Promise<{ queue_id: string; created: boolean }> {
   const db = await getDb();
 
-  // 1. Check for live job
+  // 1. Check for an already-live job (queued/running).
   const existing = await db
     .select({ id: scoring_queue.id, status: scoring_queue.status })
     .from(scoring_queue)
@@ -39,6 +39,29 @@ export async function enqueueScoring(
     .limit(1);
   if (existing[0]) {
     return { queue_id: existing[0].id, created: false };
+  }
+
+  // 1b. A failed row with a pending retry is ALSO effectively live — "Thử lại"
+  //     should fast-forward it, not insert a second row (renovation R3: the
+  //     old code inserted a duplicate → two full AI runs, double cost).
+  const nowIso = new Date().toISOString();
+  const retrying = await db
+    .update(scoring_queue)
+    .set({ status: "queued", next_retry_at: nowIso, last_error: null })
+    .where(
+      and(
+        eq(scoring_queue.candidate_id, candidateId),
+        eq(scoring_queue.status, "failed"),
+        sql`${scoring_queue.next_retry_at} IS NOT NULL`,
+      ),
+    )
+    .returning({ id: scoring_queue.id });
+  if (retrying[0]) {
+    await db
+      .update(candidates)
+      .set({ ai_screening_status: "pending", ai_screening_error: null })
+      .where(eq(candidates.id, candidateId));
+    return { queue_id: retrying[0].id, created: false };
   }
 
   // 2. Insert new queue row
@@ -58,6 +81,52 @@ export async function enqueueScoring(
     .where(eq(candidates.id, candidateId));
 
   return { queue_id: queueId, created: true };
+}
+
+/**
+ * Re-queue every candidate whose scoring failed because AI was off
+ * (renovation R3). Called when an admin flips the kill switch back on — before
+ * this, re-enabling recovered nothing and each CV needed a manual retry.
+ * Returns the number of rows requeued.
+ */
+export async function requeueAiDisabledFailures(): Promise<number> {
+  const db = await getDb();
+  const nowIso = new Date().toISOString();
+  const rows = await db
+    .update(scoring_queue)
+    .set({ status: "queued", next_retry_at: nowIso, attempts: 0, last_error: null })
+    .where(
+      and(
+        eq(scoring_queue.status, "failed"),
+        sql`${scoring_queue.last_error} LIKE '%AI đang tắt%'`,
+      ),
+    )
+    .returning({ candidate_id: scoring_queue.candidate_id });
+  if (rows.length > 0) {
+    await db
+      .update(candidates)
+      .set({ ai_screening_status: "pending", ai_screening_error: null })
+      .where(
+        inArray(
+          candidates.id,
+          rows.map((r) => r.candidate_id),
+        ),
+      );
+  }
+  return rows.length;
+}
+
+/** Candidate ids whose current AI screening status is 'failed' (bulk retry). */
+export async function listFailedScoringCandidateIds(jobId?: string, limit = 20): Promise<string[]> {
+  const db = await getDb();
+  const conds = [eq(candidates.ai_screening_status, "failed"), eq(candidates.is_archived, false)];
+  if (jobId) conds.push(eq(candidates.job_id, jobId));
+  const rows = await db
+    .select({ id: candidates.id })
+    .from(candidates)
+    .where(and(...conds))
+    .limit(limit);
+  return rows.map((r) => r.id);
 }
 
 /** Returns null if there are no screenings yet. */

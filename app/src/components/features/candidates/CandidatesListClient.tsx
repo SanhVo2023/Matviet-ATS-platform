@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQueryState, parseAsString, parseAsStringEnum } from "nuqs";
-import { Plus, Search, Users } from "lucide-react";
+import { toast } from "sonner";
+import { Plus, Search, Users, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
@@ -12,6 +13,7 @@ import { CandidatesTable } from "./CandidatesTable";
 import { CandidateUploadDialog } from "./CandidateUploadDialog";
 import { ALL_STAGES, type Stage } from "@/lib/validation/candidate";
 import type { CandidateRow } from "@/server/candidates/repository";
+import { retryFailedScoringAction } from "@/app/(dashboard)/ung-vien/actions";
 import { t } from "@/lib/i18n";
 
 interface JobOption {
@@ -35,6 +37,13 @@ const SOURCE_FILTERS = [
   "referral",
   "careers_page",
 ] as const;
+const AI_FILTERS = ["all", "pending", "success", "failed"] as const;
+const AI_FILTER_LABEL: Record<(typeof AI_FILTERS)[number], string> = {
+  all: "Tất cả",
+  pending: "Đang chấm",
+  success: "Đã chấm",
+  failed: "Chấm lỗi",
+};
 
 export function CandidatesListClient({ initialCandidates, jobs }: Props) {
   const router = useRouter();
@@ -49,8 +58,13 @@ export function CandidatesListClient({ initialCandidates, jobs }: Props) {
   );
   const [jobId, setJobId] = useQueryState("job", parseAsString.withDefault(""));
   const [search, setSearch] = useQueryState("q", parseAsString.withDefault(""));
+  const [ai, setAi] = useQueryState(
+    "ai",
+    parseAsStringEnum<(typeof AI_FILTERS)[number]>([...AI_FILTERS]).withDefault("all"),
+  );
 
   const [uploadOpen, setUploadOpen] = React.useState(false);
+  const [retrying, setRetrying] = React.useState(false);
 
   const jobsById = React.useMemo<Record<string, JobOption>>(() => {
     const m: Record<string, JobOption> = {};
@@ -62,6 +76,7 @@ export function CandidatesListClient({ initialCandidates, jobs }: Props) {
     return initialCandidates.filter((c) => {
       if (stage !== "all" && c.current_stage !== stage) return false;
       if (source !== "all" && c.source !== source) return false;
+      if (ai !== "all" && c.ai_screening_status !== ai) return false;
       if (jobId && c.job_id !== jobId) return false;
       if (search.trim()) {
         const q = search.trim().toLowerCase();
@@ -74,7 +89,23 @@ export function CandidatesListClient({ initialCandidates, jobs }: Props) {
       }
       return true;
     });
-  }, [initialCandidates, stage, source, jobId, search]);
+  }, [initialCandidates, stage, source, ai, jobId, search]);
+
+  const failedCount = React.useMemo(
+    () => filtered.filter((c) => c.ai_screening_status === "failed").length,
+    [filtered],
+  );
+
+  const runBulkRetry = () => {
+    setRetrying(true);
+    void retryFailedScoringAction(jobId || undefined).then((r) => {
+      setRetrying(false);
+      if (r.ok) {
+        toast.success(`Đã xếp lại ${r.count} hồ sơ để chấm lại.`);
+        router.refresh();
+      } else toast.error(r.error);
+    });
+  };
 
   // Group stages into top filter chips for screen real estate; full filter via dropdown.
   const TOP_STAGE_CHIPS: Array<(typeof STAGE_FILTERS)[number]> = [
@@ -158,7 +189,32 @@ export function CandidatesListClient({ initialCandidates, jobs }: Props) {
           <option value="csv_import">{t.source.csv_import}</option>
           <option value="topcv_api">{t.source.topcv_api}</option>
           <option value="referral">{t.source.referral}</option>
+          <option value="careers_page">{t.source.careers_page}</option>
         </select>
+
+        <select
+          value={ai}
+          onChange={(e) => setAi(e.target.value as (typeof AI_FILTERS)[number])}
+          aria-label="Trạng thái chấm AI"
+          className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          {AI_FILTERS.map((f) => (
+            <option key={f} value={f}>
+              {f === "all" ? "Mọi trạng thái AI" : AI_FILTER_LABEL[f]}
+            </option>
+          ))}
+        </select>
+
+        {failedCount > 0 ? (
+          <Button variant="outline" onClick={runBulkRetry} disabled={retrying}>
+            {retrying ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <RefreshCw className="h-4 w-4" aria-hidden />
+            )}
+            Chấm lại {failedCount} hồ sơ lỗi
+          </Button>
+        ) : null}
 
         <div className="relative ml-auto w-full max-w-xs">
           <Search

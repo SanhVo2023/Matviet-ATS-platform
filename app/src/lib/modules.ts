@@ -21,6 +21,7 @@ import {
   IdCard,
   Building2,
   CalendarClock,
+  CircleHelp,
   type LucideIcon,
 } from "lucide-react";
 import { t } from "@/lib/i18n";
@@ -174,6 +175,15 @@ export const MODULES: AppModule[] = [
 
   // ----- System -----
   {
+    key: "help",
+    href: "/huong-dan",
+    label: "Hướng dẫn",
+    icon: CircleHelp,
+    roles: ["admin", "hr", "hiring_manager", "bod", "tap_doan"],
+    group: "system",
+    enabled: true,
+  },
+  {
     key: "settings",
     href: "/cai-dat",
     label: t.nav.settings,
@@ -198,7 +208,7 @@ export const MODULES: AppModule[] = [
     icon: FileText,
     roles: ["admin"],
     group: "system",
-    enabled: false, // G11 backlog — route not built yet
+    enabled: true, // renovation R3 — surfaces agent + admin actions
   },
 ];
 

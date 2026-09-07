@@ -1,7 +1,14 @@
 import "server-only";
 import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { approvals, candidates, interviews, jobs, email_messages } from "@/db/schema";
+import {
+  approvals,
+  candidates,
+  interviews,
+  jobs,
+  email_messages,
+  assessment_submissions,
+} from "@/db/schema";
 import {
   listPendingApprovalsForUser,
   listPendingApprovalDigestsForUser,
@@ -192,48 +199,86 @@ export async function getActionInbox(): Promise<ActionInboxItem[]> {
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
   const { start, end } = vnDayBoundsUtc();
 
-  const [pendingApprovalsRow, pendingEmailsRow, staleNewRow, todayIvRow, offersWaitingRow] =
-    await Promise.all([
-      db.select({ n: count() }).from(approvals).where(eq(approvals.status, "pending")).get(),
-      db
-        .select({ n: count() })
-        .from(email_messages)
-        .where(eq(email_messages.status, "pending_approval"))
-        .get(),
-      db
-        .select({ n: count() })
-        .from(candidates)
-        .where(
-          and(
-            eq(candidates.is_archived, false),
-            eq(candidates.current_stage, "intake"),
-            lt(candidates.created_at, threeDaysAgo),
-          ),
-        )
-        .get(),
-      db
-        .select({ n: count() })
-        .from(interviews)
-        .where(
-          and(
-            eq(interviews.status, "scheduled"),
-            gte(interviews.scheduled_at, start),
-            lt(interviews.scheduled_at, end),
-          ),
-        )
-        .get(),
-      db
-        .select({ n: count() })
-        .from(candidates)
-        .where(
-          and(
-            eq(candidates.is_archived, false),
-            eq(candidates.current_stage, "offer"),
-            sql`${candidates.offer_responded_at} IS NULL`,
-          ),
-        )
-        .get(),
-    ]);
+  const in48h = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+  const nowIso = new Date().toISOString();
+  const [
+    pendingApprovalsRow,
+    pendingEmailsRow,
+    staleNewRow,
+    todayIvRow,
+    offersWaitingRow,
+    failedEmailsRow,
+    ungradedTestsRow,
+    offersExpiringRow,
+  ] = await Promise.all([
+    db.select({ n: count() }).from(approvals).where(eq(approvals.status, "pending")).get(),
+    db
+      .select({ n: count() })
+      .from(email_messages)
+      .where(eq(email_messages.status, "pending_approval"))
+      .get(),
+    db
+      .select({ n: count() })
+      .from(candidates)
+      .where(
+        and(
+          eq(candidates.is_archived, false),
+          eq(candidates.current_stage, "intake"),
+          lt(candidates.created_at, threeDaysAgo),
+        ),
+      )
+      .get(),
+    db
+      .select({ n: count() })
+      .from(interviews)
+      .where(
+        and(
+          eq(interviews.status, "scheduled"),
+          gte(interviews.scheduled_at, start),
+          lt(interviews.scheduled_at, end),
+        ),
+      )
+      .get(),
+    db
+      .select({ n: count() })
+      .from(candidates)
+      .where(
+        and(
+          eq(candidates.is_archived, false),
+          eq(candidates.current_stage, "offer"),
+          sql`${candidates.offer_responded_at} IS NULL`,
+        ),
+      )
+      .get(),
+    // Emails that failed to send — a dead offer letter is otherwise invisible.
+    db.select({ n: count() }).from(email_messages).where(eq(email_messages.status, "failed")).get(),
+    // Tests submitted but not yet graded (submitted_at set, score null).
+    db
+      .select({ n: count() })
+      .from(assessment_submissions)
+      .where(
+        and(
+          sql`${assessment_submissions.submitted_at} IS NOT NULL`,
+          sql`${assessment_submissions.score} IS NULL`,
+        ),
+      )
+      .get(),
+    // Offer links expiring within 48h with no response yet.
+    db
+      .select({ n: count() })
+      .from(candidates)
+      .where(
+        and(
+          eq(candidates.is_archived, false),
+          eq(candidates.current_stage, "offer"),
+          sql`${candidates.offer_responded_at} IS NULL`,
+          sql`${candidates.offer_token_expires_at} IS NOT NULL`,
+          gte(candidates.offer_token_expires_at, nowIso),
+          lt(candidates.offer_token_expires_at, in48h),
+        ),
+      )
+      .get(),
+  ]);
 
   const approvalsN = Number(pendingApprovalsRow?.n ?? 0);
   if (approvalsN > 0) {
@@ -253,6 +298,36 @@ export async function getActionInbox(): Promise<ActionInboxItem[]> {
       detail: "Ứng viên chưa nhận được thư cho tới khi bạn duyệt",
       href: "/email",
       priority: 2,
+    });
+  }
+  const failedEmailsN = Number(failedEmailsRow?.n ?? 0);
+  if (failedEmailsN > 0) {
+    items.push({
+      key: "failed_emails",
+      label: `${failedEmailsN} email gửi lỗi`,
+      detail: "Mở để xem lý do và thử gửi lại",
+      href: "/email?status=failed",
+      priority: 2,
+    });
+  }
+  const offersExpiringN = Number(offersExpiringRow?.n ?? 0);
+  if (offersExpiringN > 0) {
+    items.push({
+      key: "offers_expiring",
+      label: `${offersExpiringN} offer sắp hết hạn trong 48 giờ`,
+      detail: "Gọi nhắc ứng viên trước khi liên kết hết hạn",
+      href: "/ung-vien?stage=offer",
+      priority: 2,
+    });
+  }
+  const ungradedTestsN = Number(ungradedTestsRow?.n ?? 0);
+  if (ungradedTestsN > 0) {
+    items.push({
+      key: "ungraded_tests",
+      label: `${ungradedTestsN} bài test đã nộp chưa chấm`,
+      detail: "Chấm điểm để ứng viên đi tiếp",
+      href: "/ung-vien?stage=evaluating",
+      priority: 3,
     });
   }
   const ivN = Number(todayIvRow?.n ?? 0);

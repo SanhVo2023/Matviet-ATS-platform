@@ -14,10 +14,31 @@ import {
   updateCandidateContact,
 } from "@/server/candidates/service";
 import { CV_MAX_BYTES, isAcceptedCvMime } from "@/lib/storage/paths";
-import { enqueueScoring } from "@/server/scoring/repository";
+import { enqueueScoring, listFailedScoringCandidateIds } from "@/server/scoring/repository";
 import { triggerEdgeFunction } from "@/server/scoring/orchestration";
 
 export type ActionResult<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
+
+/**
+ * Re-enqueue every candidate whose AI scoring failed (renovation R3 bulk
+ * retry) — up to 20 at a time, optionally scoped to one job. Returns the count.
+ */
+export async function retryFailedScoringAction(
+  jobId?: string,
+): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  const me = await requireRole(["admin", "hr"]);
+  try {
+    const ids = await listFailedScoringCandidateIds(jobId, 20);
+    for (const id of ids) {
+      await enqueueScoring(id, me.id);
+      await triggerEdgeFunction(id);
+    }
+    revalidatePath("/ung-vien");
+    return { ok: true, count: ids.length };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Không thể chấm lại" };
+  }
+}
 
 /**
  * Server-side multipart handler for the upload-CV form. Validates everything

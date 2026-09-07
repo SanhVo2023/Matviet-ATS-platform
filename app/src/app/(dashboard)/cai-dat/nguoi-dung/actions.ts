@@ -9,6 +9,10 @@ import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireRole } from "@/lib/auth";
+import { deliverMail } from "@/server/email/transport";
+import { emailCtaButton } from "@/server/email/layout";
+import { publicEnv } from "@/types/env";
+import { t } from "@/lib/i18n";
 import type { Database } from "@/types/db";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
@@ -21,7 +25,7 @@ const CreateSchema = z.object({
 });
 
 export type InviteResult =
-  | { ok: true; userId: string; tempPassword: string }
+  | { ok: true; userId: string; tempPassword: string; emailSent: boolean }
   | { ok: false; error: string };
 
 /**
@@ -59,8 +63,33 @@ export async function inviteUser(formData: FormData): Promise<InviteResult> {
       },
     });
 
+    // Welcome email with a set-your-own-password link (renovation R3): the
+    // new user onboards themselves; the temp password is the offline fallback.
+    let emailSent = false;
+    try {
+      const mailError: MailErrorRef = { current: null };
+      const auth2 = await getAuth({ mailError });
+      await auth2.api.requestPasswordReset({
+        body: { email, redirectTo: "/dat-lai-mat-khau/moi" },
+      });
+      if (!mailError.current) {
+        await deliverMail({
+          to: [email],
+          subject: "Chào mừng bạn đến với Mắt Việt HR",
+          bodyHtml: `
+            <p>Chào ${full_name},</p>
+            <p>Tài khoản Mắt Việt HR của bạn đã được tạo với vai trò <strong>${t.userRole[role]}</strong>.</p>
+            <p>Bạn vừa nhận (hoặc sắp nhận) một email đặt mật khẩu — hãy đặt mật khẩu của riêng bạn rồi đăng nhập:</p>
+            ${emailCtaButton(`${publicEnv.appUrl}/dang-nhap`, "Đăng nhập")}`,
+        });
+        emailSent = true;
+      }
+    } catch {
+      emailSent = false;
+    }
+
     revalidatePath("/cai-dat/nguoi-dung");
-    return { ok: true, userId: created.user.id, tempPassword };
+    return { ok: true, userId: created.user.id, tempPassword, emailSent };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Không tạo được tài khoản";
     return { ok: false, error: message };

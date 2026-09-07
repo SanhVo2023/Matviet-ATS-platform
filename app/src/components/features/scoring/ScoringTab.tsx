@@ -70,6 +70,7 @@ export function ScoringTab({ candidate, job, latestScreening, queueStatus }: Pro
       weights={weights}
       summary={summary}
       scoredAt={latestScreening.created_at}
+      model={latestScreening.model}
       weightsChanged={weightsChanged}
     />
   );

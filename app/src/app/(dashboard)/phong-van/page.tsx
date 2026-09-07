@@ -2,10 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Calendar, MapPin, Phone, Video } from "lucide-react";
 import { requireRole } from "@/lib/auth";
-import { listInterviews } from "@/server/interviews/repository";
+import {
+  listInterviews,
+  listInterviewsOwedEvaluation,
+  type InterviewRow,
+} from "@/server/interviews/repository";
 import { getCandidate } from "@/server/candidates/repository";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
 
@@ -15,21 +20,33 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: t.nav.interviews };
 
-export default async function InterviewsPage() {
+export default async function InterviewsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const profile = await requireRole(["admin", "hr", "hiring_manager"]);
+  const tab = (await searchParams).tab === "cho-danh-gia" ? "cho-danh-gia" : "sap-toi";
+  const forUserId = profile.role === "hiring_manager" ? profile.id : undefined;
 
-  // HR/admin see all upcoming + recently-completed; managers only see their own.
-  const upcoming = await listInterviews({
-    upcoming_only: true,
-    for_user_id: profile.role === "hiring_manager" ? profile.id : undefined,
-  });
+  const owed = await listInterviewsOwedEvaluation({ forUserId });
+  const list =
+    tab === "cho-danh-gia"
+      ? owed
+      : await listInterviews({ upcoming_only: true, for_user_id: forUserId });
 
   // Resolve candidate names — interviews don't denormalize them.
-  const candidateIds = Array.from(new Set(upcoming.map((i) => i.candidate_id)));
+  const candidateIds = Array.from(new Set(list.map((i) => i.candidate_id)));
   const candidates = await Promise.all(candidateIds.map((id) => getCandidate(id)));
   const candidateById = new Map(
     candidates.filter((c): c is NonNullable<typeof c> => !!c).map((c) => [c.id, c]),
   );
+
+  const tabClass = (active: boolean) =>
+    cn(
+      "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+      active ? "bg-brand-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+    );
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 p-6 lg:p-8">
@@ -39,23 +56,38 @@ export default async function InterviewsPage() {
         subtitle={
           profile.role === "hiring_manager"
             ? "Lịch phỏng vấn bạn được mời tham dự."
-            : "Toàn bộ lịch phỏng vấn sắp tới."
+            : "Lịch phỏng vấn sắp tới và các buổi chờ đánh giá."
         }
       />
 
-      {upcoming.length === 0 ? (
+      <div className="flex flex-wrap gap-2">
+        <Link href="/phong-van?tab=sap-toi" className={tabClass(tab === "sap-toi")}>
+          Sắp tới
+        </Link>
+        <Link href="/phong-van?tab=cho-danh-gia" className={tabClass(tab === "cho-danh-gia")}>
+          Chờ đánh giá{owed.length > 0 ? ` (${owed.length})` : ""}
+        </Link>
+      </div>
+
+      {list.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
             <Calendar className="h-8 w-8 text-slate-300" aria-hidden />
-            <p className="text-sm font-medium text-slate-700">{t.empty.interviewsUpcoming}</p>
+            <p className="text-sm font-medium text-slate-700">
+              {tab === "cho-danh-gia"
+                ? "Không có buổi phỏng vấn nào chờ đánh giá."
+                : t.empty.interviewsUpcoming}
+            </p>
             <p className="text-xs text-slate-500">
-              Đặt lịch từ trang chi tiết ứng viên (tab Phỏng vấn).
+              {tab === "cho-danh-gia"
+                ? "Mọi buổi phỏng vấn đã hoàn thành đều đã có đánh giá."
+                : "Đặt lịch từ trang chi tiết ứng viên (tab Phỏng vấn)."}
             </p>
           </CardContent>
         </Card>
       ) : (
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-          {upcoming.map((iv) => {
+          {list.map((iv: InterviewRow) => {
             const c = candidateById.get(iv.candidate_id);
             const TypeIcon = TYPE_ICON[iv.type] ?? Calendar;
             const isTeams = iv.type === "video" && !!iv.location_or_link;

@@ -352,7 +352,7 @@ export const t = {
     retry: "Thử lại",
     weightsChanged: "Trọng số đã thay đổi từ lần chấm gần nhất",
     docxBlocked: "Cần chuyển đổi DOCX sang PDF — sẽ tự động xử lý khi worker hoạt động",
-    runningHint: "AI đang chấm điểm — thường mất 15–30 giây.",
+    runningHint: "AI đang chấm điểm — thường mất 1–2 phút.",
     runningTakingTooLong: "Quá lâu — thử lại?",
     manualHint: "Nhập điểm 0-100 cho từng tiêu chí.",
     manualSubmit: "Lưu điểm thủ công",
