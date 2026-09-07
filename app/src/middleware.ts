@@ -27,6 +27,9 @@ export function middleware(request: NextRequest) {
   if (!sessionCookie && !isPublicRoute(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/dang-nhap";
+    // Drop the protected route's OWN query string from the login URL, then
+    // carry the full original path+query in `next` (so filters survive login).
+    url.search = "";
     url.searchParams.set("next", pathname + request.nextUrl.search);
     return NextResponse.redirect(url);
   }
