@@ -29,8 +29,8 @@ export default async function PublicTestPage({ params }: { params: Promise<{ tok
             <h1 className="text-lg font-semibold text-slate-900">{t.assessment.invalidToken}</h1>
             <p className="mt-2 text-sm text-slate-600">
               Vui lòng liên hệ với Phòng Nhân sự Mắt Việt qua{" "}
-              <a className="text-primary-600 hover:underline" href="mailto:hr@matkinh.com.vn">
-                hr@matkinh.com.vn
+              <a className="text-primary-600 hover:underline" href="mailto:hr@matviet.com.vn">
+                hr@matviet.com.vn
               </a>{" "}
               để được cấp lại liên kết.
             </p>

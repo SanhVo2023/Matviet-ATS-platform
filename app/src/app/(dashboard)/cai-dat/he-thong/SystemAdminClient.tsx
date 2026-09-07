@@ -115,7 +115,7 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
                     name="ai-model"
                     checked={model === c.id}
                     onChange={() => setModel(c.id)}
-                    className="accent-[#fbc312]"
+                    className="accent-accent-400"
                   />
                   <span className="text-sm font-semibold text-brand-900">{c.label}</span>
                 </span>

@@ -14,6 +14,7 @@
  */
 import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import { formatDate } from "@/lib/vi-format";
+import { BRAND } from "@/lib/brand";
 import type { ReportPayload } from "@/server/reports/types";
 
 Font.register({
@@ -28,18 +29,18 @@ const styles = StyleSheet.create({
   page: {
     padding: 36,
     fontSize: 10,
-    color: "#1F2937",
+    color: BRAND.ink,
     fontFamily: "BeVietnamPro",
   },
   cover: {
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 3,
-    borderBottomColor: "#FFC107",
+    borderBottomColor: BRAND.gold,
   },
   brandStrip: {
-    backgroundColor: "#13245C",
-    color: "#FFFFFF",
+    backgroundColor: BRAND.navy,
+    color: BRAND.white,
     padding: 6,
     paddingHorizontal: 10,
     fontSize: 11,
@@ -49,34 +50,34 @@ const styles = StyleSheet.create({
   h1: {
     fontSize: 20,
     fontWeight: 700,
-    color: "#13245C",
+    color: BRAND.navy,
     marginTop: 12,
   },
   h2: {
     fontSize: 13,
     fontWeight: 700,
-    color: "#13245C",
+    color: BRAND.navy,
     marginTop: 16,
     marginBottom: 6,
     paddingBottom: 3,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: BRAND.border,
   },
   meta: {
-    color: "#6B7280",
+    color: BRAND.inkMuted,
     marginTop: 4,
     fontSize: 10,
   },
-  table: { width: "100%", borderColor: "#E5E7EB" },
+  table: { width: "100%", borderColor: BRAND.border },
   row: {
     flexDirection: "row",
     borderBottomWidth: 0.5,
-    borderBottomColor: "#E5E7EB",
+    borderBottomColor: BRAND.border,
     paddingVertical: 4,
   },
   rowHeader: {
     flexDirection: "row",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: BRAND.surface,
     paddingVertical: 4,
     paddingHorizontal: 4,
   },
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
     left: 36,
     right: 36,
     fontSize: 8,
-    color: "#9CA3AF",
+    color: BRAND.inkFaint,
     textAlign: "center",
   },
 });

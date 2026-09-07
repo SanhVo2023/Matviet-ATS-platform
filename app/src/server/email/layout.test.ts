@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { brandEmailHtml, emailCtaButton, htmlToText, isFullHtmlDocument } from "./layout";
+import { BRAND } from "@/lib/brand";
 
 describe("brandEmailHtml", () => {
   it("wraps content in the branded shell with the body intact", () => {
@@ -10,8 +11,8 @@ describe("brandEmailHtml", () => {
     expect(html).toContain("<!doctype html>");
     expect(html).toContain("<p>Kính gửi Nguyễn Văn A,</p>");
     expect(html).toContain("data-mv-branded");
-    expect(html).toContain("#13245C"); // navy header
-    expect(html).toContain("#FFC107"); // gold bar
+    expect(html).toContain(BRAND.navy); // navy header (brand-900)
+    expect(html).toContain(BRAND.gold); // gold bar (accent-400)
     expect(html).toContain("<title>Lời mời phỏng vấn</title>");
   });
 

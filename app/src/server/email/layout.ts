@@ -9,8 +9,10 @@
  * <style> blocks); system fonts because webfonts are unreliable in email.
  */
 
-const NAVY = "#13245C";
-const GOLD = "#FFC107";
+import { BRAND } from "@/lib/brand";
+
+const NAVY = BRAND.navy;
+const GOLD = BRAND.gold;
 const FONT = "Arial, Helvetica, sans-serif";
 
 /** True when the body is already a full document (agent pasted raw HTML). */
