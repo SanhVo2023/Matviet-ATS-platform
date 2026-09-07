@@ -57,9 +57,15 @@ export default async function OfferPage({ params }: { params: Promise<{ token: s
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col bg-surface">
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-6 p-6">
-        <Logo variant="primary" width={150} height={44} priority />
-        <Card className="w-full">{children}</Card>
+      {/* Navy band (renovation R4) — the offer page is the highest-trust
+          moment in the funnel; it now carries the brand like /test. */}
+      <header className="bg-gradient-to-br from-brand-950 via-brand-900 to-brand-700 px-6 pb-16 pt-10">
+        <div className="mx-auto max-w-2xl">
+          <Logo variant="on-dark" width={150} height={44} priority />
+        </div>
+      </header>
+      <main className="mx-auto -mt-10 flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 pb-6">
+        <Card className="w-full shadow-lg">{children}</Card>
       </main>
       <footer className="px-6 py-8 text-center text-xs text-slate-500">
         Mắt Việt — Hệ thống tuyển dụng
