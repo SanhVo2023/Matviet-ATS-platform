@@ -38,6 +38,7 @@ const SUGGESTIONS = [
   "Tin tuyển dụng nào đang có ứng viên chờ tôi xử lý?",
   "So sánh 3 ứng viên điểm cao nhất của tin mới nhất trong một bảng",
   "Tìm trong kho CV ai biết tiếng Anh và có kinh nghiệm bán lẻ",
+  "Ai sắp hết thử việc hoặc hết hạn hợp đồng trong tháng này?",
   "Nguồn CV nào hiệu quả nhất 90 ngày qua?",
 ];
 
@@ -143,7 +144,7 @@ export function AgentDock({ role }: { role: UserRole }) {
                 Trợ lý Mắt Việt HR
               </DialogPrimitive.Title>
               <p className="truncate text-2xs text-brand-300">
-                Tạo vị trí bằng 1 câu · tìm ứng viên · đặt lịch · soạn email
+                Tạo vị trí · tìm ứng viên · đặt lịch · soạn email · tra cứu nhân sự
               </p>
             </div>
             <kbd className="hidden rounded border border-brand-600 px-1.5 py-0.5 text-2xs text-brand-300 lg:block">

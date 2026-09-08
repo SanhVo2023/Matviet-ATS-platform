@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { StatusPill } from "@/components/primitives/StatusPill";
 import {
   Table,
   TableHeader,
@@ -77,18 +78,10 @@ export function SourceEffectivenessTable({ rows }: { rows: SourceEffectivenessRo
 
 function HireRatePill({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100);
-  const colorClass =
-    pct >= 30
-      ? "bg-success-bg text-success-fg"
-      : pct >= 15
-        ? "bg-warning-bg text-warning-fg"
-        : pct === 0
-          ? "bg-slate-100 text-slate-500"
-          : "bg-danger-bg text-danger-fg";
-  const Arrow = pct >= 15 ? ArrowUpRight : ArrowDownRight;
+  const tone = pct >= 30 ? "success" : pct >= 15 ? "warning" : pct === 0 ? "neutral" : "error";
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${colorClass}`}>
-      <Arrow className="h-3 w-3" aria-hidden /> {pct}%
-    </span>
+    <StatusPill tone={tone} size="sm" icon={pct >= 15 ? ArrowUpRight : ArrowDownRight}>
+      {pct}%
+    </StatusPill>
   );
 }

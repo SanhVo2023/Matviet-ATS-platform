@@ -22,6 +22,10 @@ import { scheduleInterview, cancelInterview } from "@/server/interviews/service"
 import { startApproval } from "@/server/approvals/engine";
 import { enqueueOutbound } from "@/server/email/repository";
 import { getHrDashboardData } from "@/server/dashboard/queries";
+import { getHrmSnapshot } from "@/server/dashboard/hrm";
+import { listEmployees } from "@/server/employees/repository";
+import { leaveBalanceForEmployee, listLeaveForEmployee } from "@/server/leave/repository";
+import { listActiveContractsEndingBefore } from "@/server/contracts/repository";
 import { setJobStatus } from "@/server/jobs/service";
 import { parseReportFilter } from "@/server/reports/filter";
 import { buildReportPayload } from "@/server/reports/queries";
@@ -75,9 +79,56 @@ export const TOOL_POLICY: Record<string, { roles: UserRole[]; mutates: boolean }
   suggest_past_candidates: { roles: HR_ADMIN, mutates: false },
   add_candidate_note: { roles: HR_ADMIN, mutates: true },
   cancel_interview: { roles: HR_ADMIN, mutates: true },
+  // HRM (v1) — read-only; every HRM write stays propose-first on the feed.
+  hr_overview: { roles: HR_ADMIN, mutates: false },
+  search_employees: { roles: HR_ADMIN, mutates: false },
+  employee_leave_balance: { roles: HR_ADMIN, mutates: false },
+  contracts_expiring: { roles: HR_ADMIN, mutates: false },
 };
 
 export const TOOLS: AiToolDef[] = [
+  // ---- HRM (read-only) ----
+  {
+    name: "hr_overview",
+    description:
+      "Tổng quan nhân sự hôm nay: tổng nhân viên, số người sắp hết thử việc (7 ngày), hợp đồng sắp hết hạn (30 ngày), đơn nghỉ phép chờ duyệt, ứng viên đang xử lý.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "search_employees",
+    description:
+      "Tìm nhân viên theo tên/mã/email, trạng thái (probation, active, on_leave, terminated). Trả về: id, tên, mã NV, chức danh, phòng ban, cửa hàng, trạng thái, ngày vào.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Một phần tên, mã nhân viên hoặc email" },
+        status: {
+          type: "string",
+          description: "probation | active | on_leave | terminated | all (mặc định all)",
+        },
+      },
+    },
+  },
+  {
+    name: "employee_leave_balance",
+    description:
+      "Số dư phép năm của một nhân viên (định mức, đã dùng, còn lại) và 5 đơn nghỉ gần nhất.",
+    parameters: {
+      type: "object",
+      properties: {
+        name_or_id: { type: "string", description: "Tên (một phần) hoặc UUID nhân viên" },
+      },
+      required: ["name_or_id"],
+    },
+  },
+  {
+    name: "contracts_expiring",
+    description: "Hợp đồng lao động đang hiệu lực sẽ hết hạn trong N ngày tới (mặc định 30).",
+    parameters: {
+      type: "object",
+      properties: { days: { type: "number", description: "Số ngày tới, mặc định 30" } },
+    },
+  },
   {
     name: "search_candidates",
     description:
@@ -497,6 +548,77 @@ function makeExecutor(profile: SessionProfile) {
     }
     const db = await getDb();
     switch (name) {
+      case "hr_overview": {
+        const h = await getHrmSnapshot();
+        return {
+          headcount: h.headcount,
+          probation_ending_7d: h.probationEnding7d,
+          contracts_expiring_30d: h.contractsExpiring30d,
+          pending_leave: h.pendingLeave,
+          active_candidates: h.activeCandidates,
+        };
+      }
+      case "search_employees": {
+        const status = String(args.status ?? "all");
+        const rows = await listEmployees({
+          search: args.query ? String(args.query) : undefined,
+          status: (["probation", "active", "on_leave", "terminated"].includes(status)
+            ? status
+            : "all") as import("@/server/employees/repository").EmployeeListFilters["status"],
+        });
+        return rows.slice(0, 20).map((e) => ({
+          id: e.id,
+          name: e.full_name,
+          code: e.employee_code,
+          position: e.position_title,
+          department: e.department_name,
+          store: e.store_location,
+          status: e.status,
+          start_date: e.start_date,
+        }));
+      }
+      case "employee_leave_balance": {
+        const q = String(args.name_or_id ?? "").trim();
+        if (!q) return { error: "Cần tên hoặc id nhân viên." };
+        const rows = await listEmployees({ search: q });
+        const hit = rows.find((e) => e.id === q) ?? rows[0];
+        if (!hit) return { error: `Không thấy nhân viên "${q}".` };
+        if (rows.length > 1 && !rows.some((e) => e.id === q)) {
+          return {
+            ambiguous: rows
+              .slice(0, 5)
+              .map((e) => ({ id: e.id, name: e.full_name, code: e.employee_code })),
+          };
+        }
+        const [balance, recent] = await Promise.all([
+          leaveBalanceForEmployee(hit.id),
+          listLeaveForEmployee(hit.id),
+        ]);
+        return {
+          employee: { id: hit.id, name: hit.full_name, code: hit.employee_code },
+          balance,
+          recent: recent.slice(0, 5).map((l) => ({
+            type: l.type,
+            from: l.start_date,
+            to: l.end_date,
+            days: l.days,
+            status: l.status,
+          })),
+          link: `/nhan-vien/${hit.id}`,
+        };
+      }
+      case "contracts_expiring": {
+        const days = Math.min(Math.max(Number(args.days ?? 30) || 30, 1), 365);
+        const before = new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+        const rows = await listActiveContractsEndingBefore(before);
+        return rows.map((c) => ({
+          employee: c.employee_name,
+          employee_id: c.employee_id,
+          type: c.type,
+          end_date: c.end_date,
+          link: `/nhan-vien/${c.employee_id}`,
+        }));
+      }
       case "search_candidates": {
         const conds = [eq(candidates.is_archived, false)];
         const stage = typeof args.stage === "string" ? args.stage.trim() : "";
@@ -1199,6 +1321,7 @@ Nguyên tắc:
 - Không bịa dữ liệu: nếu công cụ trả lỗi hoặc không thấy, nói thẳng và gợi ý cách khác.
 - Nếu trùng tên nhiều ứng viên/vị trí, hỏi lại người dùng chọn cái nào.
 - Khi cần dùng công cụ, gọi qua cơ chế tool-calling thật — KHÔNG viết "[gọi công cụ …]" trong câu trả lời.
+- NHÂN SỰ (HRM): bạn có thể TRA CỨU nhân viên, số dư phép, hợp đồng sắp hết hạn và tổng quan nhân sự (hr_overview). Mọi thay đổi nhân sự (duyệt nghỉ phép, gia hạn hợp đồng, chuyển chính thức, nghỉ việc) KHÔNG làm từ chat — hướng người dùng tới thẻ đề xuất trên trang chính hoặc trang Nhân viên / Nghỉ phép.
 - Tuyệt đối không thực hiện thao tác ngoài các công cụ được cấp.`;
 }
 

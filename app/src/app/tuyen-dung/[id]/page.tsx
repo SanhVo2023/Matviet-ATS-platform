@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin, Users } from "lucide-react";
@@ -6,6 +7,31 @@ import { formatVND, formatDate } from "@/lib/vi-format";
 import { ApplyForm } from "@/components/features/careers/ApplyForm";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Share metadata (asset kit A3): a job link pasted into Zalo/Facebook shows
+ * the title, store and salary with the brand card, not a generic page.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return {};
+  const job = await getPublicJob(id);
+  if (!job) return {};
+  const title = `${job.title} — Mắt Việt tuyển dụng`;
+  const description = [job.location, salaryLabel(job.salary_min, job.salary_max)]
+    .filter(Boolean)
+    .join(" · ");
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "website", locale: "vi_VN" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 function salaryLabel(min: number | null, max: number | null): string {
   if (min && max) return `${formatVND(min)} – ${formatVND(max)}`;

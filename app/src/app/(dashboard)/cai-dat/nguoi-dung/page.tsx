@@ -17,6 +17,7 @@ import {
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { PageContainer } from "@/components/primitives/PageContainer";
 import { t } from "@/lib/i18n";
+import { StatusPill } from "@/components/primitives/StatusPill";
 import { InviteForm } from "./InviteForm";
 import { UserRowActions } from "./UserRowActions";
 
@@ -89,13 +90,11 @@ export default async function UsersAdminPage() {
                         <TableCell className="text-slate-600">{dept?.name ?? "—"}</TableCell>
                         <TableCell>
                           {u.isActive ? (
-                            <span className="inline-flex rounded-full bg-success-bg px-2 py-0.5 text-xs font-medium text-success-fg">
+                            <StatusPill tone="success" dot>
                               Đang hoạt động
-                            </span>
+                            </StatusPill>
                           ) : (
-                            <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                              Vô hiệu
-                            </span>
+                            <StatusPill tone="neutral">Vô hiệu</StatusPill>
                           )}
                         </TableCell>
                         <TableCell className="text-right">
