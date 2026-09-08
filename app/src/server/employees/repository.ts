@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { employees, people, departments, positions } from "@/db/schema";
 import type { Database, Tables } from "@/types/db";
@@ -188,6 +188,62 @@ export async function listManagerOptions(): Promise<ManagerOption[]> {
     .where(inArray(employees.status, ["probation", "active", "on_leave"]))
     .orderBy(asc(people.full_name));
   return rows;
+}
+
+export interface HeadcountStats {
+  total: number; // non-terminated
+  active: number;
+  probation: number;
+  onLeave: number;
+  hiresThisYear: number;
+  departuresThisYear: number;
+  byDepartment: { name: string; count: number }[];
+}
+
+/** HR analytics summary (HRM H3) — headcount by status/department + YTD flows. */
+export async function employeeHeadcountStats(): Promise<HeadcountStats> {
+  const db = await getDb();
+  const year = String(new Date().getUTCFullYear());
+
+  const [byStatus, byDept, hires, departures] = await Promise.all([
+    db
+      .select({ status: employees.status, n: sql<number>`count(*)` })
+      .from(employees)
+      .groupBy(employees.status),
+    db
+      .select({ name: departments.name, n: sql<number>`count(*)` })
+      .from(employees)
+      .leftJoin(departments, eq(employees.department_id, departments.id))
+      .where(sql`${employees.status} != 'terminated'`)
+      .groupBy(employees.department_id),
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(employees)
+      .where(sql`substr(${employees.hired_at}, 1, 4) = ${year}`)
+      .then((r) => Number(r[0]?.n ?? 0)),
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(employees)
+      .where(sql`substr(${employees.terminated_at}, 1, 4) = ${year}`)
+      .then((r) => Number(r[0]?.n ?? 0)),
+  ]);
+
+  const statusMap = new Map(byStatus.map((r) => [r.status, Number(r.n)]));
+  const active = statusMap.get("active") ?? 0;
+  const probation = statusMap.get("probation") ?? 0;
+  const onLeave = statusMap.get("on_leave") ?? 0;
+
+  return {
+    total: active + probation + onLeave,
+    active,
+    probation,
+    onLeave,
+    hiresThisYear: hires,
+    departuresThisYear: departures,
+    byDepartment: byDept
+      .map((r) => ({ name: r.name ?? "Chưa phân công", count: Number(r.n) }))
+      .sort((a, b) => b.count - a.count),
+  };
 }
 
 export interface EmployeeOption {

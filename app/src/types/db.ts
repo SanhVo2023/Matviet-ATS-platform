@@ -53,6 +53,7 @@ type TableMap = {
   job_assignments: Model<typeof s.job_assignments>;
   jobs: Model<typeof s.jobs>;
   leave_requests: Model<typeof s.leave_requests>;
+  offboarding_tasks: Model<typeof s.offboarding_tasks>;
   onboarding_tasks: Model<typeof s.onboarding_tasks>;
   people: Model<typeof s.people>;
   positions: Model<typeof s.positions>;

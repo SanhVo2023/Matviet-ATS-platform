@@ -11,10 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 import { EmployeeForm, type EmployeeFormOption } from "./EmployeeForm";
+import { EmployeeStats } from "./EmployeeStats";
 import { t } from "@/lib/i18n";
 import { formatDate } from "@/lib/vi-format";
 import { EMPLOYEE_STATUSES } from "@/db/schema";
-import type { EmployeeListItem } from "@/server/employees/repository";
+import type { EmployeeListItem, HeadcountStats } from "@/server/employees/repository";
 
 const SELECT_CLASS =
   "h-10 rounded-md border border-input bg-background px-3 text-base md:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -24,9 +25,10 @@ interface Props {
   departments: EmployeeFormOption[];
   positions: EmployeeFormOption[];
   managers: EmployeeFormOption[];
+  stats: HeadcountStats;
 }
 
-export function EmployeesListClient({ employees, departments, positions, managers }: Props) {
+export function EmployeesListClient({ employees, departments, positions, managers, stats }: Props) {
   const router = useRouter();
   const [search, setSearch] = React.useState("");
   const [dept, setDept] = React.useState("all");
@@ -101,7 +103,11 @@ export function EmployeesListClient({ employees, departments, positions, manager
         }
       />
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="mt-6">
+        <EmployeeStats stats={stats} />
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"

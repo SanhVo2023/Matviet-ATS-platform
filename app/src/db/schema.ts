@@ -254,6 +254,10 @@ export const employees = sqliteTable(
     // Link back to the candidate this employee was converted from (ADR 0012
     // lineage; nullable for employees added directly, not via hiring).
     source_candidate_id: text("source_candidate_id"),
+    // Offboarding (HRM H3) — set when a departure is in progress / finalized.
+    last_working_day: text("last_working_day"),
+    termination_reason: text("termination_reason"),
+    terminated_at: text("terminated_at"),
     notes: text("notes"),
     created_at: text("created_at").notNull().$defaultFn(nowIso),
     updated_at: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),
@@ -311,6 +315,26 @@ export const onboarding_tasks = sqliteTable(
     created_at: text("created_at").notNull().$defaultFn(nowIso),
   },
   (t) => [index("idx_onboarding_employee").on(t.employee_id)],
+);
+
+// Offboarding checklist (HRM H3). Seeded when HR starts a departure; mirrors
+// onboarding_tasks.
+export const offboarding_tasks = sqliteTable(
+  "offboarding_tasks",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    employee_id: text("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    category: text("category"),
+    sort_order: integer("sort_order").notNull().default(0),
+    done: integer("done", { mode: "boolean" }).notNull().default(false),
+    done_at: text("done_at"),
+    done_by: text("done_by").references(() => users.id),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+  },
+  (t) => [index("idx_offboarding_employee").on(t.employee_id)],
 );
 
 // Leave requests (HRM H2). Balances are COMPUTED (entitlement − approved annual

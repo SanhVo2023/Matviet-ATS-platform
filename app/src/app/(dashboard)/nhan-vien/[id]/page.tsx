@@ -6,6 +6,7 @@ import { listDepartmentOptions, listPositionOptions } from "@/server/org/reposit
 import { listContractsForEmployee } from "@/server/contracts/repository";
 import { listTasksForEmployee } from "@/server/onboarding/repository";
 import { leaveBalanceForEmployee, listLeaveForEmployee } from "@/server/leave/repository";
+import { listOffboardingTasks } from "@/server/offboarding/service";
 import { EmployeeProfile } from "@/components/features/employees/EmployeeProfile";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     onboardingTasks,
     leaveBalance,
     leaveRequests,
+    offboardingTasks,
   ] = await Promise.all([
     getEmployeeDetail(id),
     listDepartmentOptions(),
@@ -42,6 +44,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     listTasksForEmployee(id),
     leaveBalanceForEmployee(id),
     listLeaveForEmployee(id),
+    listOffboardingTasks(id),
   ]);
   if (!detail) notFound();
 
@@ -56,6 +59,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         onboardingTasks={onboardingTasks}
         leaveBalance={leaveBalance}
         leaveRequests={leaveRequests}
+        offboardingTasks={offboardingTasks}
       />
     </div>
   );

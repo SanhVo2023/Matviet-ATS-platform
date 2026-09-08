@@ -24,6 +24,13 @@ import {
   toggleOnboardingTask,
   removeOnboardingTask,
 } from "@/server/onboarding/service";
+import {
+  startOffboarding,
+  finalizeOffboarding,
+  addOffboardingTask,
+  toggleOffboardingTask,
+  removeOffboardingTask,
+} from "@/server/offboarding/service";
 import type { Database } from "@/types/db";
 
 type EmployeeStatus = Database["public"]["Enums"]["employee_status"];
@@ -217,6 +224,79 @@ export async function removeOnboardingTaskAction(
   await requireRole(["admin", "hr"]);
   try {
     await removeOnboardingTask(id);
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi xóa" };
+  }
+}
+
+// ----- Offboarding (H3) -----
+
+export async function startOffboardingAction(
+  employeeId: string,
+  input: { lastDay?: string | null; reason?: string | null },
+): Promise<ActionResult> {
+  const profile = await requireRole(["admin", "hr"]);
+  try {
+    await startOffboarding(employeeId, input);
+    await audit(profile.id, employeeId, "offboarding_start", { last_day: input.lastDay });
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi bắt đầu nghỉ việc" };
+  }
+}
+
+export async function finalizeOffboardingAction(employeeId: string): Promise<ActionResult> {
+  const profile = await requireRole(["admin", "hr"]);
+  try {
+    await finalizeOffboarding(employeeId);
+    await audit(profile.id, employeeId, "offboarding_finalize", {});
+    revalidatePath("/nhan-vien");
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi hoàn tất" };
+  }
+}
+
+export async function addOffboardingTaskAction(
+  employeeId: string,
+  title: string,
+): Promise<ActionResult> {
+  await requireRole(["admin", "hr"]);
+  try {
+    await addOffboardingTask(employeeId, title);
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi thêm việc" };
+  }
+}
+
+export async function toggleOffboardingTaskAction(
+  id: string,
+  employeeId: string,
+  done: boolean,
+): Promise<ActionResult> {
+  const profile = await requireRole(["admin", "hr"]);
+  try {
+    await toggleOffboardingTask(id, done, profile.id);
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi cập nhật" };
+  }
+}
+
+export async function removeOffboardingTaskAction(
+  id: string,
+  employeeId: string,
+): Promise<ActionResult> {
+  await requireRole(["admin", "hr"]);
+  try {
+    await removeOffboardingTask(id);
     revalidatePath(`/nhan-vien/${employeeId}`);
     return { ok: true };
   } catch (err) {

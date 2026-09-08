@@ -11,6 +11,7 @@ import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 import { EmployeeForm, type EmployeeFormOption } from "./EmployeeForm";
 import { ContractsCard } from "./ContractsCard";
 import { OnboardingChecklist } from "./OnboardingChecklist";
+import { OffboardingCard } from "./OffboardingCard";
 import { LeaveCard } from "./LeaveCard";
 import { setEmployeeStatusAction } from "@/app/(dashboard)/nhan-vien/actions";
 import { t } from "@/lib/i18n";
@@ -21,6 +22,7 @@ import type { EmployeeFormInput } from "@/server/employees/service";
 import type { ContractRow } from "@/server/contracts/repository";
 import type { OnboardingTaskRow } from "@/server/onboarding/repository";
 import type { LeaveBalance, LeaveRequestRow } from "@/server/leave/repository";
+import type { OffboardingTaskRow } from "@/server/offboarding/service";
 import type { Database } from "@/types/db";
 
 type EmployeeStatus = Database["public"]["Enums"]["employee_status"];
@@ -37,6 +39,7 @@ interface Props {
   onboardingTasks: OnboardingTaskRow[];
   leaveBalance: LeaveBalance;
   leaveRequests: LeaveRequestRow[];
+  offboardingTasks: OffboardingTaskRow[];
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -57,6 +60,7 @@ export function EmployeeProfile({
   onboardingTasks,
   leaveBalance,
   leaveRequests,
+  offboardingTasks,
 }: Props) {
   const router = useRouter();
   const { employee: e, person: p } = detail;
@@ -213,6 +217,14 @@ export function EmployeeProfile({
         <ContractsCard employeeId={e.id} contracts={contracts} />
         <OnboardingChecklist employeeId={e.id} tasks={onboardingTasks} />
         <LeaveCard balance={leaveBalance} requests={leaveRequests} />
+        <OffboardingCard
+          employeeId={e.id}
+          status={e.status}
+          lastWorkingDay={e.last_working_day}
+          terminationReason={e.termination_reason}
+          terminatedAt={e.terminated_at}
+          tasks={offboardingTasks}
+        />
       </div>
 
       {e.notes ? (
