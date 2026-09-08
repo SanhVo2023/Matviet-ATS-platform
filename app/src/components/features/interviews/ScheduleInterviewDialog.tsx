@@ -148,7 +148,7 @@ export function ScheduleInterviewDialog({
                   )}
                 >
                   <p className="font-medium">{t.interviewType[tp]}</p>
-                  <p className="mt-0.5 text-[10px] text-slate-500">{TYPE_HINT[tp]}</p>
+                  <p className="mt-0.5 text-2xs text-slate-500">{TYPE_HINT[tp]}</p>
                 </button>
               ))}
             </div>
@@ -198,7 +198,7 @@ export function ScheduleInterviewDialog({
                       className="h-4 w-4"
                     />
                     <span className="flex-1 text-sm text-slate-700">{u.full_name ?? u.id}</span>
-                    <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                    <span className="text-2xs uppercase tracking-wide text-slate-500">
                       {t.userRole[u.role as keyof typeof t.userRole] ?? u.role}
                     </span>
                   </label>

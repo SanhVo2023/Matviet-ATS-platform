@@ -5,7 +5,7 @@ import type { Database } from "@/types/db";
 
 type Status = Database["public"]["Enums"]["ai_screening_status"];
 
-const PILL = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium";
+const PILL = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium";
 
 export function ScoringStatusPill({ status }: { status: Status }) {
   if (status === "pending") {

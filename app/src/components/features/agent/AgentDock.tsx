@@ -107,7 +107,7 @@ export function AgentDock({ role }: { role: UserRole }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Đóng Trợ lý AI" : "Mở Trợ lý AI"}
-        className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent-400 text-brand-900 shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 lg:bottom-6 lg:right-6"
+        className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent-400 text-brand-900 shadow-lg transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 lg:bottom-6 lg:right-6"
       >
         {open ? (
           <X className="h-5 w-5" aria-hidden />
@@ -125,17 +125,17 @@ export function AgentDock({ role }: { role: UserRole }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
-            className="fixed bottom-36 right-4 z-40 flex h-[min(560px,calc(100dvh-11rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl lg:bottom-24 lg:right-6"
+            className="fixed bottom-[calc(8rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-[min(560px,calc(100dvh-12rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl lg:bottom-24 lg:right-6"
           >
             <header className="flex items-center gap-2 bg-brand-900 px-4 py-3 text-white">
               <Sparkles className="h-4 w-4 text-accent-400" aria-hidden />
               <div className="flex-1">
                 <p className="text-sm font-bold">Trợ lý Mắt Việt HR</p>
-                <p className="text-[11px] text-brand-300">
+                <p className="text-2xs text-brand-300">
                   Tạo vị trí bằng 1 câu · tìm ứng viên · đặt lịch · soạn email
                 </p>
               </div>
-              <kbd className="hidden rounded border border-brand-600 px-1.5 py-0.5 text-[10px] text-brand-300 lg:block">
+              <kbd className="hidden rounded border border-brand-600 px-1.5 py-0.5 text-2xs text-brand-300 lg:block">
                 Ctrl K
               </kbd>
             </header>
@@ -261,7 +261,7 @@ function ThinkingIndicator() {
         ))}
       </span>
       <span className="text-xs text-slate-500">{phase}</span>
-      <span className="text-[10px] tabular-nums text-slate-400">{seconds}s</span>
+      <span className="text-2xs tabular-nums text-slate-400">{seconds}s</span>
     </div>
   );
 }

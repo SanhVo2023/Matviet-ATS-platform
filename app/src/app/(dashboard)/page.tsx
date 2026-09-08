@@ -1,5 +1,17 @@
 import Link from "next/link";
-import { FileText, Calendar, CheckCircle2, ArrowRight, Video, Phone, Plus } from "lucide-react";
+import {
+  FileText,
+  Calendar,
+  CheckCircle2,
+  ArrowRight,
+  Video,
+  Phone,
+  Plus,
+  Hourglass,
+  FileWarning,
+  CalendarClock,
+  Users,
+} from "lucide-react";
 import { requireSession, isHr, isManager } from "@/lib/auth";
 import {
   getHrDashboardData,
@@ -21,7 +33,12 @@ import { ApprovalDigestCard } from "@/components/features/approvals/ApprovalDige
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProposalFeed, type FeedProposal } from "@/components/features/agent/ProposalFeed";
 import { DashboardTabs } from "@/components/features/dashboard/DashboardTabs";
-import { listOpenProposals } from "@/server/agent-flows/repository";
+import {
+  listOpenProposals,
+  listOpenProposalsForManager,
+  type ProposalRow,
+} from "@/server/agent-flows/repository";
+import { getHrmSnapshot, type HrmSnapshot } from "@/server/dashboard/hrm";
 import { StageBadge, JobStatusBadge } from "@/components/primitives/StatusBadge";
 import { CountUp } from "@/components/primitives/CountUp";
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion";
@@ -40,10 +57,11 @@ export default async function HomePage() {
   const profile = await requireSession();
 
   if (isManager(profile.role)) {
-    const [data, myJobs, counts] = await Promise.all([
+    const [data, myJobs, counts, proposals] = await Promise.all([
       getManagerInboxData(profile.id, "hiring_manager"),
       listJobsForManager(profile.id),
       countCandidatesByJob(),
+      listOpenProposalsForManager(profile.id, profile.department_id ?? null),
     ]);
     return (
       <ManagerInbox
@@ -51,16 +69,18 @@ export default async function HomePage() {
         data={data}
         jobs={myJobs}
         counts={Object.fromEntries(counts.map((c) => [c.job_id, c]))}
+        proposals={proposals.map(toFeedProposal)}
       />
     );
   }
   if (isHr(profile.role)) {
-    const [data, inbox, jobs, counts, proposals] = await Promise.all([
+    const [data, inbox, jobs, counts, proposals, hrm] = await Promise.all([
       getHrDashboardData(),
       getActionInbox(),
       listJobs(),
       countCandidatesByJob(),
       listOpenProposals(),
+      getHrmSnapshot(),
     ]);
     return (
       <HrDashboard
@@ -69,19 +89,8 @@ export default async function HomePage() {
         inbox={inbox}
         jobs={jobs}
         counts={Object.fromEntries(counts.map((c) => [c.job_id, c]))}
-        proposals={proposals.map((p) => ({
-          id: p.id,
-          kind: p.kind,
-          summary: p.summary,
-          reasoning: p.reasoning,
-          payload: p.payload,
-          created_at: p.created_at,
-          candidate_id: p.candidate_id,
-          candidate_name: p.candidate_name,
-          job_title: p.job_title,
-          employee_id: p.employee_id,
-          employee_name: p.employee_name,
-        }))}
+        hrm={hrm}
+        proposals={proposals.map(toFeedProposal)}
       />
     );
   }
@@ -90,6 +99,23 @@ export default async function HomePage() {
 }
 
 // ---------------------------------------------------------------------------
+
+/** agent_proposals row → the shape the feed card renders. */
+function toFeedProposal(p: ProposalRow): FeedProposal {
+  return {
+    id: p.id,
+    kind: p.kind,
+    summary: p.summary,
+    reasoning: p.reasoning,
+    payload: p.payload,
+    created_at: p.created_at,
+    candidate_id: p.candidate_id,
+    candidate_name: p.candidate_name,
+    job_title: p.job_title,
+    employee_id: p.employee_id,
+    employee_name: p.employee_name,
+  };
+}
 
 function timeVN(iso: string): string {
   return new Intl.DateTimeFormat("vi-VN", {
@@ -190,6 +216,7 @@ function HrDashboard({
   jobs,
   counts,
   proposals,
+  hrm,
 }: {
   name: string;
   data: Awaited<ReturnType<typeof getHrDashboardData>>;
@@ -197,6 +224,7 @@ function HrDashboard({
   jobs: JobRow[];
   counts: CountsByJob;
   proposals: FeedProposal[];
+  hrm: HrmSnapshot;
 }) {
   const stats = [
     { label: t.dashboard.cards.newCvs, value: data.newCvs7d, href: "/ung-vien", icon: FileText },
@@ -212,6 +240,26 @@ function HrDashboard({
       href: "/phe-duyet",
       icon: CheckCircle2,
     },
+    // HRM half of the job (UX audit): the four numbers that need HR's hand.
+    {
+      label: t.dashboard.cards.probationEnding,
+      value: hrm.probationEnding7d,
+      href: "/nhan-vien?status=probation",
+      icon: Hourglass,
+    },
+    {
+      label: t.dashboard.cards.contractsExpiring,
+      value: hrm.contractsExpiring30d,
+      href: "/nhan-vien",
+      icon: FileWarning,
+    },
+    {
+      label: t.dashboard.cards.pendingLeave,
+      value: hrm.pendingLeave,
+      href: "/nghi-phep",
+      icon: CalendarClock,
+    },
+    { label: t.dashboard.cards.headcount, value: hrm.headcount, href: "/nhan-vien", icon: Users },
   ];
 
   return (
@@ -250,7 +298,14 @@ function HrDashboard({
 
       {/* Agent-prepared actions — approve/edit/dismiss (ADR 0020) */}
       <FadeIn>
-        <ProposalFeed proposals={proposals} />
+        <ProposalFeed
+          proposals={proposals}
+          watching={{
+            candidates: hrm.activeCandidates,
+            contracts: hrm.probationEnding7d + hrm.contractsExpiring30d,
+            leave: hrm.pendingLeave,
+          }}
+        />
       </FadeIn>
 
       {/* "Hôm nay cần làm" — every pending decision, one click from acting (ADR 0015) */}
@@ -405,11 +460,13 @@ function ManagerInbox({
   data,
   jobs,
   counts,
+  proposals,
 }: {
   name: string;
   data: Awaited<ReturnType<typeof getManagerInboxData>>;
   jobs: JobRow[];
   counts: CountsByJob;
+  proposals: FeedProposal[];
 }) {
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6 lg:p-8">
@@ -419,6 +476,12 @@ function ManagerInbox({
             {tf.greeting(name)}
           </h1>
         </header>
+      </FadeIn>
+
+      {/* The manager's slice of the assistant feed — leave / probation cards for
+          their department + hiring cards for their jobs (one tap, on the floor). */}
+      <FadeIn>
+        <ProposalFeed proposals={proposals} />
       </FadeIn>
 
       {/* Vị trí của tôi — the positions this manager owns, straight to the workspace */}

@@ -3,7 +3,9 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IdCard, Pencil } from "lucide-react";
+import Link from "next/link";
+import { Pencil } from "lucide-react";
+import { PersonAvatar } from "@/components/primitives/PersonAvatar";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,6 +68,15 @@ export function EmployeeProfile({
   const { employee: e, person: p } = detail;
   const [editOpen, setEditOpen] = React.useState(false);
   const [savingStatus, setSavingStatus] = React.useState(false);
+  // Status changes are two-step (pick → confirm). "Đã nghỉ việc" is not offered
+  // here at all: a departure goes through OffboardingCard so the checklist,
+  // last day and reason are captured (UX audit P1: one mis-click terminated).
+  const [pendingStatus, setPendingStatus] = React.useState<EmployeeStatus | null>(null);
+  const confirmStatus = async () => {
+    if (!pendingStatus) return;
+    await onStatusChange(pendingStatus);
+    setPendingStatus(null);
+  };
   const f = t.employee.fields;
 
   const initial: Partial<EmployeeFormInput> = {
@@ -110,26 +121,70 @@ export function EmployeeProfile({
   return (
     <>
       <PageHeader
-        icon={IdCard}
+        leading={<PersonAvatar name={p.full_name} size="lg" ring />}
         title={p.full_name}
-        subtitle={e.employee_code ?? undefined}
+        subtitle={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <EmployeeStatusBadge status={e.status} />
+            {e.employee_code ? (
+              <span className="font-mono text-xs text-slate-500">{e.employee_code}</span>
+            ) : null}
+            {[detail.position_title, detail.department_name, e.store_location].some(Boolean) ? (
+              <span>
+                {[detail.position_title, detail.department_name, e.store_location]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            ) : null}
+            {e.source_candidate_id ? (
+              <Link
+                href={`/ung-vien/${e.source_candidate_id}`}
+                className="font-medium text-brand-700 hover:underline"
+              >
+                {t.employee.fromCandidate} →
+              </Link>
+            ) : null}
+          </span>
+        }
         back="/nhan-vien"
         backLabel={t.employee.title}
         action={
           <div className="flex items-center gap-2">
-            <select
-              className={SELECT_CLASS}
-              value={e.status}
-              disabled={savingStatus}
-              onChange={(ev) => onStatusChange(ev.target.value as EmployeeStatus)}
-              aria-label={f.status}
-            >
-              {EMPLOYEE_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {t.employeeStatus[s]}
-                </option>
-              ))}
-            </select>
+            {e.status !== "terminated" ? (
+              <div className="flex items-center gap-2">
+                <select
+                  className={SELECT_CLASS}
+                  value={pendingStatus ?? e.status}
+                  disabled={savingStatus}
+                  onChange={(ev) => {
+                    const next = ev.target.value as EmployeeStatus;
+                    setPendingStatus(next === e.status ? null : next);
+                  }}
+                  aria-label={f.status}
+                >
+                  {EMPLOYEE_STATUSES.filter((s) => s !== "terminated").map((s) => (
+                    <option key={s} value={s}>
+                      {t.employeeStatus[s]}
+                    </option>
+                  ))}
+                </select>
+                {pendingStatus ? (
+                  <>
+                    <Button size="sm" disabled={savingStatus} onClick={() => void confirmStatus()}>
+                      {t.action.confirm}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={savingStatus}
+                      onClick={() => setPendingStatus(null)}
+                    >
+                      {t.action.cancel}
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
             <Button variant="outline" onClick={() => setEditOpen(true)}>
               <Pencil className="mr-2 h-4 w-4" aria-hidden />
               {t.action.edit}
@@ -137,10 +192,6 @@ export function EmployeeProfile({
           </div>
         }
       />
-
-      <div className="mt-2">
-        <EmployeeStatusBadge status={e.status} />
-      </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>

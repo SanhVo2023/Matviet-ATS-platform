@@ -52,7 +52,7 @@ function CountChip({ n, highlight }: { n: number; highlight?: boolean }) {
   return (
     <span
       className={cn(
-        "ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+        "ml-1.5 rounded-full px-1.5 py-0.5 text-2xs font-semibold tabular-nums",
         highlight ? "bg-accent-100 text-accent-700" : "bg-slate-100 text-slate-500",
       )}
     >

@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { defaultReportFilter, parseReportFilter } from "./filter";
 
 describe("defaultReportFilter", () => {
-  it("returns last 30 days, no other filters", () => {
+  it("returns last 90 days, no other filters", () => {
     const f = defaultReportFilter();
     expect(f.job_id).toBeNull();
     expect(f.role_family).toBeNull();
     expect(f.source).toBeNull();
     const span = new Date(f.to).getTime() - new Date(f.from).getTime();
     const days = span / (24 * 60 * 60 * 1000);
-    expect(days).toBeGreaterThan(29.5);
-    expect(days).toBeLessThan(30.5);
+    expect(days).toBeGreaterThan(89.5);
+    expect(days).toBeLessThan(90.5);
   });
 });
 

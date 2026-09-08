@@ -57,7 +57,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         subtitle={
           <>
             {usingDefaults
-              ? "30 ngày gần nhất · tất cả vị trí"
+              ? "90 ngày gần nhất · tất cả vị trí"
               : `${formatDate(filter.from)} — ${formatDate(filter.to)}`}
             {filter.job_id && ` · 1 vị trí`}
             {filter.role_family && ` · nhóm ${filter.role_family}`}

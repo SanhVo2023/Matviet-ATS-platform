@@ -143,7 +143,7 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
                 </Avatar>
                 <span className="font-medium text-slate-700">{name}</span>
                 {myEval ? (
-                  <span className="rounded bg-success-bg px-1 text-[10px] font-medium text-success-fg">
+                  <span className="rounded bg-success-bg px-1 text-2xs font-medium text-success-fg">
                     Đã đánh giá
                   </span>
                 ) : null}

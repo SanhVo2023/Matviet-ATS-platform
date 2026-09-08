@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, ChevronDown, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { READINESS_DOT, READINESS_TEXT } from "@/lib/stage-visuals";
+import { StageGroupIcon } from "@/components/primitives/StageGroupIcon";
 import type { StatusTone } from "@/lib/candidate-status";
 
 /** The bits of a derived status a rung header renders. */
@@ -15,7 +16,8 @@ export interface RungReadiness {
 export type RungState = "done" | "current" | "todo";
 
 interface Props {
-  icon: string;
+  /** Business-group id → lucide marker (one stage language, no emoji). */
+  groupId: string;
   title: string;
   state: RungState;
   /** Entered-this-rung date line, right-aligned in the header. */
@@ -42,7 +44,7 @@ interface Props {
  * place. Done rungs collapse to their summary; the current rung ships open.
  */
 export function JourneyRung({
-  icon,
+  groupId,
   title,
   state,
   meta,
@@ -74,7 +76,10 @@ export function JourneyRung({
           {state === "done" ? (
             <Check className="h-4 w-4 text-emerald-600" strokeWidth={3} />
           ) : (
-            <span className={cn(state === "todo" && "grayscale")}>{icon}</span>
+            <StageGroupIcon
+              groupId={groupId}
+              className={cn("h-4 w-4", state === "current" ? "text-accent-400" : "text-slate-500")}
+            />
           )}
         </span>
         {!last ? (

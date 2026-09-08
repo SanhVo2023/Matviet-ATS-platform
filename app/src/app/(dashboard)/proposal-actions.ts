@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import "@/server/ai/runtime";
 import { executeProposal, type ExecuteOptions } from "@/server/agent-flows/execute";
-import { dismissProposal } from "@/server/agent-flows/repository";
+import { dismissProposal, isProposalInManagerScope } from "@/server/agent-flows/repository";
 
 export type ActionResult<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
 
@@ -13,7 +13,13 @@ export async function executeProposalAction(
   id: string,
   options: ExecuteOptions = {},
 ): Promise<ActionResult<{ message: string }>> {
-  const profile = await requireRole(["admin", "hr"]);
+  const profile = await requireRole(["admin", "hr", "hiring_manager"]);
+  if (
+    profile.role === "hiring_manager" &&
+    !(await isProposalInManagerScope(id, profile.id, profile.department_id ?? null))
+  ) {
+    return { ok: false, error: "Đề xuất này không thuộc phạm vi của bạn" };
+  }
   const result = await executeProposal(
     id,
     { id: profile.id, name: profile.full_name ?? "Phòng Nhân sự" },
@@ -26,7 +32,13 @@ export async function executeProposalAction(
 
 /** Dismiss a proposal card ("Bỏ qua"). */
 export async function dismissProposalAction(id: string): Promise<ActionResult> {
-  const profile = await requireRole(["admin", "hr"]);
+  const profile = await requireRole(["admin", "hr", "hiring_manager"]);
+  if (
+    profile.role === "hiring_manager" &&
+    !(await isProposalInManagerScope(id, profile.id, profile.department_id ?? null))
+  ) {
+    return { ok: false, error: "Đề xuất này không thuộc phạm vi của bạn" };
+  }
   const ok = await dismissProposal(id, profile.id);
   revalidatePath("/");
   return ok ? { ok: true } : { ok: false, error: "Đề xuất này đã được xử lý" };

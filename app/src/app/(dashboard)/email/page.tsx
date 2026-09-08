@@ -99,7 +99,11 @@ export default async function EmailQueuePage({
                     )}
                   </td>
                   <td className="px-4 py-3 align-top text-xs text-slate-600">
-                    {r.template_code ?? "—"}
+                    {r.template_code
+                      ? (t.emails.templateLabel[
+                          r.template_code as keyof typeof t.emails.templateLabel
+                        ] ?? r.template_code)
+                      : "—"}
                   </td>
                   <td className="px-4 py-3 align-top">
                     <EmailStatusPill status={r.status} />

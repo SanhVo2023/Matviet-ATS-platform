@@ -424,7 +424,7 @@ function PositionSlideOver({
     <SlideOver
       open={open}
       onOpenChange={onOpenChange}
-      title={edit ? t.department.addPosition : t.department.addPosition}
+      title={edit ? t.department.editPosition : t.department.addPosition}
       width="md"
     >
       <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">

@@ -339,7 +339,7 @@ export const t = {
       store: "Cửa hàng / Nơi làm việc",
       employmentType: "Hình thức làm việc",
       status: "Trạng thái",
-      hiredAt: "Ngày ra quyết định",
+      hiredAt: "Ngày tuyển dụng",
       startDate: "Ngày bắt đầu làm việc",
       bankAccount: "Số tài khoản",
       bankName: "Ngân hàng",
@@ -496,6 +496,7 @@ export const t = {
     addTitle: "Thêm phòng ban",
     editTitle: "Sửa phòng ban",
     addPosition: "Thêm vị trí",
+    editPosition: "Sửa vị trí",
     empty: "Chưa có phòng ban nào. Hãy tạo phòng ban đầu tiên.",
     name: "Tên phòng ban",
     code: "Mã",
@@ -537,6 +538,10 @@ export const t = {
       newCvs: "CV mới (7 ngày)",
       todayInterviews: "PV hôm nay",
       pendingApprovals: "Chờ duyệt",
+      probationEnding: "Sắp hết thử việc",
+      contractsExpiring: "HĐ sắp hết hạn",
+      pendingLeave: "Đơn phép chờ duyệt",
+      headcount: "Nhân viên",
     },
     funnel: { title: "Phễu tuyển dụng" },
     todaySchedule: { title: "Lịch hôm nay" },
@@ -545,7 +550,7 @@ export const t = {
   },
 
   managerInbox: {
-    greeting: "Chào {{name}},",
+    greeting: "Chào {{name}}",
     toDo: { title: "Cần xử lý" },
     upcomingInterviews: { title: "Lịch phỏng vấn sắp tới" },
     myJobs: { title: "Vị trí của tôi" },
@@ -668,6 +673,16 @@ export const t = {
       delivered: "Đã giao",
       failed: "Lỗi",
       received: "Nhận",
+    },
+    // Human labels for email_templates.code — never show the raw code to HR.
+    templateLabel: {
+      interview_invite: "Mời phỏng vấn",
+      interview_reminder: "Nhắc lịch phỏng vấn",
+      reminder_24h: "Nhắc trước 24 giờ",
+      assessment_send: "Gửi bài test",
+      offer: "Thư mời nhận việc",
+      receipt_ack: "Xác nhận đã nhận hồ sơ",
+      rejection: "Thư từ chối",
     },
     col: {
       candidate: "Ứng viên",

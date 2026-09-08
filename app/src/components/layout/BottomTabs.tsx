@@ -4,7 +4,16 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
-import { LayoutDashboard, Users, Calendar, CheckCircle2, Menu } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  Calendar,
+  CheckCircle2,
+  CalendarClock,
+  IdCard,
+  Megaphone,
+  Menu,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileNav } from "./MobileNav";
 import { modulesForRole } from "@/lib/modules";
@@ -20,18 +29,37 @@ interface Tab {
   icon: LucideIcon;
 }
 
-const ALL_TABS: Tab[] = [
-  { key: "overview", href: "/", label: "Tổng quan", icon: LayoutDashboard },
-  { key: "candidates", href: "/ung-vien", label: "Ứng viên", icon: Users },
-  { key: "interviews", href: "/phong-van", label: "Phỏng vấn", icon: Calendar },
-  { key: "approvals", href: "/phe-duyet", label: "Phê duyệt", icon: CheckCircle2 },
-];
+/** Every destination that can appear on the bar, keyed by route. */
+const TAB_CATALOG: Record<string, Tab> = {
+  "/": { key: "overview", href: "/", label: "Tổng quan", icon: LayoutDashboard },
+  "/ung-vien": { key: "candidates", href: "/ung-vien", label: "Ứng viên", icon: Users },
+  "/phong-van": { key: "interviews", href: "/phong-van", label: "Phỏng vấn", icon: Calendar },
+  "/phe-duyet": { key: "approvals", href: "/phe-duyet", label: "Phê duyệt", icon: CheckCircle2 },
+  "/nghi-phep": { key: "leave", href: "/nghi-phep", label: "Nghỉ phép", icon: CalendarClock },
+  "/nhan-vien": { key: "employees", href: "/nhan-vien", label: "Nhân viên", icon: IdCard },
+  "/thong-bao": { key: "comms", href: "/thong-bao", label: "Thông báo", icon: Megaphone },
+};
 
 /**
- * Mobile bottom tab bar (< md) — design-language §6. The primary destinations
- * the role can actually reach (an exec sees only Tổng quan + Phê duyệt, not
- * dead tabs) + a "Thêm" tab that opens the full MobileNav drawer. A gold dot
- * slides between active tabs. Safe-area padded for notched devices.
+ * What each role reaches for on a phone, in priority order. Capped at MAX_TABS
+ * (+ "Thêm"), so the bar never exceeds five cells. A store manager's floor
+ * tasks are leave approvals and the shortlist — those go in the thumb zone;
+ * HR is laptop-first and keeps the recruiting set; execs approve and read.
+ */
+const ROLE_PRIORITY: Record<UserRole, string[]> = {
+  admin: ["/", "/ung-vien", "/phong-van", "/phe-duyet", "/nhan-vien"],
+  hr: ["/", "/ung-vien", "/phong-van", "/phe-duyet", "/nhan-vien"],
+  hiring_manager: ["/", "/ung-vien", "/nghi-phep", "/phe-duyet", "/phong-van"],
+  bod: ["/", "/phe-duyet", "/thong-bao"],
+  tap_doan: ["/", "/phe-duyet", "/thong-bao"],
+};
+const MAX_TABS = 4;
+
+/**
+ * Mobile bottom tab bar (< md) — design-language §6. Role-prioritized
+ * destinations the role can actually reach (modulesForRole) + a "Thêm" tab
+ * that opens the full MobileNav drawer. A gold dot slides between active
+ * tabs. Safe-area padded for notched devices.
  */
 export function BottomTabs({
   role,
@@ -46,10 +74,14 @@ export function BottomTabs({
   const reduceMotion = useReducedMotion();
   const [menuOpen, setMenuOpen] = React.useState(false);
 
-  // "/" is every role's home; otherwise keep only tabs whose route the role
-  // has a module for (modulesForRole), so execs don't get bouncing tabs.
+  // "/" is every role's home; otherwise keep only routes the role has an
+  // enabled module for, in the role's priority order.
   const allowedHrefs = new Set(modulesForRole(role).map((m) => m.href));
-  const tabs = ALL_TABS.filter((t) => t.href === "/" || allowedHrefs.has(t.href));
+  const tabs = (ROLE_PRIORITY[role] ?? ["/"])
+    .filter((href) => href === "/" || allowedHrefs.has(href))
+    .slice(0, MAX_TABS)
+    .map((href) => TAB_CATALOG[href])
+    .filter((t): t is Tab => Boolean(t));
   const gridCols = tabs.length + 1; // + the "Thêm" button
 
   const dotTransition = reduceMotion
@@ -91,7 +123,7 @@ export function BottomTabs({
                 />
                 <span
                   className={cn(
-                    "text-[11px]",
+                    "text-2xs",
                     active ? "font-semibold text-brand-900" : "font-medium text-slate-500",
                   )}
                 >
@@ -108,7 +140,7 @@ export function BottomTabs({
             className="flex h-14 flex-col items-center justify-center gap-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
           >
             <Menu className="h-5 w-5 text-slate-400" aria-hidden />
-            <span className="text-[11px] font-medium text-slate-500">Thêm</span>
+            <span className="text-2xs font-medium text-slate-500">Thêm</span>
           </button>
         </div>
       </nav>

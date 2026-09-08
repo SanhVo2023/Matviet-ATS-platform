@@ -3,6 +3,7 @@ import { t } from "@/lib/i18n";
 import { groupOfStage, type Stage } from "@/lib/validation/candidate";
 import { deriveCandidateStatus } from "@/lib/candidate-status";
 import { GROUP_TINT, READINESS_DOT } from "@/lib/stage-visuals";
+import { StageGroupIcon } from "./StageGroupIcon";
 import type { Database } from "@/types/db";
 
 type JobStatus = Database["public"]["Enums"]["job_status"];
@@ -52,7 +53,7 @@ export function StageBadge({
           <span className="sr-only">{derived.label}. </span>
         </>
       ) : (
-        <span aria-hidden>{group.icon}</span>
+        <StageGroupIcon groupId={group.id} className="h-3 w-3 shrink-0 opacity-80" />
       )}
       {t.stage[stage]}
     </span>

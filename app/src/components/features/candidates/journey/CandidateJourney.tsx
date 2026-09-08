@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { formatDate, formatDateTime } from "@/lib/vi-format";
@@ -127,7 +128,7 @@ export function CandidateJourney(props: Props) {
         return (
           <JourneyRung
             key={group.id}
-            icon={group.icon}
+            groupId={group.id}
             title={group.label}
             state={state}
             meta={state !== "todo" && entered ? formatDate(entered) : null}
@@ -380,7 +381,15 @@ function OnboardBlock({ candidate }: { candidate: CandidateRow }) {
         </p>
       ) : null}
       {candidate.current_stage === "hired" ? (
-        <p className="font-medium text-emerald-700">Đã tuyển — hoàn tất hành trình. 🎉</p>
+        <p className="flex flex-wrap items-center gap-x-2 font-medium text-success-fg">
+          <span>Đã tuyển — hoàn tất hành trình.</span>
+          <Link
+            href={`/nhan-vien/tu-ung-vien/${candidate.id}`}
+            className="font-semibold text-brand-700 hover:underline"
+          >
+            Mở hồ sơ nhân viên →
+          </Link>
+        </p>
       ) : null}
     </div>
   );
@@ -397,7 +406,7 @@ function RungEvents({
   if (rows.length === 0) return null;
   return (
     <div>
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+      <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-slate-400">
         Diễn biến
       </p>
       <ul className="space-y-0.5">

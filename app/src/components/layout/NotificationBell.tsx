@@ -202,7 +202,7 @@ export function NotificationBell({ expanded = true }: { expanded?: boolean }) {
             <Bell className="h-5 w-5" aria-hidden />
             {unread > 0 && (
               <span
-                className="absolute -top-0.5 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
+                className="absolute -top-0.5 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-2xs font-bold leading-none text-white"
                 aria-label={`${unread} thông báo chưa đọc`}
               >
                 {unread > 9 ? "9+" : unread}
@@ -260,7 +260,7 @@ export function NotificationBell({ expanded = true }: { expanded?: boolean }) {
                   )}
                 </span>
                 {n.body && <span className="text-xs leading-snug text-slate-500">{n.body}</span>}
-                <span className="text-[11px] text-slate-400">{formatRelative(n.created_at)}</span>
+                <span className="text-2xs text-slate-400">{formatRelative(n.created_at)}</span>
               </button>
             ))
           )}

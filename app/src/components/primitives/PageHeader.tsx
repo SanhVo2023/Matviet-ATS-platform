@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
  */
 export function PageHeader({
   icon: Icon,
+  leading,
   title,
   subtitle,
   action,
@@ -18,6 +19,8 @@ export function PageHeader({
   className,
 }: {
   icon?: LucideIcon;
+  /** Custom leading element (e.g. a PersonAvatar) — replaces the icon box. */
+  leading?: React.ReactNode;
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   action?: React.ReactNode;
@@ -40,11 +43,13 @@ export function PageHeader({
             <ChevronLeft className="h-5 w-5" aria-hidden />
           </Link>
         )}
-        {Icon && (
+        {leading ? (
+          <div className="shrink-0">{leading}</div>
+        ) : Icon ? (
           <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-900 text-accent-400">
             <Icon className="h-5 w-5" aria-hidden />
           </span>
-        )}
+        ) : null}
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight text-brand-900 lg:text-[1.7rem]">
             {title}

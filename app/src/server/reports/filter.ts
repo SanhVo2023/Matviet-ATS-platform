@@ -9,10 +9,14 @@ const VALID_SOURCES = [
   "referral",
 ] as const;
 
-/** Default range: last 30 days. */
+/**
+ * Default range: last 90 days. A 30-day window opened the page onto an empty
+ * state whenever hiring was quiet for a month (UX audit 2026-09-08); a quarter
+ * is the shortest window that reliably has something to show.
+ */
 export function defaultReportFilter(): ReportFilter {
   const now = new Date();
-  const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const past = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
   return {
     from: past.toISOString(),
     to: now.toISOString(),

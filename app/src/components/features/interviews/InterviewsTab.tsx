@@ -77,7 +77,7 @@ export function InterviewsTab({
                       </p>
                     </div>
                   </div>
-                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-slate-600">
                     {t.interviewStatus[iv.status]}
                   </span>
                 </Link>

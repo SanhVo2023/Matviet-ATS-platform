@@ -6,6 +6,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { cn } from "@/lib/utils";
 import type { StageGroup } from "@/lib/validation/candidate";
 import { GROUP_ACCENT } from "@/lib/stage-visuals";
+import { StageGroupIcon } from "@/components/primitives/StageGroupIcon";
 import type { CandidateWithStatus } from "@/server/candidates/repository";
 import { KanbanCard } from "./KanbanCard";
 
@@ -41,17 +42,18 @@ export function KanbanColumn({ group, candidates, acceptsDrop, headerSlot }: Pro
       {/* Column header — emoji + business label + count, description below */}
       <div className="px-3 pb-2 pt-2.5">
         <div className="flex items-center justify-between gap-2">
-          <p className="min-w-0 truncate text-[11px] font-bold uppercase tracking-wider text-slate-600">
-            <span className="mr-1" aria-hidden>
-              {group.icon}
-            </span>
+          <p className="min-w-0 truncate text-2xs font-bold uppercase tracking-wider text-slate-600">
+            <StageGroupIcon
+              groupId={group.id}
+              className="mr-1 inline-block h-3.5 w-3.5 align-[-2px] text-slate-500"
+            />
             {group.label}
           </p>
-          <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold tabular-nums text-slate-600 shadow-sm">
+          <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-2xs font-semibold tabular-nums text-slate-600 shadow-sm">
             {candidates.length}
           </span>
         </div>
-        <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">
+        <p className="mt-1 line-clamp-2 text-2xs leading-snug text-slate-500">
           {group.description}
         </p>
       </div>
@@ -61,7 +63,7 @@ export function KanbanColumn({ group, candidates, acceptsDrop, headerSlot }: Pro
         {headerSlot}
         <SortableContext items={candidates.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {candidates.length === 0 ? (
-            <p className="rounded border border-dashed border-slate-200 bg-white/60 py-4 text-center text-[11px] text-slate-400">
+            <p className="rounded border border-dashed border-slate-200 bg-white/60 py-4 text-center text-2xs text-slate-400">
               Trống
             </p>
           ) : (

@@ -52,16 +52,16 @@ const KIND_META: Record<
 > = {
   interview_invite: {
     icon: CalendarPlus,
-    tint: "bg-indigo-50 text-indigo-600",
+    tint: "bg-info-bg text-info-fg",
     approveLabel: "Đặt lịch & gửi thư mời",
   },
   start_approval: {
     icon: CheckCircle2,
-    tint: "bg-amber-50 text-amber-600",
+    tint: "bg-warning-bg text-warning-fg",
     approveLabel: "Trình duyệt",
   },
-  compose_offer: { icon: Mail, tint: "bg-indigo-50 text-indigo-600", approveLabel: "Soạn thư" },
-  nudge_stale: { icon: Clock3, tint: "bg-rose-50 text-rose-600", approveLabel: "Gửi nhắc" },
+  compose_offer: { icon: Mail, tint: "bg-info-bg text-info-fg", approveLabel: "Soạn thư" },
+  nudge_stale: { icon: Clock3, tint: "bg-error-bg text-error-fg", approveLabel: "Gửi nhắc" },
   job_from_intent: {
     icon: Sparkles,
     tint: "bg-accent-50 text-accent-600",
@@ -69,27 +69,40 @@ const KIND_META: Record<
   },
   onboarding_packet: {
     icon: ClipboardList,
-    tint: "bg-emerald-50 text-emerald-600",
+    tint: "bg-success-bg text-success-fg",
     approveLabel: "Tạo gói hội nhập",
   },
   probation_review: {
     icon: UserCheck,
-    tint: "bg-amber-50 text-amber-600",
+    tint: "bg-warning-bg text-warning-fg",
     approveLabel: "Chuyển chính thức",
   },
   contract_renewal: {
     icon: FileText,
-    tint: "bg-indigo-50 text-indigo-600",
+    tint: "bg-info-bg text-info-fg",
     approveLabel: "Tạo HĐ gia hạn",
   },
   leave_request: {
     icon: CalendarPlus,
-    tint: "bg-sky-50 text-sky-600",
+    tint: "bg-info-bg text-info-fg",
     approveLabel: "Duyệt nghỉ phép",
   },
 };
 
-export function ProposalFeed({ proposals }: { proposals: FeedProposal[] }) {
+/** What the assistant is watching — shown instead of a dead box when the feed is empty. */
+export interface WatchSummary {
+  candidates: number;
+  contracts: number;
+  leave: number;
+}
+
+export function ProposalFeed({
+  proposals,
+  watching,
+}: {
+  proposals: FeedProposal[];
+  watching?: WatchSummary;
+}) {
   // Empty state (renovation R3): keep the section visible so a new HR user
   // discovers the feature on a quiet day — it used to vanish entirely.
   if (proposals.length === 0) {
@@ -101,12 +114,31 @@ export function ProposalFeed({ proposals }: { proposals: FeedProposal[] }) {
           </span>
           <h2 className="text-base font-bold text-brand-900">Trợ lý đề xuất</h2>
         </div>
-        <div className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-6 text-center">
-          <p className="text-sm font-medium text-slate-700">Trợ lý chưa có đề xuất mới</p>
-          <p className="mt-1 text-sm text-slate-500">
-            Khi có hồ sơ phù hợp, trợ lý sẽ đề xuất lịch phỏng vấn, trình duyệt và nhắc việc — bạn
-            chỉ cần một chạm để duyệt.
+        {/* Compact when idle: say what is being watched instead of leaving a
+            dead box in the prime slot (UX audit 2026-09-08). */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-slate-200 bg-white px-4 py-3">
+          <p className="text-sm text-slate-600">
+            <span className="font-medium text-slate-800">Không có gì cần bạn duyệt lúc này.</span>{" "}
+            {watching ? "Trợ lý đang theo dõi:" : "Trợ lý sẽ đề xuất khi có việc phù hợp."}
           </p>
+          {watching ? (
+            <ul className="flex flex-wrap gap-1.5" aria-label="Trợ lý đang theo dõi">
+              {[
+                { n: watching.candidates, label: "ứng viên đang xử lý" },
+                { n: watching.contracts, label: "hợp đồng sắp đến hạn" },
+                { n: watching.leave, label: "đơn phép chờ duyệt" },
+              ]
+                .filter((w) => w.n > 0)
+                .map((w) => (
+                  <li
+                    key={w.label}
+                    className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
+                  >
+                    <span className="tabular-nums text-brand-900">{w.n}</span> {w.label}
+                  </li>
+                ))}
+            </ul>
+          ) : null}
         </div>
       </section>
     );
@@ -219,7 +251,7 @@ function ProposalCard({ proposal: p }: { proposal: FeedProposal }) {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-expanded={open}
           aria-label="Vì sao?"
         >
@@ -311,7 +343,7 @@ function SlotPicker({
           );
         })}
       </div>
-      <p className="mt-1 text-[11px] text-slate-400">
+      <p className="mt-1 text-2xs text-slate-400">
         {checked
           ? "Đã đối chiếu lịch Outlook của người phỏng vấn"
           : "Chưa đối chiếu được lịch Outlook — giờ hành chính"}

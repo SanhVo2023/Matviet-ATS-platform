@@ -63,7 +63,7 @@ export function EvaluationsSummary({
               {e.recommendation ? (
                 <span
                   className={cn(
-                    "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    "rounded-full px-2 py-0.5 text-2xs font-semibold",
                     REC_CHIP[e.recommendation],
                   )}
                 >

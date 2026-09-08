@@ -267,20 +267,25 @@ export function EmployeeForm({
                 ))}
               </select>
             </Field>
-            <Field label={f.status} htmlFor="status">
-              <select
-                id="status"
-                className={SELECT_CLASS}
-                value={form.status ?? "probation"}
-                onChange={(e) => set("status", e.target.value as FormState["status"])}
-              >
-                {EMPLOYEE_STATUSES.map((v) => (
-                  <option key={v} value={v}>
-                    {t.employeeStatus[v]}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {/* Status is set only when creating; afterwards it changes via the
+                profile header (two-step confirm) or the offboarding workflow —
+                one write path, not three (UX audit P1). */}
+            {mode === "create" ? (
+              <Field label={f.status} htmlFor="status">
+                <select
+                  id="status"
+                  className={SELECT_CLASS}
+                  value={form.status ?? "probation"}
+                  onChange={(e) => set("status", e.target.value as FormState["status"])}
+                >
+                  {EMPLOYEE_STATUSES.filter((v) => v !== "terminated").map((v) => (
+                    <option key={v} value={v}>
+                      {t.employeeStatus[v]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
             <Field label={f.hiredAt} htmlFor="hired_at">
               <Input
                 id="hired_at"

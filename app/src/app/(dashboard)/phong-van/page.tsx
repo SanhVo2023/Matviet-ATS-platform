@@ -101,7 +101,7 @@ export default async function InterviewsPage({
                     <p className="text-sm font-bold tabular-nums text-brand-900">
                       {formatDateTime(iv.scheduled_at)}
                     </p>
-                    <p className="mt-0.5 flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
+                    <p className="mt-0.5 flex items-center gap-1 text-2xs uppercase tracking-wide text-slate-500">
                       <TypeIcon className="h-3 w-3 shrink-0" aria-hidden />
                       {iv.duration_min} phút
                     </p>
@@ -123,7 +123,7 @@ export default async function InterviewsPage({
                       <p className="mt-0.5 text-xs text-slate-500">{t.interviewType[iv.type]}</p>
                     )}
                   </div>
-                  <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400">
+                  <span className="shrink-0 text-2xs uppercase tracking-wide text-slate-400">
                     {formatRelative(iv.scheduled_at)}
                   </span>
                 </Link>

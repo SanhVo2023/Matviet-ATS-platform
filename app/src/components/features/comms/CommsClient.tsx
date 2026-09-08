@@ -43,6 +43,8 @@ export function CommsClient({
   const [annOpen, setAnnOpen] = React.useState(false);
   const [docOpen, setDocOpen] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
+  // Two-tap delete (first tap arms "Xác nhận"), same pattern as Org/Contracts.
+  const [confirmKey, setConfirmKey] = React.useState<string | null>(null);
 
   async function run(id: string, p: Promise<{ ok: boolean; error?: string }>, okMsg?: string) {
     setBusy(id);
@@ -110,17 +112,29 @@ export function CommsClient({
                             <Pin className="h-4 w-4" aria-hidden />
                           )}
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={busy === a.id}
-                          onClick={() =>
-                            run(a.id, deleteAnnouncementAction(a.id), t.success.deleted)
-                          }
-                          aria-label={t.action.delete}
-                        >
-                          <Trash2 className="h-4 w-4 text-error-fg" aria-hidden />
-                        </Button>
+                        {confirmKey === `an:${a.id}` ? (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={busy === a.id}
+                            onClick={() => {
+                              setConfirmKey(null);
+                              void run(a.id, deleteAnnouncementAction(a.id), t.success.deleted);
+                            }}
+                          >
+                            {t.action.confirm}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy === a.id}
+                            onClick={() => setConfirmKey(`an:${a.id}`)}
+                            aria-label={t.action.delete}
+                          >
+                            <Trash2 className="h-4 w-4 text-error-fg" aria-hidden />
+                          </Button>
+                        )}
                       </div>
                     ) : null}
                   </div>
@@ -177,15 +191,29 @@ export function CommsClient({
                       </a>
                     </Button>
                     {canManage ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={busy === d.id}
-                        onClick={() => run(d.id, deleteDocumentAction(d.id), t.success.deleted)}
-                        aria-label={t.action.delete}
-                      >
-                        <Trash2 className="h-4 w-4 text-error-fg" aria-hidden />
-                      </Button>
+                      confirmKey === `doc:${d.id}` ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={busy === d.id}
+                          onClick={() => {
+                            setConfirmKey(null);
+                            void run(d.id, deleteDocumentAction(d.id), t.success.deleted);
+                          }}
+                        >
+                          {t.action.confirm}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy === d.id}
+                          onClick={() => setConfirmKey(`doc:${d.id}`)}
+                          aria-label={t.action.delete}
+                        >
+                          <Trash2 className="h-4 w-4 text-error-fg" aria-hidden />
+                        </Button>
+                      )
                     ) : null}
                   </div>
                 </li>

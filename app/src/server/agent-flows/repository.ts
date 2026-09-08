@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, getTableColumns, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   agent_proposals,
@@ -7,6 +7,7 @@ import {
   jobs,
   employees,
   people,
+  job_assignments,
   type ProposalKind,
 } from "@/db/schema";
 
@@ -87,6 +88,7 @@ export type ProposalRow = typeof agent_proposals.$inferSelect & {
   candidate_archived: boolean | null;
   job_title: string | null;
   employee_name: string | null;
+  employee_department_id: string | null;
 };
 
 function proposalSelect(db: Awaited<ReturnType<typeof getDb>>) {
@@ -98,6 +100,7 @@ function proposalSelect(db: Awaited<ReturnType<typeof getDb>>) {
       candidate_archived: candidates.is_archived,
       job_title: jobs.title,
       employee_name: people.full_name,
+      employee_department_id: employees.department_id,
     })
     .from(agent_proposals)
     .leftJoin(candidates, eq(agent_proposals.candidate_id, candidates.id))
@@ -122,6 +125,51 @@ export async function listOpenProposals(limit = 30): Promise<ProposalRow[]> {
     )
     .orderBy(desc(agent_proposals.created_at))
     .limit(limit) as Promise<ProposalRow[]>;
+}
+
+/**
+ * A hiring manager's slice of the feed (UX audit 2026-09-08 — managers never
+ * saw the feed, so the leave cards addressed to them were invisible): cards
+ * for jobs they're assigned to + employee cards (leave, probation, contract)
+ * in their department.
+ */
+export async function listOpenProposalsForManager(
+  userId: string,
+  departmentId: string | null,
+  limit = 30,
+): Promise<ProposalRow[]> {
+  const db = await getDb();
+  const assigned = await db
+    .select({ job_id: job_assignments.job_id })
+    .from(job_assignments)
+    .where(eq(job_assignments.manager_user_id, userId));
+  const jobIds = assigned.map((a) => a.job_id);
+
+  const scope = [];
+  if (jobIds.length > 0) {
+    scope.push(and(inArray(agent_proposals.job_id, jobIds), eq(candidates.is_archived, false)));
+  }
+  if (departmentId) {
+    scope.push(
+      and(isNotNull(agent_proposals.employee_id), eq(employees.department_id, departmentId)),
+    );
+  }
+  if (scope.length === 0) return [];
+
+  return proposalSelect(db)
+    .where(and(eq(agent_proposals.status, "proposed"), or(...scope)))
+    .orderBy(desc(agent_proposals.created_at))
+    .limit(limit) as Promise<ProposalRow[]>;
+}
+
+/** Server-side scope check for a manager's approve/dismiss — never trust the UI. */
+export async function isProposalInManagerScope(
+  proposalId: string,
+  userId: string,
+  departmentId: string | null,
+): Promise<boolean> {
+  const rows = await listOpenProposalsForManager(userId, departmentId, 500);
+  return rows.some((p) => p.id === proposalId);
 }
 
 export async function getProposal(id: string): Promise<ProposalRow | null> {
