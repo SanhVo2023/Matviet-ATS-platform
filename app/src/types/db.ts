@@ -34,7 +34,9 @@ export interface ProfileRow {
 
 type TableMap = {
   ai_screenings: Model<typeof s.ai_screenings>;
+  announcements: Model<typeof s.announcements>;
   approvals: Model<typeof s.approvals>;
+  hr_documents: Model<typeof s.hr_documents>;
   assessment_invite_tokens: Model<typeof s.assessment_invite_tokens>;
   assessment_submissions: Model<typeof s.assessment_submissions>;
   assessments: Model<typeof s.assessments>;

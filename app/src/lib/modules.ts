@@ -21,6 +21,7 @@ import {
   IdCard,
   Building2,
   CalendarClock,
+  Megaphone,
   CircleHelp,
   type LucideIcon,
 } from "lucide-react";
@@ -171,6 +172,15 @@ export const MODULES: AppModule[] = [
     roles: ["admin", "hr", "hiring_manager"],
     group: "hris",
     enabled: true, // HRM H2
+  },
+  {
+    key: "comms",
+    href: "/thong-bao",
+    label: t.nav.comms,
+    icon: Megaphone,
+    roles: ["admin", "hr", "hiring_manager", "bod", "tap_doan"],
+    group: "hris",
+    enabled: true, // HRM H3b
   },
 
   // ----- System -----

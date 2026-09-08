@@ -367,6 +367,40 @@ export const leave_requests = sqliteTable(
   ],
 );
 
+// Internal communications (HRM H3b) — company announcements shown to all staff.
+export const announcements = sqliteTable(
+  "announcements",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+    created_by: text("created_by").references(() => users.id),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+    updated_at: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),
+  },
+  (t) => [index("idx_announcements_created").on(t.pinned, t.created_at)],
+);
+
+// Policy / document library (HRM H3b) — R2-backed files under the `documents/`
+// key prefix (served by /api/files with an all-staff read branch).
+export const hr_documents = sqliteTable(
+  "hr_documents",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    title: text("title").notNull(),
+    description: text("description"),
+    category: text("category"),
+    storage_path: text("storage_path").notNull(),
+    original_name: text("original_name").notNull(),
+    mime: text("mime").notNull(),
+    size_bytes: integer("size_bytes").notNull(),
+    uploaded_by: text("uploaded_by").references(() => users.id),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+  },
+  (t) => [index("idx_hr_documents_created").on(t.created_at)],
+);
+
 // ---------------------------------------------------------------------------
 // ATS tables (ported 1:1 from Postgres migrations 0002–0019)
 // ---------------------------------------------------------------------------

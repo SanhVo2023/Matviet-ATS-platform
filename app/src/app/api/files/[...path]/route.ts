@@ -47,7 +47,13 @@ export async function GET(
     return new Response("Bad Request", { status: 400 });
   }
 
-  if (profile.role === "hiring_manager") {
+  // HR document library (HRM H3b): company docs under `documents/` are readable
+  // by any active staff member (admin/hr/manager/exec all pass through here).
+  const isHrDocument = key.startsWith("documents/");
+
+  if (isHrDocument) {
+    // any authed active staff may read — no per-job/candidate scoping
+  } else if (profile.role === "hiring_manager") {
     const jobId = await resolveOwningJob(key);
     if (!jobId || !(await isAssignedManager(profile.id, jobId))) {
       return new Response("Forbidden", { status: 403 });

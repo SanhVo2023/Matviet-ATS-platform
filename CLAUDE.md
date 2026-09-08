@@ -97,8 +97,9 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 | `employee-agent` (H1–H2) | Employee-lifecycle **propose-first** agent — reuses `agent_proposals` (`employee_id`) + the "Hôm nay" feed, **no per-employee DO**. `generators` (onboarding_packet/probation_review/contract_renewal/leave_request) + nightly `sweep` (`classifyContractClock`, tested; `/api/employee/sweep`, 01:00-UTC gate in custom-worker) + `execute` (wired into agent-flows `executeByKind`). onboarding_packet proposed on conversion | yes |
 | `leave` (H2) | Leave requests + approval; **computed** balances (`annualLeaveEntitlement` 12+1/5yrs, tested). create→propose `leave_request` (balance+coverage reasoning), decide→supersede by `lv:<id>`. Route `/nghi-phep` (dept-scoped for managers) + LeaveCard on profile. **DEFERRED D-ESS:** employee self-service accounts/mobile (needs employee-auth decision) | yes |
 | `offboarding` (H3) | Exit workflow: `startOffboarding` (seed exit checklist + last day/reason), `finalizeOffboarding` (→ terminated). OffboardingCard on profile. Closes the lifecycle on one `person_id` | yes |
+| `comms` (H3b) | Internal comms + document library. Announcements (pinned-first, all-staff read, admin/hr manage) + policy/document library (R2 under `documents/` prefix, served by `/api/files` all-staff branch, MIME+10MB guard). Route `/thong-bao` | yes |
 
-**Deferred (need Sanh / external unlock):** Fastwork integration (**D-FW** — no API access yet), performance/OKR (**D-PERF** — pending BOD), employee self-service accounts (**D-ESS** — employee-auth decision), announcements + policy/document library (**H3b**). HRM migrations 0009–0012 applied LOCAL only — **prod migrate pending** (additive; safe).
+**Deferred (need Sanh / external unlock):** Fastwork integration (**D-FW** — no API access yet), performance/OKR (**D-PERF** — pending BOD), employee self-service accounts (**D-ESS** — employee-auth decision; widens leave-submission + announcement/policy-ack reach). HRM migrations 0009–0013 applied LOCAL only — **prod migrate pending** (all additive; safe).
 
 ---
 
