@@ -11,6 +11,19 @@ import {
   ensureEmployeeForCandidate,
   type EmployeeFormInput,
 } from "@/server/employees/service";
+import {
+  createContract,
+  updateContract,
+  endContract,
+  deleteContract,
+  type ContractInput,
+} from "@/server/contracts/service";
+import {
+  seedOnboardingTasks,
+  addOnboardingTask,
+  toggleOnboardingTask,
+  removeOnboardingTask,
+} from "@/server/onboarding/service";
 import type { Database } from "@/types/db";
 
 type EmployeeStatus = Database["public"]["Enums"]["employee_status"];
@@ -94,5 +107,119 @@ export async function convertCandidateAction(
     return { ok: true, data: res };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Lỗi chuyển đổi" };
+  }
+}
+
+// ----- Contracts (H1) -----
+
+export async function createContractAction(
+  employeeId: string,
+  input: ContractInput,
+): Promise<ActionResult<{ id: string }>> {
+  const profile = await requireRole(["admin", "hr"]);
+  try {
+    const res = await createContract(employeeId, input, profile.id);
+    await audit(profile.id, employeeId, "contract_create", { type: input.type });
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true, data: res };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi tạo hợp đồng" };
+  }
+}
+
+export async function updateContractAction(
+  id: string,
+  employeeId: string,
+  input: ContractInput,
+): Promise<ActionResult> {
+  const profile = await requireRole(["admin", "hr"]);
+  try {
+    await updateContract(id, input);
+    await audit(profile.id, employeeId, "contract_update", { contract_id: id });
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi cập nhật hợp đồng" };
+  }
+}
+
+export async function endContractAction(id: string, employeeId: string): Promise<ActionResult> {
+  const profile = await requireRole(["admin", "hr"]);
+  try {
+    await endContract(id);
+    await audit(profile.id, employeeId, "contract_end", { contract_id: id });
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi cập nhật" };
+  }
+}
+
+export async function deleteContractAction(id: string, employeeId: string): Promise<ActionResult> {
+  const profile = await requireRole(["admin", "hr"]);
+  try {
+    await deleteContract(id);
+    await audit(profile.id, employeeId, "contract_delete", { contract_id: id });
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi xóa" };
+  }
+}
+
+// ----- Onboarding (H1) -----
+
+export async function seedOnboardingAction(employeeId: string): Promise<ActionResult> {
+  await requireRole(["admin", "hr"]);
+  try {
+    const db = await getDb();
+    await seedOnboardingTasks(db, employeeId);
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi tạo danh sách" };
+  }
+}
+
+export async function addOnboardingTaskAction(
+  employeeId: string,
+  title: string,
+): Promise<ActionResult> {
+  await requireRole(["admin", "hr"]);
+  try {
+    await addOnboardingTask(employeeId, title);
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi thêm việc" };
+  }
+}
+
+export async function toggleOnboardingTaskAction(
+  id: string,
+  employeeId: string,
+  done: boolean,
+): Promise<ActionResult> {
+  const profile = await requireRole(["admin", "hr"]);
+  try {
+    await toggleOnboardingTask(id, done, profile.id);
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi cập nhật" };
+  }
+}
+
+export async function removeOnboardingTaskAction(
+  id: string,
+  employeeId: string,
+): Promise<ActionResult> {
+  await requireRole(["admin", "hr"]);
+  try {
+    await removeOnboardingTask(id);
+    revalidatePath(`/nhan-vien/${employeeId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi xóa" };
   }
 }

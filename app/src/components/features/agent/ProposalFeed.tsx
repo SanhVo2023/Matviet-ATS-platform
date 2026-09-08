@@ -8,9 +8,12 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
+  ClipboardList,
+  FileText,
   Loader2,
   Mail,
   Sparkles,
+  UserCheck,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -37,6 +40,8 @@ export interface FeedProposal {
   candidate_id: string | null;
   candidate_name: string | null;
   job_title: string | null;
+  employee_id: string | null;
+  employee_name: string | null;
 }
 
 // Keyed to ProposalKind so adding a kind server-side is a compile error
@@ -61,6 +66,21 @@ const KIND_META: Record<
     icon: Sparkles,
     tint: "bg-accent-50 text-accent-600",
     approveLabel: "Đăng tuyển",
+  },
+  onboarding_packet: {
+    icon: ClipboardList,
+    tint: "bg-emerald-50 text-emerald-600",
+    approveLabel: "Tạo gói hội nhập",
+  },
+  probation_review: {
+    icon: UserCheck,
+    tint: "bg-amber-50 text-amber-600",
+    approveLabel: "Chuyển chính thức",
+  },
+  contract_renewal: {
+    icon: FileText,
+    tint: "bg-indigo-50 text-indigo-600",
+    approveLabel: "Tạo HĐ gia hạn",
   },
 };
 
@@ -166,6 +186,17 @@ function ProposalCard({ proposal: p }: { proposal: FeedProposal }) {
                   className="font-medium text-brand-700 hover:underline"
                 >
                   Mở hồ sơ
+                </Link>
+              </>
+            ) : null}
+            {p.employee_id ? (
+              <>
+                <span aria-hidden>·</span>
+                <Link
+                  href={`/nhan-vien/${p.employee_id}`}
+                  className="font-medium text-brand-700 hover:underline"
+                >
+                  {p.employee_name ? `Mở hồ sơ: ${p.employee_name}` : "Mở hồ sơ nhân viên"}
                 </Link>
               </>
             ) : null}

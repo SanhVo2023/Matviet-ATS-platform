@@ -40,6 +40,7 @@ type TableMap = {
   assessments: Model<typeof s.assessments>;
   audit_log: Model<typeof s.audit_log>;
   candidates: Model<typeof s.candidates>;
+  contracts: Model<typeof s.contracts>;
   cv_files: Model<typeof s.cv_files>;
   departments: Model<typeof s.departments>;
   email_messages: Model<typeof s.email_messages>;
@@ -51,6 +52,7 @@ type TableMap = {
   interviews: Model<typeof s.interviews>;
   job_assignments: Model<typeof s.job_assignments>;
   jobs: Model<typeof s.jobs>;
+  onboarding_tasks: Model<typeof s.onboarding_tasks>;
   people: Model<typeof s.people>;
   positions: Model<typeof s.positions>;
   referrals: Model<typeof s.referrals>;
@@ -68,6 +70,8 @@ export type Database = {
       approval_status: (typeof s.APPROVAL_STATUSES)[number];
       approval_step_kind: (typeof s.APPROVAL_STEP_KINDS)[number];
       candidate_source: (typeof s.CANDIDATE_SOURCES)[number];
+      contract_type: (typeof s.CONTRACT_TYPES)[number];
+      contract_status: (typeof s.CONTRACT_STATUSES)[number];
       email_direction: (typeof s.EMAIL_DIRECTIONS)[number];
       email_status: (typeof s.EMAIL_STATUSES)[number];
       employee_status: (typeof s.EMPLOYEE_STATUSES)[number];

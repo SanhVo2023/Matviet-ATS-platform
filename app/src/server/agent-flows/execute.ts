@@ -104,6 +104,12 @@ async function executeByKind(
       const { executeJobFromIntent } = await import("./job-from-intent");
       return executeJobFromIntent(p, actor);
     }
+    case "onboarding_packet":
+    case "probation_review":
+    case "contract_renewal": {
+      const { executeEmployeeProposal } = await import("@/server/employee-agent/execute");
+      return executeEmployeeProposal(p, actor);
+    }
     default:
       return { ok: false, error: `Loại đề xuất chưa hỗ trợ: ${p.kind}` };
   }

@@ -72,6 +72,10 @@ export const EMAIL_STATUSES = [
 export const EMPLOYEE_STATUSES = ["probation", "active", "on_leave", "terminated"] as const;
 // Hình thức làm việc (HRM H0).
 export const EMPLOYMENT_TYPES = ["full_time", "part_time", "seasonal"] as const;
+// Loại hợp đồng lao động (HRM H1) — Bộ luật Lao động 2019: thử việc / xác định
+// thời hạn (≤36 tháng) / không xác định thời hạn.
+export const CONTRACT_TYPES = ["thu_viec", "xac_dinh_thoi_han", "khong_xac_dinh_thoi_han"] as const;
+export const CONTRACT_STATUSES = ["active", "expired", "ended"] as const;
 
 const uuid = () => crypto.randomUUID();
 const nowIso = () => new Date().toISOString();
@@ -256,6 +260,53 @@ export const employees = sqliteTable(
     index("idx_employees_manager").on(t.manager_id),
     index("idx_employees_status").on(t.status),
   ],
+);
+
+// Labor contracts (HRM H1). Probation is modeled as a `thu_viec` contract whose
+// `end_date` is the probation-end clock. The compliance sweep watches end_date.
+export const contracts = sqliteTable(
+  "contracts",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    employee_id: text("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    type: text("type", { enum: CONTRACT_TYPES }).notNull(),
+    contract_no: text("contract_no"),
+    start_date: text("start_date"),
+    end_date: text("end_date"), // null for khong_xac_dinh_thoi_han
+    base_salary: real("base_salary"),
+    status: text("status", { enum: CONTRACT_STATUSES }).notNull().default("active"),
+    signed_at: text("signed_at"),
+    notes: text("notes"),
+    created_by: text("created_by").references(() => users.id),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+    updated_at: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),
+  },
+  (t) => [
+    index("idx_contracts_employee").on(t.employee_id),
+    index("idx_contracts_status_end").on(t.status, t.end_date),
+  ],
+);
+
+// Onboarding checklist (HRM H1). Seeded from a template when the onboarding
+// packet proposal is approved; HR ticks items off on the employee profile.
+export const onboarding_tasks = sqliteTable(
+  "onboarding_tasks",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    employee_id: text("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    category: text("category"),
+    sort_order: integer("sort_order").notNull().default(0),
+    done: integer("done", { mode: "boolean" }).notNull().default(false),
+    done_at: text("done_at"),
+    done_by: text("done_by").references(() => users.id),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+  },
+  (t) => [index("idx_onboarding_employee").on(t.employee_id)],
 );
 
 // ---------------------------------------------------------------------------
@@ -849,6 +900,10 @@ export const PROPOSAL_KINDS = [
   "compose_offer",
   "nudge_stale",
   "job_from_intent",
+  // HRM H1 — employee-lifecycle proposals (keyed by employee_id, not candidate_id)
+  "onboarding_packet",
+  "probation_review",
+  "contract_renewal",
 ] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
 
@@ -870,6 +925,8 @@ export const agent_proposals = sqliteTable(
     /** Nullable: job_from_intent proposes a job that doesn't exist yet. */
     job_id: text("job_id").references(() => jobs.id, { onDelete: "cascade" }),
     candidate_id: text("candidate_id").references(() => candidates.id, { onDelete: "cascade" }),
+    /** HRM H1 — set for employee-lifecycle proposals (onboarding/probation/contract). */
+    employee_id: text("employee_id").references(() => employees.id, { onDelete: "cascade" }),
     kind: text("kind", { enum: PROPOSAL_KINDS }).notNull(),
     status: text("status", { enum: PROPOSAL_STATUSES }).notNull().default("proposed"),
     /** One Vietnamese sentence shown on the feed card. */
@@ -893,5 +950,6 @@ export const agent_proposals = sqliteTable(
     index("idx_proposals_dedupe").on(t.dedupe_key, t.status),
     // reconcile/complete lookups run on every pipeline event
     index("idx_proposals_candidate").on(t.candidate_id, t.status),
+    index("idx_proposals_employee").on(t.employee_id, t.status),
   ],
 );

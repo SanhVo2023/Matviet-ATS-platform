@@ -282,5 +282,14 @@ export async function ensureEmployeeForCandidate(
     .returning({ id: employees.id });
   const id = inserted[0]?.id;
   if (!id) throw new Error("Không tạo được nhân viên.");
+
+  // Propose the onboarding packet (H1) — best-effort, never fails the conversion.
+  try {
+    const { proposeOnboardingPacket } = await import("@/server/employee-agent/generators");
+    await proposeOnboardingPacket({ employeeId: id, employeeName: cand.full_name });
+  } catch {
+    // recoverable — HR can seed onboarding manually from the profile
+  }
+
   return { id, created: true };
 }

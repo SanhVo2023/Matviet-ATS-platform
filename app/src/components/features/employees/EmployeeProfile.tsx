@@ -9,12 +9,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 import { EmployeeForm, type EmployeeFormOption } from "./EmployeeForm";
+import { ContractsCard } from "./ContractsCard";
+import { OnboardingChecklist } from "./OnboardingChecklist";
 import { setEmployeeStatusAction } from "@/app/(dashboard)/nhan-vien/actions";
 import { t } from "@/lib/i18n";
 import { formatDate } from "@/lib/vi-format";
 import { EMPLOYEE_STATUSES } from "@/db/schema";
 import type { EmployeeDetail } from "@/server/employees/repository";
 import type { EmployeeFormInput } from "@/server/employees/service";
+import type { ContractRow } from "@/server/contracts/repository";
+import type { OnboardingTaskRow } from "@/server/onboarding/repository";
 import type { Database } from "@/types/db";
 
 type EmployeeStatus = Database["public"]["Enums"]["employee_status"];
@@ -27,6 +31,8 @@ interface Props {
   departments: EmployeeFormOption[];
   positions: EmployeeFormOption[];
   managers: EmployeeFormOption[];
+  contracts: ContractRow[];
+  onboardingTasks: OnboardingTaskRow[];
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -38,7 +44,14 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export function EmployeeProfile({ detail, departments, positions, managers }: Props) {
+export function EmployeeProfile({
+  detail,
+  departments,
+  positions,
+  managers,
+  contracts,
+  onboardingTasks,
+}: Props) {
   const router = useRouter();
   const { employee: e, person: p } = detail;
   const [editOpen, setEditOpen] = React.useState(false);
@@ -188,6 +201,11 @@ export function EmployeeProfile({ detail, departments, positions, managers }: Pr
             </dl>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ContractsCard employeeId={e.id} contracts={contracts} />
+        <OnboardingChecklist employeeId={e.id} tasks={onboardingTasks} />
       </div>
 
       {e.notes ? (

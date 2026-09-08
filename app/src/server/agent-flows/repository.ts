@@ -1,7 +1,14 @@
 import "server-only";
 import { and, desc, eq, getTableColumns, inArray, isNull, or, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { agent_proposals, candidates, jobs, type ProposalKind } from "@/db/schema";
+import {
+  agent_proposals,
+  candidates,
+  jobs,
+  employees,
+  people,
+  type ProposalKind,
+} from "@/db/schema";
 
 /**
  * agent_proposals data access (ADR 0020). All writes funnel through here so
@@ -13,6 +20,8 @@ export interface NewProposal {
   /** null for job_from_intent — the job doesn't exist until approval. */
   jobId: string | null;
   candidateId?: string | null;
+  /** HRM H1 — set for employee-lifecycle proposals (onboarding/probation/contract). */
+  employeeId?: string | null;
   kind: ProposalKind;
   summary: string;
   reasoning?: string | null;
@@ -48,6 +57,7 @@ export async function createProposal(p: NewProposal): Promise<{ id: string } | n
     .values({
       job_id: p.jobId,
       candidate_id: p.candidateId ?? null,
+      employee_id: p.employeeId ?? null,
       kind: p.kind,
       summary: p.summary.slice(0, 300),
       reasoning: p.reasoning?.slice(0, 2000) ?? null,
@@ -76,6 +86,7 @@ export type ProposalRow = typeof agent_proposals.$inferSelect & {
   candidate_stage: string | null;
   candidate_archived: boolean | null;
   job_title: string | null;
+  employee_name: string | null;
 };
 
 function proposalSelect(db: Awaited<ReturnType<typeof getDb>>) {
@@ -86,10 +97,13 @@ function proposalSelect(db: Awaited<ReturnType<typeof getDb>>) {
       candidate_stage: candidates.current_stage,
       candidate_archived: candidates.is_archived,
       job_title: jobs.title,
+      employee_name: people.full_name,
     })
     .from(agent_proposals)
     .leftJoin(candidates, eq(agent_proposals.candidate_id, candidates.id))
-    .leftJoin(jobs, eq(agent_proposals.job_id, jobs.id));
+    .leftJoin(jobs, eq(agent_proposals.job_id, jobs.id))
+    .leftJoin(employees, eq(agent_proposals.employee_id, employees.id))
+    .leftJoin(people, eq(employees.person_id, people.id));
 }
 
 /**

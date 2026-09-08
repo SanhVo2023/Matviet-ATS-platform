@@ -77,6 +77,21 @@ export default {
         console.error(`[cron ${controller.cron}] ${path} failed:`, err);
       }
     }
+
+    // Daily HRM compliance-clock sweep (H1) — probation reviews + contract
+    // renewals. Gated to 01:00 UTC (≈ 08:00 VN) so it runs once/day, not every
+    // minute; compliance windows are days-wide so a missed tick self-heals.
+    const now = new Date();
+    if (now.getUTCHours() === 1 && now.getUTCMinutes() === 0) {
+      try {
+        const res = await invokeRoute("/api/employee/sweep", env, ctx);
+        console.log(
+          `[cron ${controller.cron}] /api/employee/sweep -> ${res.status} ${await res.text()}`,
+        );
+      } catch (err) {
+        console.error(`[cron ${controller.cron}] /api/employee/sweep failed:`, err);
+      }
+    }
   },
 
   /**

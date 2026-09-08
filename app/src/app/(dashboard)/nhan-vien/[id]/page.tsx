@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { getEmployeeDetail, listManagerOptions } from "@/server/employees/repository";
 import { listDepartmentOptions, listPositionOptions } from "@/server/org/repository";
+import { listContractsForEmployee } from "@/server/contracts/repository";
+import { listTasksForEmployee } from "@/server/onboarding/repository";
 import { EmployeeProfile } from "@/components/features/employees/EmployeeProfile";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +23,13 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   await requireRole(["admin", "hr"]);
   const { id } = await params;
 
-  const [detail, departments, positions, managers] = await Promise.all([
+  const [detail, departments, positions, managers, contracts, onboardingTasks] = await Promise.all([
     getEmployeeDetail(id),
     listDepartmentOptions(),
     listPositionOptions(),
     listManagerOptions(),
+    listContractsForEmployee(id),
+    listTasksForEmployee(id),
   ]);
   if (!detail) notFound();
 
@@ -36,6 +40,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         departments={departments.map((d) => ({ id: d.id, label: d.name }))}
         positions={positions.map((p) => ({ id: p.id, label: p.title }))}
         managers={managers.map((m) => ({ id: m.id, label: m.name }))}
+        contracts={contracts}
+        onboardingTasks={onboardingTasks}
       />
     </div>
   );

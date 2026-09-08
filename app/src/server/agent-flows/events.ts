@@ -100,6 +100,11 @@ const VALID_STAGES_BY_KIND: Record<ProposalKind, string[] | "any-movement-voids"
   compose_offer: ["offer"],
   nudge_stale: "any-movement-voids",
   job_from_intent: [], // job-level; never candidate-bound (unreachable here)
+  // HRM H1 — employee-level; keyed by employee_id, never candidate-bound, so
+  // candidate stage reconciliation never reaches these (unreachable here).
+  onboarding_packet: [],
+  probation_review: [],
+  contract_renewal: [],
 };
 
 async function reconcileOpenProposals(candidateId: string, currentStage: string): Promise<void> {

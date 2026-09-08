@@ -79,6 +79,8 @@ export default async function HomePage() {
           candidate_id: p.candidate_id,
           candidate_name: p.candidate_name,
           job_title: p.job_title,
+          employee_id: p.employee_id,
+          employee_name: p.employee_name,
         }))}
       />
     );

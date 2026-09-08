@@ -361,6 +361,49 @@ export const t = {
     unassigned: "Chưa phân công",
   },
 
+  // Matches enum contract_type
+  contractType: {
+    thu_viec: "Thử việc",
+    xac_dinh_thoi_han: "Xác định thời hạn",
+    khong_xac_dinh_thoi_han: "Không xác định thời hạn",
+  },
+  // Matches enum contract_status
+  contractStatus: {
+    active: "Hiệu lực",
+    expired: "Hết hạn",
+    ended: "Đã chấm dứt",
+  },
+  contract: {
+    title: "Hợp đồng lao động",
+    add: "Thêm hợp đồng",
+    addTitle: "Thêm hợp đồng",
+    editTitle: "Sửa hợp đồng",
+    empty: "Chưa có hợp đồng nào.",
+    none: "Chưa có hợp đồng",
+    type: "Loại hợp đồng",
+    contractNo: "Số hợp đồng",
+    startDate: "Ngày bắt đầu",
+    endDate: "Ngày kết thúc",
+    endDateHint: "Để trống nếu không xác định thời hạn",
+    baseSalary: "Lương cơ bản",
+    status: "Trạng thái",
+    signedAt: "Ngày ký",
+    notes: "Ghi chú",
+    end: "Chấm dứt",
+    endConfirm: "Xác nhận chấm dứt hợp đồng?",
+    expiresIn: "Còn {{count}} ngày",
+    expiredAgo: "Quá hạn {{count}} ngày",
+  },
+  onboarding: {
+    title: "Hội nhập",
+    empty: "Chưa có danh sách hội nhập.",
+    progress: "{{done}}/{{total}} hoàn thành",
+    addTask: "Thêm việc",
+    taskPlaceholder: "VD: Ký hợp đồng thử việc",
+    done: "Hoàn thành",
+    seed: "Tạo danh sách hội nhập",
+  },
+
   department: {
     title: "Phòng ban & Tổ chức",
     subtitle: "Cơ cấu tổ chức và danh mục vị trí",
