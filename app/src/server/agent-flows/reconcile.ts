@@ -30,8 +30,16 @@ export interface ReconcileResult {
  *  - watched stages                      → sweepCandidate (nudge_stale backstop)
  *  - open cards on archived candidates   → superseded
  */
+/**
+ * Stale nudges per daily run. The first prod run proposed 39 nudges at once
+ * (every idle candidate in one go) and buried the 8 confirm_hire cards — a
+ * backstop should trickle, not flood. Oldest candidates go first; the rest
+ * surface on following days, and the DO fast lane still fires on activity.
+ */
+export const MAX_STALE_NUDGES_PER_RUN = 5;
+
 export async function reconcileHiring(
-  opts: { maxStaleChecks?: number } = {},
+  opts: { maxStaleChecks?: number; maxStaleNudges?: number } = {},
 ): Promise<ReconcileResult> {
   const db = await getDb();
   const result: ReconcileResult = {
@@ -139,10 +147,13 @@ export async function reconcileHiring(
 
   // Stale backstop: the DO alarm is a hint that can be lost; the sweep itself
   // is idempotent (dedupe `ns:<id>:<stage>`), so re-running it is free.
+  const maxNudges = opts.maxStaleNudges ?? MAX_STALE_NUDGES_PER_RUN;
   const watched = rows
     .filter((c) => STALE_AFTER_DAYS[String(c.current_stage)] != null)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
     .slice(0, opts.maxStaleChecks ?? 300);
   for (const c of watched) {
+    if (result.stale_proposed >= maxNudges) break;
     const r = await sweepCandidate(c.job_id, c.id);
     result.stale_checked++;
     result.stale_proposed += r.proposed;

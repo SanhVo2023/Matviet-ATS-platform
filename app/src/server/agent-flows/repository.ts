@@ -128,8 +128,30 @@ function proposalSelect(db: Awaited<ReturnType<typeof getDb>>) {
 }
 
 /**
- * Open proposals for the feed, newest first. Cards whose candidate or job
- * was archived are hidden (belt — archive/close also supersedes them).
+ * Feed order: decisions people are waiting on (leave, hire confirmation,
+ * approvals, offers, contracts) before housekeeping; stale nudges last so a
+ * backstop run can never bury the cards that matter. Newest first within a
+ * band.
+ */
+const FEED_ORDER = sql`case ${agent_proposals.kind}
+  when 'leave_request' then 0
+  when 'confirm_hire' then 0
+  when 'start_approval' then 1
+  when 'compose_offer' then 1
+  when 'interview_invite' then 1
+  when 'probation_review' then 1
+  when 'contract_renewal' then 1
+  when 'onboarding_packet' then 2
+  when 'job_from_intent' then 2
+  when 'orphan_approval' then 3
+  when 'retry_scoring' then 3
+  when 'nudge_stale' then 4
+  else 2 end`;
+
+/**
+ * Open proposals for the feed, priority band then newest. Cards whose
+ * candidate or job was archived are hidden (belt — archive/close also
+ * supersedes them).
  */
 export async function listOpenProposals(limit = 30): Promise<ProposalRow[]> {
   const db = await getDb();
@@ -141,7 +163,7 @@ export async function listOpenProposals(limit = 30): Promise<ProposalRow[]> {
         or(isNull(agent_proposals.job_id), eq(jobs.is_archived, false)),
       ),
     )
-    .orderBy(desc(agent_proposals.created_at))
+    .orderBy(FEED_ORDER, desc(agent_proposals.created_at))
     .limit(limit) as Promise<ProposalRow[]>;
 }
 
@@ -176,7 +198,7 @@ export async function listOpenProposalsForManager(
 
   return proposalSelect(db)
     .where(and(eq(agent_proposals.status, "proposed"), or(...scope)))
-    .orderBy(desc(agent_proposals.created_at))
+    .orderBy(FEED_ORDER, desc(agent_proposals.created_at))
     .limit(limit) as Promise<ProposalRow[]>;
 }
 
