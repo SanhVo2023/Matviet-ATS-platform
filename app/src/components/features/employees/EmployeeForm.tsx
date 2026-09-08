@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SimpleSelect } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
+import { DateInput } from "@/components/primitives/DateInput";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { EMPLOYEE_STATUSES, EMPLOYMENT_TYPES } from "@/db/schema";
 import { createEmployeeAction, updateEmployeeAction } from "@/app/(dashboard)/nhan-vien/actions";
 import type { EmployeeFormInput } from "@/server/employees/service";
-
-const SELECT_CLASS =
-  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm";
 
 export interface EmployeeFormOption {
   id: string;
@@ -138,25 +138,20 @@ export function EmployeeForm({
           </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label={f.dob} htmlFor="dob">
-              <Input
-                id="dob"
-                type="date"
-                value={form.dob ?? ""}
-                onChange={(e) => set("dob", e.target.value)}
-              />
+              <DateInput id="dob" value={form.dob ?? ""} onChange={(v) => set("dob", v)} />
             </Field>
             <Field label={f.gender} htmlFor="gender">
-              <select
+              <SimpleSelect
                 id="gender"
-                className={SELECT_CLASS}
                 value={form.gender ?? ""}
-                onChange={(e) => set("gender", e.target.value || null)}
-              >
-                <option value="">—</option>
-                <option value="male">{t.gender.male}</option>
-                <option value="female">{t.gender.female}</option>
-                <option value="other">{t.gender.other}</option>
-              </select>
+                onValueChange={(v) => set("gender", v || null)}
+                emptyLabel="—"
+                options={[
+                  { value: "male", label: t.gender.male },
+                  { value: "female", label: t.gender.female },
+                  { value: "other", label: t.gender.other },
+                ]}
+              />
             </Field>
             <Field label={f.phone} htmlFor="phone">
               <Input
@@ -207,99 +202,72 @@ export function EmployeeForm({
               />
             </Field>
             <Field label={f.department} htmlFor="department_id">
-              <select
+              <SimpleSelect
                 id="department_id"
-                className={SELECT_CLASS}
                 value={form.department_id ?? ""}
-                onChange={(e) => set("department_id", e.target.value || null)}
-              >
-                <option value="">{t.employee.unassigned}</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.label}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => set("department_id", v || null)}
+                emptyLabel={t.employee.unassigned}
+                options={departments.map((d) => ({ value: d.id, label: d.label }))}
+              />
             </Field>
             <Field label={f.position} htmlFor="position_id">
-              <select
+              <Combobox
                 id="position_id"
-                className={SELECT_CLASS}
                 value={form.position_id ?? ""}
-                onChange={(e) => set("position_id", e.target.value || null)}
-              >
-                <option value="">{t.employee.unassigned}</option>
-                {positions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => set("position_id", v || null)}
+                placeholder={t.employee.unassigned}
+                searchPlaceholder={t.action.search}
+                clearable
+                options={positions.map((p) => ({ value: p.id, label: p.label }))}
+              />
             </Field>
             <Field label={f.manager} htmlFor="manager_id">
-              <select
+              <Combobox
                 id="manager_id"
-                className={SELECT_CLASS}
                 value={form.manager_id ?? ""}
-                onChange={(e) => set("manager_id", e.target.value || null)}
-              >
-                <option value="">{t.employee.noManager}</option>
-                {managerOptions.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => set("manager_id", v || null)}
+                placeholder={t.employee.noManager}
+                searchPlaceholder={t.action.search}
+                clearable
+                options={managerOptions.map((m) => ({ value: m.id, label: m.label }))}
+              />
             </Field>
             <Field label={f.employmentType} htmlFor="employment_type">
-              <select
+              <SimpleSelect
                 id="employment_type"
-                className={SELECT_CLASS}
                 value={form.employment_type ?? "full_time"}
-                onChange={(e) =>
-                  set("employment_type", e.target.value as FormState["employment_type"])
-                }
-              >
-                {EMPLOYMENT_TYPES.map((v) => (
-                  <option key={v} value={v}>
-                    {t.employmentType[v]}
-                  </option>
-                ))}
-              </select>
+                onValueChange={(v) => set("employment_type", v as FormState["employment_type"])}
+                options={EMPLOYMENT_TYPES.map((v) => ({ value: v, label: t.employmentType[v] }))}
+              />
             </Field>
             {/* Status is set only when creating; afterwards it changes via the
                 profile header (two-step confirm) or the offboarding workflow —
                 one write path, not three (UX audit P1). */}
             {mode === "create" ? (
               <Field label={f.status} htmlFor="status">
-                <select
+                <SimpleSelect
                   id="status"
-                  className={SELECT_CLASS}
                   value={form.status ?? "probation"}
-                  onChange={(e) => set("status", e.target.value as FormState["status"])}
-                >
-                  {EMPLOYEE_STATUSES.filter((v) => v !== "terminated").map((v) => (
-                    <option key={v} value={v}>
-                      {t.employeeStatus[v]}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(v) => set("status", v as FormState["status"])}
+                  options={EMPLOYEE_STATUSES.filter((v) => v !== "terminated").map((v) => ({
+                    value: v,
+                    label: t.employeeStatus[v],
+                  }))}
+                />
               </Field>
             ) : null}
             <Field label={f.hiredAt} htmlFor="hired_at">
-              <Input
+              <DateInput
                 id="hired_at"
-                type="date"
                 value={form.hired_at ?? ""}
-                onChange={(e) => set("hired_at", e.target.value)}
+                onChange={(v) => set("hired_at", v)}
               />
             </Field>
             <Field label={f.startDate} htmlFor="start_date">
-              <Input
+              <DateInput
                 id="start_date"
-                type="date"
                 value={form.start_date ?? ""}
-                onChange={(e) => set("start_date", e.target.value)}
+                onChange={(v) => set("start_date", v)}
               />
             </Field>
             <Field label={f.workEmail} htmlFor="work_email">

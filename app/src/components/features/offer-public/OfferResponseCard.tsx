@@ -5,6 +5,7 @@ import { CheckCircle2, XCircle, Loader2, PartyPopper } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DateInput } from "@/components/primitives/DateInput";
 
 interface Props {
   token: string;
@@ -109,13 +110,7 @@ export function OfferResponseCard({ token, candidateName, jobTitle, responded }:
         <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
           <div className="space-y-1.5">
             <Label htmlFor="start-date">Ngày bắt đầu mong muốn (không bắt buộc)</Label>
-            <input
-              id="start-date"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-base focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 md:text-sm"
-            />
+            <DateInput id="start-date" value={startDate} onChange={setStartDate} />
           </div>
           <div className="flex gap-2">
             <Button onClick={() => void submit("accepted")} disabled={submitting}>

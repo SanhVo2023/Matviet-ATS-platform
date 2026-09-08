@@ -8,8 +8,9 @@ import {
   type InterviewRow,
 } from "@/server/interviews/repository";
 import { getCandidate } from "@/server/candidates/repository";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { EmptyState } from "@/components/primitives/EmptyState";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
@@ -70,21 +71,26 @@ export default async function InterviewsPage({
       </div>
 
       {list.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
-            <Calendar className="h-8 w-8 text-slate-300" aria-hidden />
-            <p className="text-sm font-medium text-slate-700">
-              {tab === "cho-danh-gia"
-                ? "Không có buổi phỏng vấn nào chờ đánh giá."
-                : t.empty.interviewsUpcoming}
-            </p>
-            <p className="text-xs text-slate-500">
-              {tab === "cho-danh-gia"
-                ? "Mọi buổi phỏng vấn đã hoàn thành đều đã có đánh giá."
-                : "Đặt lịch từ trang chi tiết ứng viên (tab Phỏng vấn)."}
-            </p>
-          </CardContent>
-        </Card>
+        tab === "cho-danh-gia" ? (
+          <EmptyState
+            illustration="check"
+            title="Không có buổi phỏng vấn nào chờ đánh giá"
+            description="Mọi buổi phỏng vấn đã hoàn thành đều đã có đánh giá."
+          />
+        ) : (
+          <EmptyState
+            illustration="calendar"
+            title={t.empty.interviewsUpcoming}
+            description="Đặt lịch ngay trên thang ứng viên — nấc 'Đánh giá' có nút đặt lịch, kèm câu hỏi phỏng vấn do AI soạn sẵn."
+            action={
+              profile.role !== "hiring_manager" ? (
+                <Button asChild>
+                  <Link href="/ung-vien?stage=evaluating">Mở ứng viên đang đánh giá</Link>
+                </Button>
+              ) : undefined
+            }
+          />
+        )
       ) : (
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
           {list.map((iv: InterviewRow) => {

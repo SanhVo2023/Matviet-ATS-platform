@@ -10,6 +10,8 @@ import { SlideOver } from "@/components/primitives/SlideOver";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { t } from "@/lib/i18n";
 import {
   createDepartmentAction,
@@ -20,9 +22,6 @@ import {
   deletePositionAction,
 } from "@/app/(dashboard)/phong-ban/actions";
 import type { DepartmentWithMeta, PositionWithDept } from "@/server/org/repository";
-
-const SELECT_CLASS =
-  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm";
 
 type Option = { id: string; name: string };
 
@@ -363,37 +362,27 @@ function DepartmentSlideOver({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="dept_parent">{t.department.parent}</Label>
-            <select
+            <SimpleSelect
               id="dept_parent"
-              className={SELECT_CLASS}
               value={parentId}
-              onChange={(e) => setParentId(e.target.value)}
-            >
-              <option value="">{t.department.noParent}</option>
-              {departmentOptions
+              onValueChange={setParentId}
+              emptyLabel={t.department.noParent}
+              options={departmentOptions
                 .filter((d) => d.id !== edit?.id)
-                .map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-            </select>
+                .map((d) => ({ value: d.id, label: d.name }))}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="dept_head">{t.department.head}</Label>
-            <select
+            <Combobox
               id="dept_head"
-              className={SELECT_CLASS}
               value={headId}
-              onChange={(e) => setHeadId(e.target.value)}
-            >
-              <option value="">{t.employee.noManager}</option>
-              {heads.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={setHeadId}
+              placeholder={t.employee.noManager}
+              searchPlaceholder={t.action.search}
+              clearable
+              options={heads.map((h) => ({ value: h.id, label: h.name }))}
+            />
           </div>
         </SlideOver.Body>
         <SlideOver.Footer>
@@ -480,19 +469,13 @@ function PositionSlideOver({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="pos_dept">{t.employee.fields.department}</Label>
-            <select
+            <SimpleSelect
               id="pos_dept"
-              className={SELECT_CLASS}
               value={deptId}
-              onChange={(e) => setDeptId(e.target.value)}
-            >
-              <option value="">{t.employee.unassigned}</option>
-              {departmentOptions.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={setDeptId}
+              emptyLabel={t.employee.unassigned}
+              options={departmentOptions.map((d) => ({ value: d.id, label: d.name }))}
+            />
           </div>
         </SlideOver.Body>
         <SlideOver.Footer>

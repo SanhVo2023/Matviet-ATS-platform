@@ -3,10 +3,11 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar, Filter, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { SimpleSelect } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
+import { DateInput } from "@/components/primitives/DateInput";
 
 interface JobOption {
   id: string;
@@ -94,79 +95,54 @@ export function ReportFilters({
           <Label htmlFor="rep-from" className="flex items-center gap-1.5 text-xs">
             <Calendar className="h-3 w-3 text-slate-400" aria-hidden /> Từ ngày
           </Label>
-          <Input id="rep-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <DateInput id="rep-from" value={from} onChange={setFrom} silent />
         </div>
         <div className="space-y-1">
           <Label htmlFor="rep-to" className="flex items-center gap-1.5 text-xs">
             <Calendar className="h-3 w-3 text-slate-400" aria-hidden /> Đến ngày
           </Label>
-          <Input id="rep-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <DateInput id="rep-to" value={to} onChange={setTo} silent />
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="rep-job" className="text-xs">
             Vị trí
           </Label>
-          <select
+          <Combobox
             id="rep-job"
             value={jobId}
-            onChange={(e) => setJobId(e.target.value)}
-            className={cn(
-              "h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm",
-              "focus:outline-none focus:ring-2 focus:ring-primary-500/40",
-            )}
-          >
-            <option value="">Tất cả</option>
-            {jobs.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.title}
-              </option>
-            ))}
-          </select>
+            onValueChange={setJobId}
+            options={jobs.map((j) => ({ value: j.id, label: j.title }))}
+            placeholder="Tất cả"
+            searchPlaceholder="Tìm vị trí…"
+            clearable
+          />
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="rep-role" className="text-xs">
             Nhóm vị trí
           </Label>
-          <select
+          <SimpleSelect
             id="rep-role"
             value={roleFamily}
-            onChange={(e) => setRoleFamily(e.target.value)}
-            className={cn(
-              "h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm",
-              "focus:outline-none focus:ring-2 focus:ring-primary-500/40",
-            )}
-          >
-            <option value="">Tất cả</option>
-            {ROLE_FAMILIES.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
+            onValueChange={setRoleFamily}
+            options={ROLE_FAMILIES.map((r) => ({ value: r.value, label: r.label }))}
+            emptyLabel="Tất cả"
+          />
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="rep-source" className="text-xs">
             Nguồn CV
           </Label>
-          <select
+          <SimpleSelect
             id="rep-source"
             value={source}
-            onChange={(e) => setSource(e.target.value)}
-            className={cn(
-              "h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm",
-              "focus:outline-none focus:ring-2 focus:ring-primary-500/40",
-            )}
-          >
-            <option value="">Tất cả</option>
-            {SOURCES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+            onValueChange={setSource}
+            options={SOURCES.map((s) => ({ value: s.value, label: s.label }))}
+            emptyLabel="Tất cả"
+          />
         </div>
       </div>
 

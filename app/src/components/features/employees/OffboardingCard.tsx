@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DateInput } from "@/components/primitives/DateInput";
 import { SlideOver } from "@/components/primitives/SlideOver";
 import { cn } from "@/lib/utils";
 import { t, interpolate } from "@/lib/i18n";
@@ -103,14 +105,12 @@ export function OffboardingCard({
             <ul className="space-y-1">
               {tasks.map((task) => (
                 <li key={task.id} className="group flex items-center gap-2">
-                  <label className="flex flex-1 cursor-pointer items-center gap-2.5 rounded-md px-1 py-1.5 hover:bg-slate-50">
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 rounded border-slate-300 text-accent-500 focus-visible:ring-2 focus-visible:ring-ring"
+                  <label className="flex min-h-10 flex-1 cursor-pointer items-center gap-2.5 rounded-md px-1 py-1.5 hover:bg-slate-50">
+                    <Checkbox
                       checked={task.done}
                       disabled={pending}
-                      onChange={(e) =>
-                        run(toggleOffboardingTaskAction(task.id, employeeId, e.target.checked))
+                      onCheckedChange={(c) =>
+                        run(toggleOffboardingTaskAction(task.id, employeeId, c === true))
                       }
                     />
                     <span
@@ -224,12 +224,7 @@ function StartOffboardingForm({
         <SlideOver.Body className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="off_last">{t.offboarding.lastDay}</Label>
-            <Input
-              id="off_last"
-              type="date"
-              value={lastDay}
-              onChange={(e) => setLastDay(e.target.value)}
-            />
+            <DateInput id="off_last" value={lastDay} onChange={setLastDay} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="off_reason">{t.offboarding.reason}</Label>

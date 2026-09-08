@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm, FormProvider, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/select";
 import { SlideOver } from "@/components/primitives/SlideOver";
 import { RichTextEditor } from "@/components/primitives/RichTextEditor";
 import { WeightsEditor } from "./WeightsEditor";
@@ -250,18 +251,18 @@ export function JobForm({
                       />
                     </FieldRow>
                     <FieldRow label={t.jobForm.department}>
-                      <select
-                        {...methods.register("department_id")}
-                        defaultValue=""
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      >
-                        <option value="">— Chọn phòng ban —</option>
-                        {departments.map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))}
-                      </select>
+                      <Controller
+                        control={methods.control}
+                        name="department_id"
+                        render={({ field }) => (
+                          <SimpleSelect
+                            value={field.value ?? ""}
+                            onValueChange={(v) => field.onChange(v || null)}
+                            placeholder="— Chọn phòng ban —"
+                            options={departments.map((d) => ({ value: d.id, label: d.name }))}
+                          />
+                        )}
+                      />
                     </FieldRow>
                   </div>
                 </Section>

@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/primitives/EmptyState";
 import { SlideOver } from "@/components/primitives/SlideOver";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -298,12 +299,14 @@ function AnnouncementForm({
               required
             />
           </div>
-          <label className="flex items-center gap-2.5 text-sm text-brand-900">
-            <input
-              type="checkbox"
-              className="h-5 w-5 rounded border-slate-300 text-accent-500 focus-visible:ring-2 focus-visible:ring-ring"
+          <label
+            htmlFor="an_pinned"
+            className="flex min-h-10 cursor-pointer items-center gap-2.5 text-sm text-brand-900"
+          >
+            <Checkbox
+              id="an_pinned"
               checked={pinned}
-              onChange={(e) => setPinned(e.target.checked)}
+              onCheckedChange={(checked) => setPinned(checked === true)}
             />
             {t.comms.pin}
           </label>

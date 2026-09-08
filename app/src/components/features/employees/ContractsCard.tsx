@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SimpleSelect } from "@/components/ui/select";
+import { DateInput } from "@/components/primitives/DateInput";
 import { SlideOver } from "@/components/primitives/SlideOver";
 import { cn } from "@/lib/utils";
 import { t, interpolate } from "@/lib/i18n";
@@ -23,9 +25,6 @@ import {
 import type { ContractRow } from "@/server/contracts/repository";
 import type { ContractInput } from "@/server/contracts/service";
 import type { Database } from "@/types/db";
-
-const SELECT_CLASS =
-  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm";
 
 const STATUS_CLASS: Record<Database["public"]["Enums"]["contract_status"], string> = {
   active: "bg-success-bg text-success-fg",
@@ -269,18 +268,12 @@ function ContractForm({
         <SlideOver.Body className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="c_type">{t.contract.type}</Label>
-            <select
+            <SimpleSelect
               id="c_type"
-              className={SELECT_CLASS}
               value={type}
-              onChange={(e) => setType(e.target.value as ContractInput["type"])}
-            >
-              {CONTRACT_TYPES.map((v) => (
-                <option key={v} value={v}>
-                  {t.contractType[v]}
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => setType(v as ContractInput["type"])}
+              options={CONTRACT_TYPES.map((v) => ({ value: v, label: t.contractType[v] }))}
+            />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -299,32 +292,22 @@ function ContractForm({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c_start">{t.contract.startDate}</Label>
-              <Input
-                id="c_start"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <DateInput id="c_start" value={startDate} onChange={setStartDate} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c_end">{t.contract.endDate}</Label>
-              <Input
+              <DateInput
                 id="c_end"
-                type="date"
                 value={endDate}
                 disabled={noEnd}
-                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate || undefined}
+                onChange={setEndDate}
               />
               {noEnd ? <p className="text-xs text-slate-400">{t.contract.endDateHint}</p> : null}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="c_signed">{t.contract.signedAt}</Label>
-              <Input
-                id="c_signed"
-                type="date"
-                value={signedAt}
-                onChange={(e) => setSignedAt(e.target.value)}
-              />
+              <DateInput id="c_signed" value={signedAt} onChange={setSignedAt} />
             </div>
           </div>
           <div className="space-y-1.5">

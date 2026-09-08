@@ -9,6 +9,7 @@ import { PersonAvatar } from "@/components/primitives/PersonAvatar";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SimpleSelect } from "@/components/ui/select";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 import { EmployeeForm, type EmployeeFormOption } from "./EmployeeForm";
 import { ContractsCard } from "./ContractsCard";
@@ -28,9 +29,6 @@ import type { OffboardingTaskRow } from "@/server/offboarding/service";
 import type { Database } from "@/types/db";
 
 type EmployeeStatus = Database["public"]["Enums"]["employee_status"];
-
-const SELECT_CLASS =
-  "h-9 rounded-md border border-input bg-background px-3 text-base md:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 interface Props {
   detail: EmployeeDetail;
@@ -152,22 +150,20 @@ export function EmployeeProfile({
           <div className="flex items-center gap-2">
             {e.status !== "terminated" ? (
               <div className="flex items-center gap-2">
-                <select
-                  className={SELECT_CLASS}
+                <SimpleSelect
+                  className="w-auto min-w-[10rem]"
                   value={pendingStatus ?? e.status}
                   disabled={savingStatus}
-                  onChange={(ev) => {
-                    const next = ev.target.value as EmployeeStatus;
+                  onValueChange={(v) => {
+                    const next = v as EmployeeStatus;
                     setPendingStatus(next === e.status ? null : next);
                   }}
                   aria-label={f.status}
-                >
-                  {EMPLOYEE_STATUSES.filter((s) => s !== "terminated").map((s) => (
-                    <option key={s} value={s}>
-                      {t.employeeStatus[s]}
-                    </option>
-                  ))}
-                </select>
+                  options={EMPLOYEE_STATUSES.filter((s) => s !== "terminated").map((s) => ({
+                    value: s,
+                    label: t.employeeStatus[s],
+                  }))}
+                />
                 {pendingStatus ? (
                   <>
                     <Button size="sm" disabled={savingStatus} onClick={() => void confirmStatus()}>

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SimpleSelect, type SelectOption } from "@/components/ui/select";
 import { CV_ACCEPTED_MIMES, CV_MAX_BYTES } from "@/lib/storage/paths";
 import {
   uploadCandidateAction,
@@ -53,6 +54,7 @@ export function CandidateUploadDialog({
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [phone, setPhone] = React.useState("");
+  const [jobId, setJobId] = React.useState(defaultJobId ?? "");
   const [prefilling, setPrefilling] = React.useState(false);
   const [prefilled, setPrefilled] = React.useState(false);
   // The prefill extraction's markdown — passed back on submit to seed the
@@ -74,8 +76,9 @@ export function CandidateUploadDialog({
       setPrefilled(false);
       setPrefilling(false);
       cvMdRef.current = "";
+      setJobId(defaultJobId ?? "");
     }
-  }, [open]);
+  }, [open, defaultJobId]);
 
   const handleFileChange = (f: File | null) => {
     setFile(f);
@@ -109,8 +112,6 @@ export function CandidateUploadDialog({
 
     // ---- Bulk mode: create every PDF as a candidate right away ----
     if (bulkMode) {
-      const fd = new FormData(e.currentTarget);
-      const jobId = String(fd.get("job_id") ?? "");
       if (!jobId) {
         setError("Vui lòng chọn vị trí.");
         return;
@@ -142,6 +143,7 @@ export function CandidateUploadDialog({
 
     const fd = new FormData(e.currentTarget);
     fd.set("file", file);
+    fd.set("job_id", jobId);
     if (cvMdRef.current) fd.set("cv_md", cvMdRef.current);
 
     setSubmitting(true);
@@ -257,25 +259,26 @@ export function CandidateUploadDialog({
               )}
               <div className="space-y-2">
                 <Label htmlFor="job_id">{t.candidate.appliedTo}</Label>
-                <select
+                <SimpleSelect
                   id="job_id"
                   name="job_id"
                   required
-                  defaultValue={defaultJobId ?? ""}
+                  value={jobId}
+                  onValueChange={setJobId}
                   disabled={submitting}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="">— Chọn vị trí —</option>
-                  {openJobs.length === 0 ? (
-                    <option disabled>Không có vị trí nào đang mở</option>
-                  ) : (
-                    openJobs.map((j) => (
-                      <option key={j.id} value={j.id}>
-                        {j.title}
-                      </option>
-                    ))
-                  )}
-                </select>
+                  placeholder="— Chọn vị trí —"
+                  options={
+                    openJobs.length === 0
+                      ? ([
+                          {
+                            value: "no-jobs",
+                            label: "Không có vị trí nào đang mở",
+                            disabled: true,
+                          },
+                        ] satisfies SelectOption[])
+                      : openJobs.map((j) => ({ value: j.id, label: j.title }))
+                  }
+                />
               </div>
               {!bulkMode && (
                 <>

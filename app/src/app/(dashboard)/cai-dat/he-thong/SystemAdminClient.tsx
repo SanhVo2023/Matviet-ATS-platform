@@ -6,6 +6,7 @@ import { Bot, Loader2, LogOut, PlayCircle, Database, Trash2 } from "lucide-react
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
 import { t } from "@/lib/i18n";
 import type { Database as Db } from "@/types/db";
@@ -153,12 +154,14 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-slate-50 px-4 py-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input
-                type="checkbox"
+            <label
+              htmlFor="ai-enabled"
+              className="flex min-h-10 cursor-pointer items-center gap-2 text-sm font-medium text-slate-700"
+            >
+              <Checkbox
+                id="ai-enabled"
                 checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
-                className="h-4 w-4 accent-accent-400"
+                onCheckedChange={(checked) => setEnabled(checked === true)}
               />
               Bật tính năng AI (tắt = ngắt toàn bộ: chấm điểm, trợ lý, soạn thảo)
             </label>

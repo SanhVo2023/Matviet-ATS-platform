@@ -6,6 +6,7 @@ import { useQueryState, parseAsString, parseAsStringEnum } from "nuqs";
 import { Briefcase, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SimpleSelect } from "@/components/ui/select";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { JobsTable } from "./JobsTable";
 import { JobForm } from "./JobForm";
@@ -112,19 +113,14 @@ export function JobsListClient({
 
         <span className="mx-1 hidden h-5 w-px bg-slate-200 md:inline" />
 
-        <select
+        <SimpleSelect
           value={departmentId}
-          onChange={(e) => setDepartmentId(e.target.value || null)}
+          onValueChange={(v) => setDepartmentId(v || null)}
           aria-label="Phòng ban"
-          className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Tất cả phòng ban</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
+          className="w-auto min-w-[10rem]"
+          emptyLabel="Tất cả phòng ban"
+          options={departments.map((d) => ({ value: d.id, label: d.name }))}
+        />
 
         <div className="relative ml-auto w-full max-w-xs">
           <Search

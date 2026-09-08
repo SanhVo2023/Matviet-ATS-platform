@@ -8,9 +8,11 @@ import { PageHeader } from "@/components/primitives/PageHeader";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { SlideOver } from "@/components/primitives/SlideOver";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SimpleSelect } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
+import { DateInput } from "@/components/primitives/DateInput";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { formatDate } from "@/lib/vi-format";
@@ -25,9 +27,6 @@ import {
 import type { LeaveListItem, LeaveBalance } from "@/server/leave/repository";
 import type { LeaveRequestInput } from "@/server/leave/service";
 import type { Database } from "@/types/db";
-
-const SELECT_CLASS =
-  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:text-sm";
 
 const STATUS_CLASS: Record<Database["public"]["Enums"]["leave_status"], string> = {
   pending: "bg-warning-bg text-warning-fg",
@@ -92,19 +91,19 @@ export function LeaveClient({
       />
 
       <div className="mt-6 flex items-center gap-3">
-        <select
-          className={cn(SELECT_CLASS, "w-auto")}
+        <SimpleSelect
+          className="w-auto min-w-[11rem]"
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onValueChange={setStatus}
           aria-label={t.leave.status}
-        >
-          <option value="all">{t.leave.allStatuses}</option>
-          {(["pending", "approved", "rejected", "cancelled"] as const).map((s) => (
-            <option key={s} value={s}>
-              {t.leaveStatus[s]}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "all", label: t.leave.allStatuses },
+            ...(["pending", "approved", "rejected", "cancelled"] as const).map((s) => ({
+              value: s,
+              label: t.leaveStatus[s],
+            })),
+          ]}
+        />
       </div>
 
       <div className="mt-4">
@@ -289,20 +288,14 @@ function LeaveForm({
               {t.leave.employee}
               <span className="ml-0.5 text-error-fg">*</span>
             </Label>
-            <select
+            <Combobox
               id="lv_emp"
-              className={SELECT_CLASS}
               value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
-              required
-            >
-              <option value="">{t.leave.pickEmployee}</option>
-              {employeeOptions.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={setEmployeeId}
+              placeholder={t.leave.pickEmployee}
+              searchPlaceholder={t.action.search}
+              options={employeeOptions.map((o) => ({ value: o.id, label: o.name }))}
+            />
             {balance ? (
               <p
                 className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600"
@@ -316,37 +309,25 @@ function LeaveForm({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="lv_type">{t.leave.type}</Label>
-            <select
+            <SimpleSelect
               id="lv_type"
-              className={SELECT_CLASS}
               value={type}
-              onChange={(e) => setType(e.target.value as LeaveRequestInput["type"])}
-            >
-              {LEAVE_TYPES.map((v) => (
-                <option key={v} value={v}>
-                  {t.leaveType[v]}
-                </option>
-              ))}
-            </select>
+              onValueChange={(v) => setType(v as LeaveRequestInput["type"])}
+              options={LEAVE_TYPES.map((v) => ({ value: v, label: t.leaveType[v] }))}
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="lv_start">{t.leave.from}</Label>
-              <Input
-                id="lv_start"
-                type="date"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                required
-              />
+              <DateInput id="lv_start" value={start} onChange={setStart} required />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lv_end">{t.leave.to}</Label>
-              <Input
+              <DateInput
                 id="lv_end"
-                type="date"
                 value={end}
-                onChange={(e) => setEnd(e.target.value)}
+                onChange={setEnd}
+                min={start || undefined}
                 required
               />
             </div>

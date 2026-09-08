@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/select";
 import { t } from "@/lib/i18n";
 import { inviteUser } from "./actions";
 
@@ -14,10 +15,20 @@ interface Department {
   name: string;
 }
 
+const ROLE_OPTIONS = [
+  { value: "hr", label: t.userRole.hr },
+  { value: "hiring_manager", label: t.userRole.hiring_manager },
+  { value: "admin", label: t.userRole.admin },
+  { value: "bod", label: t.userRole.bod },
+  { value: "tap_doan", label: t.userRole.tap_doan },
+];
+
 export function InviteForm({ departments }: { departments: Department[] }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [role, setRole] = useState("hr");
+  const [departmentId, setDepartmentId] = useState("");
 
   const handleSubmit = (formData: FormData) => {
     setError(null);
@@ -37,6 +48,8 @@ export function InviteForm({ departments }: { departments: Department[] }) {
       // Reset by relying on the form's defaultValues + key reset
       const form = document.getElementById("invite-form") as HTMLFormElement | null;
       form?.reset();
+      setRole("hr");
+      setDepartmentId("");
     });
   };
 
@@ -63,36 +76,27 @@ export function InviteForm({ departments }: { departments: Department[] }) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="role">Vai trò</Label>
-          <select
+          <SimpleSelect
             id="role"
             name="role"
+            value={role}
+            onValueChange={setRole}
+            options={ROLE_OPTIONS}
             required
             disabled={pending}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <option value="hr">{t.userRole.hr}</option>
-            <option value="hiring_manager">{t.userRole.hiring_manager}</option>
-            <option value="admin">{t.userRole.admin}</option>
-            <option value="bod">{t.userRole.bod}</option>
-            <option value="tap_doan">{t.userRole.tap_doan}</option>
-          </select>
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="department_id">{t.jobForm.department}</Label>
-          <select
+          <SimpleSelect
             id="department_id"
             name="department_id"
+            value={departmentId}
+            onValueChange={setDepartmentId}
+            options={departments.map((d) => ({ value: d.id, label: d.name }))}
+            emptyLabel="— Không thuộc phòng ban —"
             disabled={pending}
-            defaultValue=""
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <option value="">— Không thuộc phòng ban —</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 

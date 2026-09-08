@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ListChecks, Plus, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { t, interpolate } from "@/lib/i18n";
@@ -76,14 +77,12 @@ export function OnboardingChecklist({
             <ul className="space-y-1">
               {tasks.map((task) => (
                 <li key={task.id} className="group flex items-center gap-2">
-                  <label className="flex flex-1 cursor-pointer items-center gap-2.5 rounded-md px-1 py-1.5 hover:bg-slate-50">
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 rounded border-slate-300 text-accent-500 focus-visible:ring-2 focus-visible:ring-ring"
+                  <label className="flex min-h-10 flex-1 cursor-pointer items-center gap-2.5 rounded-md px-1 py-1.5 hover:bg-slate-50">
+                    <Checkbox
                       checked={task.done}
                       disabled={pending}
-                      onChange={(e) =>
-                        run(toggleOnboardingTaskAction(task.id, employeeId, e.target.checked))
+                      onCheckedChange={(c) =>
+                        run(toggleOnboardingTaskAction(task.id, employeeId, c === true))
                       }
                     />
                     <span

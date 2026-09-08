@@ -9,6 +9,7 @@ import { DataTable } from "@/components/primitives/DataTable";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SimpleSelect } from "@/components/ui/select";
 import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 import { EmployeeForm, type EmployeeFormOption } from "./EmployeeForm";
 import { EmployeeStats } from "./EmployeeStats";
@@ -16,9 +17,6 @@ import { t } from "@/lib/i18n";
 import { formatDate } from "@/lib/vi-format";
 import { EMPLOYEE_STATUSES } from "@/db/schema";
 import type { EmployeeListItem, HeadcountStats } from "@/server/employees/repository";
-
-const SELECT_CLASS =
-  "h-10 rounded-md border border-input bg-background px-3 text-base md:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 interface Props {
   employees: EmployeeListItem[];
@@ -121,32 +119,26 @@ export function EmployeesListClient({ employees, departments, positions, manager
             aria-label={t.action.search}
           />
         </div>
-        <select
-          className={SELECT_CLASS}
+        <SimpleSelect
+          className="sm:w-56"
           value={dept}
-          onChange={(e) => setDept(e.target.value)}
+          onValueChange={setDept}
           aria-label={t.employee.fields.department}
-        >
-          <option value="all">{t.employee.allDepartments}</option>
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.label}
-            </option>
-          ))}
-        </select>
-        <select
-          className={SELECT_CLASS}
+          options={[
+            { value: "all", label: t.employee.allDepartments },
+            ...departments.map((d) => ({ value: d.id, label: d.label })),
+          ]}
+        />
+        <SimpleSelect
+          className="sm:w-44"
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onValueChange={setStatus}
           aria-label={t.employee.fields.status}
-        >
-          <option value="all">{t.employee.allStatuses}</option>
-          {EMPLOYEE_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {t.employeeStatus[s]}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "all", label: t.employee.allStatuses },
+            ...EMPLOYEE_STATUSES.map((s) => ({ value: s, label: t.employeeStatus[s] })),
+          ]}
+        />
       </div>
 
       <div className="mt-4">
