@@ -5,6 +5,7 @@ import { getEmployeeDetail, listManagerOptions } from "@/server/employees/reposi
 import { listDepartmentOptions, listPositionOptions } from "@/server/org/repository";
 import { listContractsForEmployee } from "@/server/contracts/repository";
 import { listTasksForEmployee } from "@/server/onboarding/repository";
+import { leaveBalanceForEmployee, listLeaveForEmployee } from "@/server/leave/repository";
 import { EmployeeProfile } from "@/components/features/employees/EmployeeProfile";
 
 export const dynamic = "force-dynamic";
@@ -23,13 +24,24 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   await requireRole(["admin", "hr"]);
   const { id } = await params;
 
-  const [detail, departments, positions, managers, contracts, onboardingTasks] = await Promise.all([
+  const [
+    detail,
+    departments,
+    positions,
+    managers,
+    contracts,
+    onboardingTasks,
+    leaveBalance,
+    leaveRequests,
+  ] = await Promise.all([
     getEmployeeDetail(id),
     listDepartmentOptions(),
     listPositionOptions(),
     listManagerOptions(),
     listContractsForEmployee(id),
     listTasksForEmployee(id),
+    leaveBalanceForEmployee(id),
+    listLeaveForEmployee(id),
   ]);
   if (!detail) notFound();
 
@@ -42,6 +54,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         managers={managers.map((m) => ({ id: m.id, label: m.name }))}
         contracts={contracts}
         onboardingTasks={onboardingTasks}
+        leaveBalance={leaveBalance}
+        leaveRequests={leaveRequests}
       />
     </div>
   );

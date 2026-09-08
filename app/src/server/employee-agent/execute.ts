@@ -18,9 +18,19 @@ export async function executeEmployeeProposal(
 ): Promise<ExecuteResult> {
   if (!p.employee_id) return { ok: false, error: "Thiếu nhân viên" };
   const employeeId = p.employee_id;
-  const payload = (p.payload ?? {}) as { contract_id?: string };
+  const payload = (p.payload ?? {}) as { contract_id?: string; request_id?: string };
 
   switch (p.kind) {
+    case "leave_request": {
+      if (!payload.request_id) return { ok: false, error: "Thiếu đơn nghỉ phép" };
+      const { decideLeave } = await import("@/server/leave/service");
+      await decideLeave(payload.request_id, "approved", actor.id);
+      return {
+        ok: true,
+        executedRef: { leave_request_id: payload.request_id },
+        message: "Đã duyệt đơn nghỉ phép",
+      };
+    }
     case "onboarding_packet": {
       const db = await getDb();
       const emp = await db

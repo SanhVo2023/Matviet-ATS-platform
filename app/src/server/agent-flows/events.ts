@@ -105,6 +105,7 @@ const VALID_STAGES_BY_KIND: Record<ProposalKind, string[] | "any-movement-voids"
   onboarding_packet: [],
   probation_review: [],
   contract_renewal: [],
+  leave_request: [],
 };
 
 async function reconcileOpenProposals(candidateId: string, currentStage: string): Promise<void> {

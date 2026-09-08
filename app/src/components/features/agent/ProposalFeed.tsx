@@ -82,6 +82,11 @@ const KIND_META: Record<
     tint: "bg-indigo-50 text-indigo-600",
     approveLabel: "Tạo HĐ gia hạn",
   },
+  leave_request: {
+    icon: CalendarPlus,
+    tint: "bg-sky-50 text-sky-600",
+    approveLabel: "Duyệt nghỉ phép",
+  },
 };
 
 export function ProposalFeed({ proposals }: { proposals: FeedProposal[] }) {

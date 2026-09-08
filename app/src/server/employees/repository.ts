@@ -189,3 +189,22 @@ export async function listManagerOptions(): Promise<ManagerOption[]> {
     .orderBy(asc(people.full_name));
   return rows;
 }
+
+export interface EmployeeOption {
+  id: string;
+  name: string;
+  department_id: string | null;
+}
+/** Non-terminated employees for pickers (e.g. leave request on behalf). */
+export async function listEmployeeOptions(departmentId?: string | null): Promise<EmployeeOption[]> {
+  const db = await getDb();
+  const conds = [inArray(employees.status, ["probation", "active", "on_leave"])];
+  if (departmentId) conds.push(eq(employees.department_id, departmentId));
+  const rows = await db
+    .select({ id: employees.id, name: people.full_name, department_id: employees.department_id })
+    .from(employees)
+    .innerJoin(people, eq(employees.person_id, people.id))
+    .where(and(...conds))
+    .orderBy(asc(people.full_name));
+  return rows;
+}

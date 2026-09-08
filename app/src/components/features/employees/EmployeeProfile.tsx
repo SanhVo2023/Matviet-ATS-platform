@@ -11,6 +11,7 @@ import { EmployeeStatusBadge } from "./EmployeeStatusBadge";
 import { EmployeeForm, type EmployeeFormOption } from "./EmployeeForm";
 import { ContractsCard } from "./ContractsCard";
 import { OnboardingChecklist } from "./OnboardingChecklist";
+import { LeaveCard } from "./LeaveCard";
 import { setEmployeeStatusAction } from "@/app/(dashboard)/nhan-vien/actions";
 import { t } from "@/lib/i18n";
 import { formatDate } from "@/lib/vi-format";
@@ -19,6 +20,7 @@ import type { EmployeeDetail } from "@/server/employees/repository";
 import type { EmployeeFormInput } from "@/server/employees/service";
 import type { ContractRow } from "@/server/contracts/repository";
 import type { OnboardingTaskRow } from "@/server/onboarding/repository";
+import type { LeaveBalance, LeaveRequestRow } from "@/server/leave/repository";
 import type { Database } from "@/types/db";
 
 type EmployeeStatus = Database["public"]["Enums"]["employee_status"];
@@ -33,6 +35,8 @@ interface Props {
   managers: EmployeeFormOption[];
   contracts: ContractRow[];
   onboardingTasks: OnboardingTaskRow[];
+  leaveBalance: LeaveBalance;
+  leaveRequests: LeaveRequestRow[];
 }
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -51,6 +55,8 @@ export function EmployeeProfile({
   managers,
   contracts,
   onboardingTasks,
+  leaveBalance,
+  leaveRequests,
 }: Props) {
   const router = useRouter();
   const { employee: e, person: p } = detail;
@@ -206,6 +212,7 @@ export function EmployeeProfile({
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ContractsCard employeeId={e.id} contracts={contracts} />
         <OnboardingChecklist employeeId={e.id} tasks={onboardingTasks} />
+        <LeaveCard balance={leaveBalance} requests={leaveRequests} />
       </div>
 
       {e.notes ? (

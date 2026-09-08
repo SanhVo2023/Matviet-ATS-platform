@@ -106,7 +106,8 @@ async function executeByKind(
     }
     case "onboarding_packet":
     case "probation_review":
-    case "contract_renewal": {
+    case "contract_renewal":
+    case "leave_request": {
       const { executeEmployeeProposal } = await import("@/server/employee-agent/execute");
       return executeEmployeeProposal(p, actor);
     }

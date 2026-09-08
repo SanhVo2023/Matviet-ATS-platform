@@ -52,6 +52,7 @@ type TableMap = {
   interviews: Model<typeof s.interviews>;
   job_assignments: Model<typeof s.job_assignments>;
   jobs: Model<typeof s.jobs>;
+  leave_requests: Model<typeof s.leave_requests>;
   onboarding_tasks: Model<typeof s.onboarding_tasks>;
   people: Model<typeof s.people>;
   positions: Model<typeof s.positions>;
@@ -81,6 +82,8 @@ export type Database = {
       interview_type: (typeof s.INTERVIEW_TYPES)[number];
       interviewer_role: (typeof s.INTERVIEWER_ROLES)[number];
       job_status: (typeof s.JOB_STATUSES)[number];
+      leave_type: (typeof s.LEAVE_TYPES)[number];
+      leave_status: (typeof s.LEAVE_STATUSES)[number];
       pipeline_stage: (typeof s.PIPELINE_STAGES)[number];
       recommendation: (typeof s.RECOMMENDATIONS)[number];
       role_family: (typeof s.ROLE_FAMILIES)[number];

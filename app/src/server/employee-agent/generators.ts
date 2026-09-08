@@ -45,6 +45,24 @@ export async function proposeProbationReview(args: {
   });
 }
 
+export async function proposeLeaveDecision(args: {
+  employeeId: string;
+  employeeName: string;
+  requestId: string;
+  summary: string;
+  reasoning: string;
+}): Promise<void> {
+  await createProposal({
+    jobId: null,
+    employeeId: args.employeeId,
+    kind: "leave_request",
+    summary: args.summary,
+    reasoning: args.reasoning,
+    payload: { request_id: args.requestId },
+    dedupeKey: `lv:${args.requestId}`,
+  });
+}
+
 export async function proposeContractRenewal(args: {
   employeeId: string;
   employeeName: string;

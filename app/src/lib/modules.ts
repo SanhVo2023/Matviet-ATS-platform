@@ -170,7 +170,7 @@ export const MODULES: AppModule[] = [
     icon: CalendarClock,
     roles: ["admin", "hr", "hiring_manager"],
     group: "hris",
-    enabled: false, // HRM H2
+    enabled: true, // HRM H2
   },
 
   // ----- System -----

@@ -206,6 +206,19 @@ export async function supersedeOpenProposalsForJob(jobId: string): Promise<void>
     .where(and(eq(agent_proposals.job_id, jobId), eq(agent_proposals.status, "proposed")));
 }
 
+/**
+ * Supersede an open proposal by its dedupe_key — used when the proposed act is
+ * decided OUTSIDE the feed (e.g. a leave request approved/denied on its page),
+ * so the stale card leaves the "Hôm nay" feed.
+ */
+export async function supersedeProposalByDedupeKey(dedupeKey: string): Promise<void> {
+  const db = await getDb();
+  await db
+    .update(agent_proposals)
+    .set({ status: "superseded", decided_at: new Date().toISOString() })
+    .where(and(eq(agent_proposals.dedupe_key, dedupeKey), eq(agent_proposals.status, "proposed")));
+}
+
 /** Mark specific open proposals superseded (only touches `proposed` rows). */
 export async function supersedeProposals(ids: string[]): Promise<void> {
   if (ids.length === 0) return;

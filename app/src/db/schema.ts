@@ -76,6 +76,10 @@ export const EMPLOYMENT_TYPES = ["full_time", "part_time", "seasonal"] as const;
 // thời hạn (≤36 tháng) / không xác định thời hạn.
 export const CONTRACT_TYPES = ["thu_viec", "xac_dinh_thoi_han", "khong_xac_dinh_thoi_han"] as const;
 export const CONTRACT_STATUSES = ["active", "expired", "ended"] as const;
+// Nghỉ phép (HRM H2). annual = phép năm; sick = nghỉ ốm; unpaid = không lương;
+// maternity = thai sản; other = khác.
+export const LEAVE_TYPES = ["annual", "sick", "unpaid", "maternity", "other"] as const;
+export const LEAVE_STATUSES = ["pending", "approved", "rejected", "cancelled"] as const;
 
 const uuid = () => crypto.randomUUID();
 const nowIso = () => new Date().toISOString();
@@ -307,6 +311,36 @@ export const onboarding_tasks = sqliteTable(
     created_at: text("created_at").notNull().$defaultFn(nowIso),
   },
   (t) => [index("idx_onboarding_employee").on(t.employee_id)],
+);
+
+// Leave requests (HRM H2). Balances are COMPUTED (entitlement − approved annual
+// days this year), not stored — see server/leave/service.ts. `days` supports
+// half-days (real).
+export const leave_requests = sqliteTable(
+  "leave_requests",
+  {
+    id: text("id").primaryKey().$defaultFn(uuid),
+    employee_id: text("employee_id")
+      .notNull()
+      .references(() => employees.id, { onDelete: "cascade" }),
+    type: text("type", { enum: LEAVE_TYPES }).notNull().default("annual"),
+    start_date: text("start_date").notNull(),
+    end_date: text("end_date").notNull(),
+    days: real("days").notNull(),
+    reason: text("reason"),
+    status: text("status", { enum: LEAVE_STATUSES }).notNull().default("pending"),
+    decided_by: text("decided_by").references(() => users.id),
+    decided_at: text("decided_at"),
+    decision_note: text("decision_note"),
+    created_by: text("created_by").references(() => users.id),
+    created_at: text("created_at").notNull().$defaultFn(nowIso),
+    updated_at: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),
+  },
+  (t) => [
+    index("idx_leave_employee").on(t.employee_id),
+    index("idx_leave_status").on(t.status),
+    index("idx_leave_dates").on(t.start_date, t.end_date),
+  ],
 );
 
 // ---------------------------------------------------------------------------
@@ -904,6 +938,8 @@ export const PROPOSAL_KINDS = [
   "onboarding_packet",
   "probation_review",
   "contract_renewal",
+  // HRM H2 — leave decision (keyed by employee_id; payload carries request_id)
+  "leave_request",
 ] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
 
