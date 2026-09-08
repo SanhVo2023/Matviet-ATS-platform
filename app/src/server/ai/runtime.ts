@@ -3,7 +3,8 @@ import { configureAiRuntime, computeAiCost } from "@/lib/ai/workers-ai";
 import { getDb } from "@/db";
 import { ai_usage_log } from "@/db/schema";
 import { getSetting, SETTING_KEYS } from "@/server/settings/repository";
-import { isCircuitTripped, checkAfterUsage } from "@/server/ai/cost-guard";
+import { checkAfterUsage } from "@/server/ai/cost-guard";
+import { aiAvailability } from "@/server/ai/availability";
 
 /**
  * Side-effect module: wires the AI provider to runtime settings (admin-chosen
@@ -13,9 +14,9 @@ import { isCircuitTripped, checkAfterUsage } from "@/server/ai/cost-guard";
  */
 configureAiRuntime({
   modelOverride: () => getSetting(SETTING_KEYS.aiModel),
-  // AI is on unless the admin killed it OR today's spend tripped the hard cap.
-  enabledCheck: async () =>
-    (await getSetting(SETTING_KEYS.aiEnabled)) !== "false" && !(await isCircuitTripped()),
+  // AI is on unless the admin killed it OR today's spend tripped the hard cap
+  // — one check shared with the scoring claim-time guard (availability.ts).
+  enabledCheck: async () => (await aiAvailability()).ok,
   usageSink: (e) => {
     void (async () => {
       const db = await getDb();

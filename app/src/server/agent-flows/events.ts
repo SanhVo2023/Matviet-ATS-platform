@@ -5,7 +5,12 @@ import { candidates, interviews, jobs, type ProposalKind } from "@/db/schema";
 import { SCORE_BAND_MEDIUM_MIN } from "@/lib/stage-visuals";
 import { pingHiringAgent } from "./agent-link";
 import { listOpenProposalsForCandidate, supersedeProposals } from "./repository";
-import { proposeInterviewInvite, proposeStartApproval, proposeComposeOffer } from "./generators";
+import {
+  proposeInterviewInvite,
+  proposeStartApproval,
+  proposeComposeOffer,
+  proposeConfirmHire,
+} from "./generators";
 
 /**
  * Pipeline-event intake (ADR 0020) — the ONE function emitters call. Fire it
@@ -94,7 +99,7 @@ export async function latestInterviewTime(candidateId: string): Promise<number |
  * move elsewhere supersedes the card. nudge_stale is stage-specific by
  * construction (dedupe key carries the stage), so any movement voids it.
  */
-const VALID_STAGES_BY_KIND: Record<ProposalKind, string[] | "any-movement-voids"> = {
+export const VALID_STAGES_BY_KIND: Record<ProposalKind, string[] | "any-movement-voids"> = {
   interview_invite: ["intake"],
   start_approval: ["evaluating"],
   compose_offer: ["offer"],
@@ -106,6 +111,10 @@ const VALID_STAGES_BY_KIND: Record<ProposalKind, string[] | "any-movement-voids"
   probation_review: [],
   contract_renewal: [],
   leave_request: [],
+  // Reconcile train — candidate-bound backstops
+  confirm_hire: ["offer_accepted"],
+  retry_scoring: ["intake"],
+  orphan_approval: "any-movement-voids",
 };
 
 async function reconcileOpenProposals(candidateId: string, currentStage: string): Promise<void> {
@@ -173,6 +182,15 @@ export async function emitAgentEvent(evt: AgentEvent): Promise<void> {
       (evt.type === "stage_changed" && evt.toStage === "offer")
     ) {
       await proposeComposeOffer({ candidate: cand, job });
+    }
+
+    // Candidate accepted → HR's confirmation is the next move (audit P1:
+    // offer_accepted had no card; it sat on the ladder until someone noticed).
+    if (
+      (evt.type === "offer_responded" && evt.accepted) ||
+      (evt.type === "stage_changed" && evt.toStage === "offer_accepted")
+    ) {
+      await proposeConfirmHire({ candidate: cand, job });
     }
 
     // Evaluation in — OR a test graded (test-only roles never get an

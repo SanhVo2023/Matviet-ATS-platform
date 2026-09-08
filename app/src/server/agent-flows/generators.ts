@@ -253,3 +253,77 @@ export async function proposeNudgeStale(args: {
     dedupeKey: `ns:${candidate.id}:${stage}`,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Reconcile train (agentic audit P1) — backstop kinds. Each returns whether a
+// NEW card was created (dedupe makes re-runs free).
+// ---------------------------------------------------------------------------
+
+/** Candidate accepted the offer → HR confirms the hire (→ employee record). */
+export async function proposeConfirmHire(args: {
+  candidate: CandidateCtx;
+  job: JobCtx;
+}): Promise<boolean> {
+  const { candidate, job } = args;
+  const row = await createProposal({
+    jobId: job.id,
+    candidateId: candidate.id,
+    kind: "confirm_hire",
+    summary: `${candidate.full_name} đã nhận offer — xác nhận tuyển cho "${job.title}"`,
+    reasoning:
+      "Ứng viên đã chấp nhận thư mời nhận việc. Duyệt = chuyển sang Đã tuyển và tạo hồ sơ nhân viên (cùng một hồ sơ cá nhân) để bắt đầu hội nhập.",
+    payload: { action: "confirm_hire" },
+    dedupeKey: `ch:${candidate.id}`,
+  });
+  return row != null;
+}
+
+/** Scoring failed → one-tap retry; after repeated failures, suggest manual scoring. */
+export async function proposeRetryScoring(args: {
+  candidate: CandidateCtx;
+  job: JobCtx;
+  attempts: number;
+  error: string | null;
+}): Promise<boolean> {
+  const { candidate, job, attempts, error } = args;
+  const manual = attempts >= 3;
+  const row = await createProposal({
+    jobId: job.id,
+    candidateId: candidate.id,
+    kind: "retry_scoring",
+    summary: manual
+      ? `Chấm AI thất bại ${attempts} lần cho ${candidate.full_name} — nên chấm thủ công`
+      : `Chấm AI thất bại cho ${candidate.full_name} — thử lại?`,
+    reasoning:
+      (error ? `Lỗi gần nhất: ${error.slice(0, 200)}. ` : "") +
+      (manual
+        ? "Đã thử nhiều lần; hãy chấm thủ công bằng thanh trượt trên hồ sơ. Duyệt = thử thêm một lần nữa."
+        : "Thường do model bận hoặc CV khó đọc. Duyệt = xếp hàng chấm lại (không tốn thêm nếu CV đã được chuyển sang văn bản)."),
+    payload: { action: "retry", attempts, manual_suggested: manual },
+    dedupeKey: `rs:${candidate.id}:${attempts}`,
+  });
+  return row != null;
+}
+
+/** Pending approval steps for a candidate no longer in `approving` → cancel them. */
+export async function proposeOrphanApproval(args: {
+  candidate: CandidateCtx & { current_stage: string; is_archived?: boolean };
+  job: JobCtx;
+  pendingSteps: number;
+}): Promise<boolean> {
+  const { candidate, job, pendingSteps } = args;
+  const stageLabel =
+    (t.stage as Record<string, string>)[candidate.current_stage] ?? candidate.current_stage;
+  const where = candidate.is_archived ? "đã lưu trữ" : `đang ở "${stageLabel}"`;
+  const row = await createProposal({
+    jobId: job.id,
+    candidateId: candidate.id,
+    kind: "orphan_approval",
+    summary: `${pendingSteps} bước duyệt còn treo cho ${candidate.full_name} (${where})`,
+    reasoning:
+      "Chuỗi duyệt vẫn mở dù ứng viên đã rời bước Trình duyệt — người duyệt sẽ thấy việc ma trong hàng đợi. Duyệt = hủy các bước đang chờ.",
+    payload: { action: "cancel_pending", pending_steps: pendingSteps },
+    dedupeKey: `oa:${candidate.id}:${candidate.current_stage}`,
+  });
+  return row != null;
+}

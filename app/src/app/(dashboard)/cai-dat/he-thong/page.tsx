@@ -8,7 +8,9 @@ import { getSetting, SETTING_KEYS } from "@/server/settings/repository";
 import { getTodaySpendUsd, isCircuitTripped } from "@/server/ai/cost-guard";
 import { AI_MODEL_CHOICES, DEFAULT_AI_MODEL } from "@/lib/ai/workers-ai";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { SystemAdminClient } from "./SystemAdminClient";
+import { AgentHealthCard } from "@/components/features/agent/AgentHealthCard";
 
 export const metadata: Metadata = { title: "Quản trị hệ thống" };
 export const dynamic = "force-dynamic";
@@ -103,12 +105,13 @@ export default async function SystemAdminPage() {
   const sessionsByUser = new Map(sessionRows.map((s) => [s.userId, s]));
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6 lg:p-8">
+    <PageContainer size="default" className="space-y-6">
       <PageHeader
         icon={ShieldCheck}
         title="Quản trị hệ thống"
         subtitle="Cấu hình AI, theo dõi chi phí, hàng đợi và phiên đăng nhập."
       />
+      <AgentHealthCard />
       <SystemAdminClient
         ai={{
           currentModel,
@@ -158,6 +161,6 @@ export default async function SystemAdminPage() {
           };
         })}
       />
-    </div>
+    </PageContainer>
   );
 }

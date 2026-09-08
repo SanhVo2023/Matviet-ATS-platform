@@ -13,6 +13,7 @@
  *   the old Postgres enums)
  */
 import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
@@ -998,6 +999,10 @@ export const PROPOSAL_KINDS = [
   "contract_renewal",
   // HRM H2 — leave decision (keyed by employee_id; payload carries request_id)
   "leave_request",
+  // Reconcile train (agentic audit P1) — hiring backstops keyed by candidate_id
+  "confirm_hire",
+  "retry_scoring",
+  "orphan_approval",
 ] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
 
@@ -1042,6 +1047,12 @@ export const agent_proposals = sqliteTable(
     index("idx_proposals_status").on(t.status, t.created_at),
     index("idx_proposals_job").on(t.job_id, t.status),
     index("idx_proposals_dedupe").on(t.dedupe_key, t.status),
+    // Race guard: createProposal is check-then-insert, so two concurrent
+    // generators (event + sweep) could both open a twin. The partial unique
+    // index makes the second insert fail; createProposal treats that as "skip".
+    uniqueIndex("uq_proposals_open_dedupe")
+      .on(t.dedupe_key)
+      .where(sql`"status" in ('proposed', 'approved')`),
     // reconcile/complete lookups run on every pipeline event
     index("idx_proposals_candidate").on(t.candidate_id, t.status),
     index("idx_proposals_employee").on(t.employee_id, t.status),

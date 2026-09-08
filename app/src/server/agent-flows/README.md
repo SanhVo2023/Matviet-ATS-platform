@@ -66,3 +66,39 @@ offer email (approvals set that stage before the email exists).
 `AGENT_STALE_OVERRIDE_SECONDS` (env/dev var) shrinks every stale threshold so
 the DO→sweep→nudge roundtrip is verifiable in seconds. `/api/agent/ping`
 (CRON_SECRET) arms timers and reads a job agent's snapshot.
+
+## Reconcile train (2026-09-08 — agentic audit P1)
+
+The event path + DO timers are the fast lane. `reconcile.ts` is the
+truth-based backstop: once a day it re-reads D1 and proposes whatever the fast
+lane missed (lost alarm, event emitted before a deploy, row edited by hand).
+Same dedupe keys → a healthy day proposes nothing.
+
+| kind              | reconcile finds…                                  | approve executes                                           |
+| ----------------- | ------------------------------------------------- | ---------------------------------------------------------- |
+| `confirm_hire`    | `offer_accepted` with no hire (also event-driven) | `transitionStage(hired)` + `ensureEmployeeForCandidate`    |
+| `retry_scoring`   | `ai_screening_status='failed'` in intake          | `enqueueScoring` + `triggerScoring` (manual hint ≥3 tries) |
+| `orphan_approval` | pending approval steps off `approving` / archived | cancels the pending steps                                  |
+| `nudge_stale`     | re-runs `sweepCandidate` for every watched stage  | (unchanged)                                                |
+| —                 | open cards on archived candidates                 | superseded                                                 |
+
+Dedupe keys: `ch:<cand>`, `rs:<cand>:<attempts>`, `oa:<cand>:<stage>`.
+
+**Scheduling:** `daily.ts` `runDailySweeps()` runs the HRM compliance sweep +
+`reconcileHiring()` at most once per VN calendar day behind the
+`agent_last_daily_sweep` settings marker; `custom-worker` pokes
+`/api/agent/daily` every minute after 01:00 UTC, so a missed tick catches up
+on the next minute (a throwing run clears the marker to retry). `?force=1`
+re-runs today.
+
+**Guards added in the same train**
+
+- `uq_proposals_open_dedupe` — partial unique index (migration 0014) so two
+  concurrent generators can't both open a twin; `createProposal` treats the
+  UNIQUE error as "skip".
+- `preflightError` in `execute.ts` — a card whose candidate moved to a stage
+  the kind doesn't fit fails with a plain reason instead of acting.
+- `server/ai/availability.ts` `aiAvailability()` — THE AI gate (kill switch +
+  cost breaker); the scoring claim-time guard used to ignore the breaker.
+- `proposalStats()` + `AgentHealthCard` (on `/cai-dat/he-thong`) — 30-day run
+  log: cards by kind/status, acceptance rate, oldest open card, recent failures.

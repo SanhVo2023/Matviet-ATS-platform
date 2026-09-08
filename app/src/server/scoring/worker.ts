@@ -39,7 +39,7 @@ import {
 import type { ParsedCv, ScoreResult, Weights, CriterionCode } from "@/lib/ai/gemini/types";
 import { notifyRoles } from "@/server/notifications/service";
 import { emitAgentEvent } from "@/server/agent-flows/events";
-import { isAiEnabled } from "@/server/settings/repository";
+import { aiAvailability } from "@/server/ai/availability";
 import { readWeights, computeWeightedTotalFromVerified, applyEvidenceDiscount } from "./weights";
 import { validateEvidence } from "./evidence";
 import { getRubricForJob, rubricGuidanceMap } from "./rubric";
@@ -70,7 +70,8 @@ export async function runScoringJob(candidateId?: string): Promise<ScoringOutcom
   // Kill switch (renovation R3): when AI is off, leave rows QUEUED — don't
   // claim + fail them. Re-enabling then just resumes; before this fix every
   // queued CV failed permanently the moment the switch was flipped.
-  if (!(await isAiEnabled())) return { status: "idle" };
+  // Kill switch OR cost breaker → leave rows queued, burn no attempts.
+  if (!(await aiAvailability()).ok) return { status: "idle" };
 
   const queueRow = await claimJob(candidateId);
   if (!queueRow) return { status: "idle" };

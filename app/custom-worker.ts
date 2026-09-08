@@ -78,18 +78,20 @@ export default {
       }
     }
 
-    // Daily HRM compliance-clock sweep (H1) — probation reviews + contract
-    // renewals. Gated to 01:00 UTC (≈ 08:00 VN) so it runs once/day, not every
-    // minute; compliance windows are days-wide so a missed tick self-heals.
-    const now = new Date();
-    if (now.getUTCHours() === 1 && now.getUTCMinutes() === 0) {
+    // Daily sweeps — HRM compliance clock (H1) + hiring reconcile (agentic
+    // audit P1). From 01:00 UTC (≈ 08:00 VN) onward every tick asks
+    // /api/agent/daily, which runs AT MOST once per VN day behind a settings
+    // marker — so a missed 01:00 tick (deploy, cold start) catches up on the
+    // next minute instead of skipping the day. A skipped call is the idle case.
+    if (new Date().getUTCHours() >= 1) {
       try {
-        const res = await invokeRoute("/api/employee/sweep", env, ctx);
-        console.log(
-          `[cron ${controller.cron}] /api/employee/sweep -> ${res.status} ${await res.text()}`,
-        );
+        const res = await invokeRoute("/api/agent/daily", env, ctx);
+        const body = await res.text();
+        if (!(res.status === 200 && body.includes('"skipped":true'))) {
+          console.log(`[cron ${controller.cron}] /api/agent/daily -> ${res.status} ${body}`);
+        }
       } catch (err) {
-        console.error(`[cron ${controller.cron}] /api/employee/sweep failed:`, err);
+        console.error(`[cron ${controller.cron}] /api/agent/daily failed:`, err);
       }
     }
   },

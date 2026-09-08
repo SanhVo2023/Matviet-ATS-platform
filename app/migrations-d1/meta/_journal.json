@@ -99,6 +99,13 @@
       "when": 1788842402746,
       "tag": "0013_simple_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1788858179505,
+      "tag": "0014_warm_rattler",
+      "breakpoints": true
     }
   ]
 }

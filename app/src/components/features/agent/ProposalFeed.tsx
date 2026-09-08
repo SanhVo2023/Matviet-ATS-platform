@@ -15,6 +15,9 @@ import {
   Sparkles,
   UserCheck,
   X,
+  BadgeCheck,
+  RotateCcw,
+  Ban,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -86,6 +89,22 @@ const KIND_META: Record<
     icon: CalendarPlus,
     tint: "bg-info-bg text-info-fg",
     approveLabel: "Duyệt nghỉ phép",
+  },
+  // Reconcile train — hiring backstops
+  confirm_hire: {
+    icon: BadgeCheck,
+    tint: "bg-success-bg text-success-fg",
+    approveLabel: "Xác nhận tuyển",
+  },
+  retry_scoring: {
+    icon: RotateCcw,
+    tint: "bg-warning-bg text-warning-fg",
+    approveLabel: "Chấm lại",
+  },
+  orphan_approval: {
+    icon: Ban,
+    tint: "bg-slate-100 text-slate-600",
+    approveLabel: "Hủy bước treo",
   },
 };
 

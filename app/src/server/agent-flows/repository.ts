@@ -1,5 +1,17 @@
 import "server-only";
-import { and, desc, eq, getTableColumns, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   agent_proposals,
@@ -66,7 +78,13 @@ export async function createProposal(p: NewProposal): Promise<{ id: string } | n
       dedupe_key: p.dedupeKey,
     })
     .returning({ id: agent_proposals.id })
-    .then((r) => r[0] ?? null);
+    .then((r) => r[0] ?? null)
+    .catch((err: unknown) => {
+      // Lost the race to a concurrent twin (uq_proposals_open_dedupe) — same
+      // outcome as the pre-check: nothing to add.
+      if (String(err).includes("UNIQUE")) return null;
+      throw err;
+    });
 
   if (row) {
     // Bell: a new card is waiting on the Hôm nay feed. Error-swallowing by
@@ -309,4 +327,118 @@ export async function countOpenProposals(): Promise<number> {
     .where(eq(agent_proposals.status, "proposed"))
     .then((r) => r[0] ?? null);
   return row?.n ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// Run log / health (agentic audit P1) — what the assistant proposed, what
+// humans did with it, and what broke. Read by the admin system page.
+// ---------------------------------------------------------------------------
+
+export interface ProposalKindStat {
+  kind: string;
+  proposed: number;
+  executed: number;
+  failed: number;
+  dismissed: number;
+  superseded: number;
+}
+
+export interface ProposalStats {
+  window_days: number;
+  total: number;
+  open: number;
+  executed: number;
+  dismissed: number;
+  failed: number;
+  superseded: number;
+  /** executed / (executed + dismissed) — how often a card was worth showing. */
+  acceptance_rate: number | null;
+  oldest_open_at: string | null;
+  by_kind: ProposalKindStat[];
+  recent_failures: Array<{
+    id: string;
+    kind: string;
+    summary: string;
+    error: string | null;
+    decided_at: string | null;
+  }>;
+}
+
+export async function proposalStats(windowDays = 30): Promise<ProposalStats> {
+  const db = await getDb();
+  const since = new Date(Date.now() - windowDays * 86_400_000).toISOString();
+
+  const grouped = await db
+    .select({
+      kind: agent_proposals.kind,
+      status: agent_proposals.status,
+      n: sql<number>`count(*)`,
+    })
+    .from(agent_proposals)
+    .where(gte(agent_proposals.created_at, since))
+    .groupBy(agent_proposals.kind, agent_proposals.status);
+
+  const byKind = new Map<string, ProposalKindStat>();
+  const totals = { total: 0, open: 0, executed: 0, dismissed: 0, failed: 0, superseded: 0 };
+  for (const g of grouped) {
+    const n = Number(g.n);
+    const k =
+      byKind.get(g.kind) ??
+      ({
+        kind: g.kind,
+        proposed: 0,
+        executed: 0,
+        failed: 0,
+        dismissed: 0,
+        superseded: 0,
+      } as ProposalKindStat);
+    k.proposed += n;
+    totals.total += n;
+    if (g.status === "proposed" || g.status === "approved") totals.open += n;
+    else if (g.status === "executed") {
+      k.executed += n;
+      totals.executed += n;
+    } else if (g.status === "failed") {
+      k.failed += n;
+      totals.failed += n;
+    } else if (g.status === "dismissed") {
+      k.dismissed += n;
+      totals.dismissed += n;
+    } else if (g.status === "superseded") {
+      k.superseded += n;
+      totals.superseded += n;
+    }
+    byKind.set(g.kind, k);
+  }
+
+  const oldestOpen = await db
+    .select({ created_at: agent_proposals.created_at })
+    .from(agent_proposals)
+    .where(eq(agent_proposals.status, "proposed"))
+    .orderBy(asc(agent_proposals.created_at))
+    .limit(1)
+    .then((r) => r[0]?.created_at ?? null);
+
+  const recentFailures = await db
+    .select({
+      id: agent_proposals.id,
+      kind: agent_proposals.kind,
+      summary: agent_proposals.summary,
+      error: agent_proposals.error,
+      decided_at: agent_proposals.decided_at,
+    })
+    .from(agent_proposals)
+    .where(eq(agent_proposals.status, "failed"))
+    .orderBy(desc(agent_proposals.decided_at))
+    .limit(5);
+
+  const decided = totals.executed + totals.dismissed;
+  return {
+    window_days: windowDays,
+    ...totals,
+    acceptance_rate: decided > 0 ? totals.executed / decided : null,
+    oldest_open_at: oldestOpen,
+    by_kind: [...byKind.values()].sort((a, b) => b.proposed - a.proposed),
+    recent_failures: recentFailures,
+  };
 }
