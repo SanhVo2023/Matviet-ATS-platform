@@ -42,18 +42,23 @@ const clean = (v: string | null | undefined): string | null => {
   return s ? s : null;
 };
 
+/** Pure: next "MV####" from existing codes (max numeric suffix + 1). Testable. */
+export function nextEmployeeCode(existingCodes: (string | null | undefined)[]): string {
+  let max = 0;
+  for (const code of existingCodes) {
+    const m = code?.match(/^MV(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `MV${String(max + 1).padStart(4, "0")}`;
+}
+
 /** Next "MV####" code from the current max numeric suffix (low-volume, ≤200 staff). */
 export async function generateEmployeeCode(db: Db): Promise<string> {
   const rows = await db
     .select({ code: employees.employee_code })
     .from(employees)
     .where(like(employees.employee_code, "MV%"));
-  let max = 0;
-  for (const r of rows) {
-    const m = r.code?.match(/^MV(\d+)$/);
-    if (m) max = Math.max(max, parseInt(m[1], 10));
-  }
-  return `MV${String(max + 1).padStart(4, "0")}`;
+  return nextEmployeeCode(rows.map((r) => r.code));
 }
 
 /** Find a position by title within a department, else create it (position catalog grows from hires). */
