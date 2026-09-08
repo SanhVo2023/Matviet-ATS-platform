@@ -4,7 +4,7 @@ You are building an internal-HR ATS for Mắt Việt (Vietnamese optical retail 
 
 **Read this file on every session.** It's the navigator.
 
-> **⚡ PLATFORM (post-pivot, ADRs 0009–0013):** The app runs on **Cloudflare (Workers + D1 + R2 + Queues + Cron + Durable Objects)** at `hr.matviet.com.vn`. The old Supabase+Netlify+Fly stack is fully removed from the repo (2026-07-16). DB work happens in `app/src/db/` (Drizzle) + `app/migrations-d1/`. The old master plan (`~/.claude/plans/mutable-crunching-coral.md` v5.0) is **superseded** where it conflicts with the ADRs. The app is also positioned as the base of an all-in employee management system (ADR 0012) — foundation only, don't build HRIS features without a new directive. Since ADR 0020 the app is **agent-driven, propose-first**: agents prepare actions as feed cards; humans one-tap approve.
+> **⚡ PLATFORM (post-pivot, ADRs 0009–0013):** The app runs on **Cloudflare (Workers + D1 + R2 + Queues + Cron + Durable Objects)** at `hr.matviet.com.vn`. The old Supabase+Netlify+Fly stack is fully removed from the repo (2026-07-16). DB work happens in `app/src/db/` (Drizzle) + `app/migrations-d1/`. The old master plan (`~/.claude/plans/mutable-crunching-coral.md` v5.0) is **superseded** where it conflicts with the ADRs. The app is also positioned as the base of an all-in employee management system (ADR 0012). **As of 2026-09-08 the HRM directive is LIVE** — see `docs/PRD-HRM.md` (v1.0) + ADR 0023: grow into a full agentic HRM (ATS = the Recruiting module), propose-first, traditional HRM UI, integrating **Fastwork** as the system of record for chấm công + tính lương. Build is phased H0–H6; still awaiting Sanh's go on the first build group (don't start H0 code without it). Since ADR 0020 the app is **agent-driven, propose-first**: agents prepare actions as feed cards; humans one-tap approve.
 
 ---
 
@@ -92,7 +92,8 @@ The Next.js app lives in the **`app/` subdirectory**. All npm scripts, `package.
 
 | When you need... | Read |
 |---|---|
-| Product context, FRs, personas, scope decisions | `docs/PRD.md` |
+| Product context, FRs, personas, scope decisions (ATS) | `docs/PRD.md` |
+| **HRM vision** — full employee-lifecycle system, Fastwork integration, agent-per-module, roadmap H0–H6 | `docs/PRD-HRM.md` + ADR 0023 |
 | Database schema, RLS, project structure | `docs/architecture.md` |
 | Design system, page specs, persona-scoped IA, mobile strategy | `docs/ui-ux.md` |
 | Gemini, MS Graph, TopCV/CareerViet specs | `docs/integrations.md` |
