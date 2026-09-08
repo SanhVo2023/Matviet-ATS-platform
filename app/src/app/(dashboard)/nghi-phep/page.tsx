@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { listLeaveRequests } from "@/server/leave/repository";
 import { listEmployeeOptions } from "@/server/employees/repository";
 import { LeaveClient } from "@/components/features/leave/LeaveClient";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +20,11 @@ export default async function LeavePage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl p-6 lg:p-8">
+    <PageContainer size="default">
       <LeaveClient
         leaves={leaves}
         employeeOptions={employeeOptions.map((e) => ({ id: e.id, name: e.name }))}
       />
-    </div>
+    </PageContainer>
   );
 }

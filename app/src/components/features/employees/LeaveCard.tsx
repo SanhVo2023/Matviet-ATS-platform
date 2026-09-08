@@ -1,19 +1,12 @@
 import Link from "next/link";
 import { CalendarClock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { StatusPill } from "@/components/primitives/StatusPill";
+import { LEAVE_STATUS_TONE } from "@/components/features/leave/tones";
 import { t, interpolate } from "@/lib/i18n";
 import { formatDate } from "@/lib/vi-format";
 import type { LeaveBalance } from "@/server/leave/repository";
 import type { LeaveRequestRow } from "@/server/leave/repository";
-import type { Database } from "@/types/db";
-
-const STATUS_CLASS: Record<Database["public"]["Enums"]["leave_status"], string> = {
-  pending: "bg-warning-bg text-warning-fg",
-  approved: "bg-success-bg text-success-fg",
-  rejected: "bg-error-bg text-error-fg",
-  cancelled: "bg-slate-100 text-slate-600",
-};
 
 export function LeaveCard({
   balance,
@@ -53,14 +46,9 @@ export function LeaveCard({
                   {t.leaveType[l.type]} · {formatDate(l.start_date)} → {formatDate(l.end_date)} ·{" "}
                   {l.days} ngày
                 </span>
-                <span
-                  className={cn(
-                    "inline-flex flex-none items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                    STATUS_CLASS[l.status],
-                  )}
-                >
+                <StatusPill tone={LEAVE_STATUS_TONE[l.status]}>
                   {t.leaveStatus[l.status]}
-                </span>
+                </StatusPill>
               </li>
             ))}
           </ul>

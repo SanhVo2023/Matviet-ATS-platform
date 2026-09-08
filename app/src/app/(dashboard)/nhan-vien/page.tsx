@@ -7,6 +7,7 @@ import {
 } from "@/server/employees/repository";
 import { listDepartmentOptions, listPositionOptions } from "@/server/org/repository";
 import { EmployeesListClient } from "@/components/features/employees/EmployeesListClient";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export default async function EmployeesPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <PageContainer size="default">
       <EmployeesListClient
         employees={employees}
         departments={departments.map((d) => ({ id: d.id, label: d.name }))}
@@ -32,6 +33,6 @@ export default async function EmployeesPage() {
         managers={managers.map((m) => ({ id: m.id, label: m.name }))}
         stats={stats}
       />
-    </div>
+    </PageContainer>
   );
 }

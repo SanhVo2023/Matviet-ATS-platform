@@ -9,6 +9,16 @@ import { EmailStatusPill } from "@/components/features/emails/EmailStatusPill";
 import { EmailQueueFilter } from "@/components/features/emails/EmailQueueFilter";
 import { EmailQueueRowActions } from "@/components/features/emails/EmailQueueRowActions";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { PageContainer } from "@/components/primitives/PageContainer";
+import {
+  TableFrame,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { t } from "@/lib/i18n";
 import { formatDateTime } from "@/lib/vi-format";
 import type { Database } from "@/types/db";
@@ -43,7 +53,7 @@ export default async function EmailQueuePage({
   ]);
 
   return (
-    <div className="mx-auto max-w-[1400px] p-6 lg:p-8">
+    <PageContainer size="wide">
       <PageHeader
         icon={Mail}
         title={t.emails.queue.title}
@@ -61,23 +71,23 @@ export default async function EmailQueuePage({
           {t.emails.queue.empty}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">{t.emails.col.candidate}</th>
-                <th className="px-4 py-3">{t.emails.col.subject}</th>
-                <th className="px-4 py-3">{t.emails.col.template}</th>
-                <th className="px-4 py-3">{t.emails.col.status}</th>
-                <th className="px-4 py-3">{t.emails.col.retries}</th>
-                <th className="px-4 py-3">{t.emails.col.created}</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+        <TableFrame>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t.emails.col.candidate}</TableHead>
+                <TableHead>{t.emails.col.subject}</TableHead>
+                <TableHead>{t.emails.col.template}</TableHead>
+                <TableHead>{t.emails.col.status}</TableHead>
+                <TableHead>{t.emails.col.retries}</TableHead>
+                <TableHead>{t.emails.col.created}</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50/60">
-                  <td className="px-4 py-3 align-top">
+                <TableRow key={r.id} className="hover:bg-slate-50/60">
+                  <TableCell className="align-top">
                     {r.candidate ? (
                       <Link
                         href={`/ung-vien/${r.candidate.id}`}
@@ -91,36 +101,38 @@ export default async function EmailQueuePage({
                     <p className="mt-0.5 text-xs text-slate-500">
                       {(r.to_emails ?? []).join(", ")}
                     </p>
-                  </td>
-                  <td className="px-4 py-3 align-top">
+                  </TableCell>
+                  <TableCell className="align-top">
                     <p className="line-clamp-2 max-w-md text-slate-900">{r.subject}</p>
                     {r.error && (
                       <p className="mt-1 line-clamp-2 max-w-md text-xs text-error-fg">{r.error}</p>
                     )}
-                  </td>
-                  <td className="px-4 py-3 align-top text-xs text-slate-600">
+                  </TableCell>
+                  <TableCell className="align-top text-xs text-slate-600">
                     {r.template_code
                       ? (t.emails.templateLabel[
                           r.template_code as keyof typeof t.emails.templateLabel
                         ] ?? r.template_code)
                       : "—"}
-                  </td>
-                  <td className="px-4 py-3 align-top">
+                  </TableCell>
+                  <TableCell className="align-top">
                     <EmailStatusPill status={r.status} />
-                  </td>
-                  <td className="px-4 py-3 align-top text-xs text-slate-600">{r.retry_count}</td>
-                  <td className="px-4 py-3 align-top text-xs text-slate-500">
+                  </TableCell>
+                  <TableCell className="align-top text-xs text-slate-600">
+                    {r.retry_count}
+                  </TableCell>
+                  <TableCell className="align-top text-xs text-slate-500">
                     {r.sent_at ? formatDateTime(r.sent_at) : formatDateTime(r.created_at)}
-                  </td>
-                  <td className="px-4 py-3 align-top">
+                  </TableCell>
+                  <TableCell className="align-top">
                     <EmailQueueRowActions id={r.id} status={r.status} />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableFrame>
       )}
-    </div>
+    </PageContainer>
   );
 }

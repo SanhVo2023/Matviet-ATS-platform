@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ShieldX } from "lucide-react";
 import { EmptyState } from "@/components/primitives/EmptyState";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth";
 import { t } from "@/lib/i18n";
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function NoPermissionPage() {
   const profile = await requireSession();
   return (
-    <div className="mx-auto max-w-3xl p-6 lg:p-8">
+    <PageContainer size="narrow">
       <EmptyState
         icon={ShieldX}
         title="Bạn không có quyền xem trang này"
@@ -29,6 +30,6 @@ export default async function NoPermissionPage() {
           </Button>
         }
       />
-    </div>
+    </PageContainer>
   );
 }

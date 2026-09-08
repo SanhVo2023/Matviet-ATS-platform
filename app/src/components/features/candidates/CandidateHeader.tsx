@@ -2,10 +2,10 @@ import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StageDropdown } from "./StageDropdown";
 import { ScoringStatusPill } from "@/components/features/scoring/ScoringStatusPill";
+import { StatusPill } from "@/components/primitives/StatusPill";
 import type { CandidateRow } from "@/server/candidates/repository";
 import { CLOSED_GROUP, groupOfStage, type Stage } from "@/lib/validation/candidate";
 import { initials } from "@/lib/vi-format";
-import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 
 interface Props {
@@ -51,14 +51,9 @@ export function CandidateHeader({ candidate, jobTitle, jobId, readOnly, aiSummar
             <ScoringStatusPill status={candidate.ai_screening_status} />
           )}
           {isClosed ? (
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-xs font-semibold",
-                stage === "rejected" ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-600",
-              )}
-            >
+            <StatusPill tone={stage === "rejected" ? "error" : "neutral"} size="sm">
               Đã đóng — {t.stage[stage]}
-            </span>
+            </StatusPill>
           ) : null}
         </div>
         <p className="mt-0.5 text-sm text-slate-500">

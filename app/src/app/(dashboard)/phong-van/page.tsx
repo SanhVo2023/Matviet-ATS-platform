@@ -11,6 +11,7 @@ import { getCandidate } from "@/server/candidates/repository";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { EmptyState } from "@/components/primitives/EmptyState";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
@@ -50,7 +51,7 @@ export default async function InterviewsPage({
     );
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-6 lg:p-8">
+    <PageContainer size="detail" className="space-y-4">
       <PageHeader
         icon={Calendar}
         title={t.nav.interviews}
@@ -138,6 +139,6 @@ export default async function InterviewsPage({
           })}
         </ul>
       )}
-    </div>
+    </PageContainer>
   );
 }

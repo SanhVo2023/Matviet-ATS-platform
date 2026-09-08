@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SimpleSelect } from "@/components/ui/select";
 import { DateInput } from "@/components/primitives/DateInput";
 import { SlideOver } from "@/components/primitives/SlideOver";
+import { StatusPill, type PillTone } from "@/components/primitives/StatusPill";
 import { cn } from "@/lib/utils";
 import { t, interpolate } from "@/lib/i18n";
 import { formatDate, formatVND } from "@/lib/vi-format";
@@ -26,10 +27,10 @@ import type { ContractRow } from "@/server/contracts/repository";
 import type { ContractInput } from "@/server/contracts/service";
 import type { Database } from "@/types/db";
 
-const STATUS_CLASS: Record<Database["public"]["Enums"]["contract_status"], string> = {
-  active: "bg-success-bg text-success-fg",
-  expired: "bg-warning-bg text-warning-fg",
-  ended: "bg-slate-100 text-slate-600",
+const STATUS_TONE: Record<Database["public"]["Enums"]["contract_status"], PillTone> = {
+  active: "success",
+  expired: "warning",
+  ended: "neutral",
 };
 
 function daysUntil(dateIso: string | null): number | null {
@@ -99,14 +100,9 @@ export function ContractsCard({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-brand-900">{t.contractType[c.type]}</span>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                          STATUS_CLASS[c.status],
-                        )}
-                      >
+                      <StatusPill tone={STATUS_TONE[c.status]}>
                         {t.contractStatus[c.status]}
-                      </span>
+                      </StatusPill>
                       {c.contract_no ? (
                         <span className="text-xs text-slate-400">#{c.contract_no}</span>
                       ) : null}

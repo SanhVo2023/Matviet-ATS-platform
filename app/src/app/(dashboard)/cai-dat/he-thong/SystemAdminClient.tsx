@@ -7,6 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  TableFrame,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
 import { t } from "@/lib/i18n";
 import type { Database as Db } from "@/types/db";
@@ -196,32 +205,32 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
           </div>
 
           {ai.usageByFeature.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500">
-                    <th className="px-2 py-2">Tính năng (7 ngày)</th>
-                    <th className="px-2 py-2 text-right">Lượt</th>
-                    <th className="px-2 py-2 text-right">Token vào/ra</th>
-                    <th className="px-2 py-2 text-right">Chi phí</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
+            <TableFrame>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tính năng (7 ngày)</TableHead>
+                    <TableHead className="text-right">Lượt</TableHead>
+                    <TableHead className="text-right">Token vào/ra</TableHead>
+                    <TableHead className="text-right">Chi phí</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {ai.usageByFeature.map((u) => (
-                    <tr key={u.feature}>
-                      <td className="px-2 py-2 font-medium text-slate-700">
+                    <TableRow key={u.feature}>
+                      <TableCell className="font-medium text-slate-700">
                         {FEATURE_LABEL[u.feature] ?? u.feature}
-                      </td>
-                      <td className="px-2 py-2 text-right tabular-nums">{u.calls}</td>
-                      <td className="px-2 py-2 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{u.calls}</TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {u.tokensIn.toLocaleString("vi-VN")} / {u.tokensOut.toLocaleString("vi-VN")}
-                      </td>
-                      <td className="px-2 py-2 text-right tabular-nums">{usd(u.cost)}</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{usd(u.cost)}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableFrame>
           )}
 
           {ai.recentCalls.length > 0 && (
@@ -328,36 +337,36 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500">
-                  <th className="px-2 py-2">Thành viên</th>
-                  <th className="px-2 py-2">Vai trò</th>
-                  <th className="px-2 py-2">Trạng thái</th>
-                  <th className="px-2 py-2 text-right">Phiên đang mở</th>
-                  <th className="px-2 py-2">Hoạt động gần nhất</th>
-                  <th className="px-2 py-2 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
+          <TableFrame>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Thành viên</TableHead>
+                  <TableHead>Vai trò</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                  <TableHead className="text-right">Phiên đang mở</TableHead>
+                  <TableHead>Hoạt động gần nhất</TableHead>
+                  <TableHead className="text-right">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50">
-                    <td className="px-2 py-2">
+                  <TableRow key={u.id} className="hover:bg-slate-50">
+                    <TableCell>
                       <p className="font-medium text-slate-800">{u.name}</p>
                       <p className="text-xs text-slate-500">{u.email}</p>
-                    </td>
-                    <td className="px-2 py-2 text-slate-600">{t.userRole[u.role]}</td>
-                    <td className="px-2 py-2">
+                    </TableCell>
+                    <TableCell className="text-slate-600">{t.userRole[u.role]}</TableCell>
+                    <TableCell>
                       <Badge tone={u.isActive ? "success" : "neutral"}>
                         {u.isActive ? "Hoạt động" : "Vô hiệu"}
                       </Badge>
-                    </td>
-                    <td className="px-2 py-2 text-right tabular-nums">{u.activeSessions}</td>
-                    <td className="px-2 py-2 text-xs text-slate-500">
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{u.activeSessions}</TableCell>
+                    <TableCell className="text-xs text-slate-500">
                       {u.lastActive ? formatDateTime(u.lastActive) : "—"}
-                    </td>
-                    <td className="px-2 py-2 text-right">
+                    </TableCell>
+                    <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -366,12 +375,12 @@ export function SystemAdminClient({ ai, queues, users }: Props) {
                       >
                         Thu hồi phiên
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableFrame>
         </CardContent>
       </Card>
     </div>

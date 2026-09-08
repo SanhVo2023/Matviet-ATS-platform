@@ -11,6 +11,7 @@ import {
 } from "@/lib/validation/candidate";
 import { deriveCandidateStatus, type StatusRelated } from "@/lib/candidate-status";
 import { scoreVerdict } from "@/lib/stage-visuals";
+import { StatusPill, type PillTone } from "@/components/primitives/StatusPill";
 import { STEP_LABEL_VI } from "@/server/approvals/presets";
 import type { CandidateRow, StageHistoryRow } from "@/server/candidates/repository";
 import type { JobRow } from "@/server/jobs/repository";
@@ -28,6 +29,13 @@ import { EvaluationsSummary, evaluationTally } from "./EvaluationsSummary";
 import { RungActions } from "./RungActions";
 
 type Role = Database["public"]["Enums"]["user_role"];
+
+/** Maps `scoreVerdict()`'s semantic className to a StatusPill tone. */
+const VERDICT_TONE: Record<string, PillTone> = {
+  "bg-success-bg text-success-fg": "success",
+  "bg-warning-bg text-warning-fg": "warning",
+  "bg-error-bg text-error-fg": "error",
+};
 
 interface Props {
   candidate: CandidateRow;
@@ -185,11 +193,9 @@ function rungSummary(groupId: string, props: Props): React.ReactNode {
           <span className="font-bold tabular-nums text-brand-900">
             {Math.round(candidate.ai_score)}
           </span>
-          <span
-            className={cn("ml-1.5 rounded-full px-2 py-0.5 text-xs font-semibold", v.className)}
-          >
+          <StatusPill tone={VERDICT_TONE[v.className] ?? "neutral"} size="sm" className="ml-1.5">
             {v.label}
-          </span>
+          </StatusPill>
           <span className="ml-1.5 text-xs text-slate-400">Nguồn: {t.source[candidate.source]}</span>
         </span>
       );

@@ -8,6 +8,7 @@ import { listTasksForEmployee } from "@/server/onboarding/repository";
 import { leaveBalanceForEmployee, listLeaveForEmployee } from "@/server/leave/repository";
 import { listOffboardingTasks } from "@/server/offboarding/service";
 import { EmployeeProfile } from "@/components/features/employees/EmployeeProfile";
+import { PageContainer } from "@/components/primitives/PageContainer";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
   if (!detail) notFound();
 
   return (
-    <div className="mx-auto max-w-5xl p-6 lg:p-8">
+    <PageContainer size="detail">
       <EmployeeProfile
         detail={detail}
         departments={departments.map((d) => ({ id: d.id, label: d.name }))}
@@ -61,6 +62,6 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         leaveRequests={leaveRequests}
         offboardingTasks={offboardingTasks}
       />
-    </div>
+    </PageContainer>
   );
 }

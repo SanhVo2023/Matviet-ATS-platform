@@ -7,6 +7,7 @@ import { getAssessmentForJob } from "@/server/assessments/repository";
 import { JobAssessmentSettings } from "@/components/features/assessments/JobAssessmentSettings";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export default async function JobAssessmentSettingsPage({
   const existing = await getAssessmentForJob(jobId);
 
   return (
-    <div className="mx-auto max-w-3xl p-6 lg:p-8">
+    <PageContainer size="narrow">
       <PageHeader
         back="/cai-dat/bai-test"
         backLabel="Tất cả vị trí"
@@ -65,6 +66,6 @@ export default async function JobAssessmentSettingsPage({
           />
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

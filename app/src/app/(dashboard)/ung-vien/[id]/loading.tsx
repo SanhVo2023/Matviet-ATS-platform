@@ -1,9 +1,10 @@
 import { Skeleton, SkeletonCard } from "@/components/primitives/Skeleton";
+import { PageContainer } from "@/components/primitives/PageContainer";
 
 /** Candidate ladder outline: header card, 4 rungs, reference rail. */
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-[1400px] space-y-5 p-6 lg:p-8" aria-busy="true">
+    <PageContainer size="wide" className="space-y-5" aria-busy="true">
       <Skeleton className="h-4 w-24" />
       <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-5">
         <Skeleton className="h-16 w-16 rounded-full" />
@@ -27,6 +28,6 @@ export default function Loading() {
           <SkeletonCard lines={2} />
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

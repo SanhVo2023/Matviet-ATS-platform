@@ -9,6 +9,7 @@ import {
 
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { ApprovalDigestCard } from "@/components/features/approvals/ApprovalDigestCard";
 import { t } from "@/lib/i18n";
 import { STEP_LABEL_VI } from "@/server/approvals/presets";
@@ -49,7 +50,7 @@ export default async function ApprovalsInboxPage() {
   if (isExec) {
     const digests = await listPendingApprovalDigestsForUser(profile.id, profile.role);
     return (
-      <div className="mx-auto max-w-3xl space-y-4 p-6 lg:p-8">
+      <PageContainer size="narrow" className="space-y-4">
         {header}
         {digests.length === 0 ? (
           Empty
@@ -60,13 +61,13 @@ export default async function ApprovalsInboxPage() {
             ))}
           </div>
         )}
-      </div>
+      </PageContainer>
     );
   }
 
   const pending = await listPendingApprovalsForUser(profile.id, profile.role);
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-6 lg:p-8">
+    <PageContainer size="detail" className="space-y-4">
       {header}
       {pending.length === 0 ? (
         Empty
@@ -93,6 +94,6 @@ export default async function ApprovalsInboxPage() {
           ))}
         </ul>
       )}
-    </div>
+    </PageContainer>
   );
 }

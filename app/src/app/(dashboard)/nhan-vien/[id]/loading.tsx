@@ -1,9 +1,10 @@
 import { Skeleton, SkeletonCard } from "@/components/primitives/Skeleton";
+import { PageContainer } from "@/components/primitives/PageContainer";
 
 /** Employee profile outline: identity header + card grid. */
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6 lg:p-8" aria-busy="true">
+    <PageContainer size="detail" className="space-y-6" aria-busy="true">
       <div className="flex items-start gap-3">
         <Skeleton className="h-9 w-9 rounded-md" />
         <Skeleton className="h-12 w-12 rounded-full" />
@@ -17,6 +18,6 @@ export default function Loading() {
           <SkeletonCard key={i} lines={i < 2 ? 6 : 3} />
         ))}
       </div>
-    </div>
+    </PageContainer>
   );
 }

@@ -7,6 +7,15 @@ import { Building2, Plus, Pencil, Trash2, Briefcase, CornerDownRight } from "luc
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { SlideOver } from "@/components/primitives/SlideOver";
+import {
+  TableFrame,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,84 +121,82 @@ export function OrgClient({ departments, positions, departmentOptions, heads }: 
         {departments.length === 0 ? (
           <EmptyState illustration="building" title={t.department.empty} />
         ) : (
-          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <tr className="border-b border-slate-200">
-                    <th className="px-4 py-2.5">{t.department.name}</th>
-                    <th className="px-4 py-2.5">{t.department.parent}</th>
-                    <th className="px-4 py-2.5">{t.department.head}</th>
-                    <th className="px-4 py-2.5 text-right">{t.nav.employees}</th>
-                    <th className="px-4 py-2.5 text-right">{t.department.positions}</th>
-                    <th className="px-4 py-2.5" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {ordered.map(({ d, depth }) => (
-                    <tr key={d.id} className="border-b border-slate-100 last:border-0">
-                      <td className="px-4 py-3 font-medium text-brand-900">
-                        <span
-                          className="inline-flex items-center"
-                          style={{ paddingLeft: depth * 20 }}
-                        >
-                          {depth > 0 ? (
-                            <CornerDownRight
-                              className="mr-1.5 h-3.5 w-3.5 text-slate-300"
-                              aria-hidden
-                            />
-                          ) : null}
-                          {d.name}
-                        </span>
-                        {d.code ? (
-                          <span className="ml-2 text-xs text-slate-400">{d.code}</span>
+          <TableFrame>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.department.name}</TableHead>
+                  <TableHead>{t.department.parent}</TableHead>
+                  <TableHead>{t.department.head}</TableHead>
+                  <TableHead className="text-right">{t.nav.employees}</TableHead>
+                  <TableHead className="text-right">{t.department.positions}</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ordered.map(({ d, depth }) => (
+                  <TableRow key={d.id}>
+                    <TableCell className="font-medium text-brand-900">
+                      <span
+                        className="inline-flex items-center"
+                        style={{ paddingLeft: depth * 20 }}
+                      >
+                        {depth > 0 ? (
+                          <CornerDownRight
+                            className="mr-1.5 h-3.5 w-3.5 text-slate-300"
+                            aria-hidden
+                          />
                         ) : null}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{d.parent_name ?? "—"}</td>
-                      <td className="px-4 py-3 text-slate-600">{d.head_name ?? "—"}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                        {d.employee_count}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                        {d.position_count}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
+                        {d.name}
+                      </span>
+                      {d.code ? (
+                        <span className="ml-2 text-xs text-slate-400">{d.code}</span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-slate-600">{d.parent_name ?? "—"}</TableCell>
+                    <TableCell className="text-slate-600">{d.head_name ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums text-slate-700">
+                      {d.employee_count}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-slate-700">
+                      {d.position_count}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeptForm({ open: true, edit: d })}
+                          aria-label={t.action.edit}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden />
+                        </Button>
+                        {confirmKey === `dept:${d.id}` ? (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={busy}
+                            onClick={() => onDeleteDept(d.id)}
+                          >
+                            {t.action.confirm}
+                          </Button>
+                        ) : (
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => setDeptForm({ open: true, edit: d })}
-                            aria-label={t.action.edit}
+                            onClick={() => setConfirmKey(`dept:${d.id}`)}
+                            aria-label={t.action.delete}
                           >
-                            <Pencil className="h-4 w-4" aria-hidden />
+                            <Trash2 className="h-4 w-4 text-error-fg" aria-hidden />
                           </Button>
-                          {confirmKey === `dept:${d.id}` ? (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              disabled={busy}
-                              onClick={() => onDeleteDept(d.id)}
-                            >
-                              {t.action.confirm}
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setConfirmKey(`dept:${d.id}`)}
-                              aria-label={t.action.delete}
-                            >
-                              <Trash2 className="h-4 w-4 text-error-fg" aria-hidden />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableFrame>
         )}
       </div>
 
@@ -208,62 +215,60 @@ export function OrgClient({ departments, positions, departmentOptions, heads }: 
         {positions.length === 0 ? (
           <EmptyState icon={Briefcase} title={t.department.noPositions} />
         ) : (
-          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <tr className="border-b border-slate-200">
-                    <th className="px-4 py-2.5">{t.department.positionTitle}</th>
-                    <th className="px-4 py-2.5">{t.employee.fields.department}</th>
-                    <th className="px-4 py-2.5 text-right">{t.nav.employees}</th>
-                    <th className="px-4 py-2.5" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {positions.map((p) => (
-                    <tr key={p.id} className="border-b border-slate-100 last:border-0">
-                      <td className="px-4 py-3 font-medium text-brand-900">{p.title}</td>
-                      <td className="px-4 py-3 text-slate-600">{p.department_name ?? "—"}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                        {p.employee_count}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
+          <TableFrame>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.department.positionTitle}</TableHead>
+                  <TableHead>{t.employee.fields.department}</TableHead>
+                  <TableHead className="text-right">{t.nav.employees}</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {positions.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium text-brand-900">{p.title}</TableCell>
+                    <TableCell className="text-slate-600">{p.department_name ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums text-slate-700">
+                      {p.employee_count}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPosForm({ open: true, edit: p })}
+                          aria-label={t.action.edit}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden />
+                        </Button>
+                        {confirmKey === `pos:${p.id}` ? (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={busy}
+                            onClick={() => onDeletePos(p.id)}
+                          >
+                            {t.action.confirm}
+                          </Button>
+                        ) : (
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => setPosForm({ open: true, edit: p })}
-                            aria-label={t.action.edit}
+                            onClick={() => setConfirmKey(`pos:${p.id}`)}
+                            aria-label={t.action.delete}
                           >
-                            <Pencil className="h-4 w-4" aria-hidden />
+                            <Trash2 className="h-4 w-4 text-error-fg" aria-hidden />
                           </Button>
-                          {confirmKey === `pos:${p.id}` ? (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              disabled={busy}
-                              onClick={() => onDeletePos(p.id)}
-                            >
-                              {t.action.confirm}
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setConfirmKey(`pos:${p.id}`)}
-                              aria-label={t.action.delete}
-                            >
-                              <Trash2 className="h-4 w-4 text-error-fg" aria-hidden />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableFrame>
         )}
       </div>
 

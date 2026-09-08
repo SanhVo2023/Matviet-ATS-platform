@@ -8,6 +8,7 @@ import { getDb } from "@/db";
 import { assessments } from "@/db/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export default async function BaiTestSettingsListPage() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl p-6 lg:p-8">
+    <PageContainer size="detail">
       <PageHeader
         icon={ClipboardCheck}
         title={t.assessment.tabTitle}
@@ -87,6 +88,6 @@ export default async function BaiTestSettingsListPage() {
           </ul>
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

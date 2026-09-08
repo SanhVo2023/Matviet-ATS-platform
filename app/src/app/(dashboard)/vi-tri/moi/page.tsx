@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
 import { listDepartments, listHiringManagers } from "@/server/jobs/repository";
 import { CreateJobClient } from "./CreateJobClient";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { t } from "@/lib/i18n";
 
 /**
@@ -17,7 +18,7 @@ export default async function NewJobPage() {
   const [departments, managers] = await Promise.all([listDepartments(), listHiringManagers()]);
 
   return (
-    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+    <PageContainer size="default">
       <CreateJobClient
         departments={departments}
         managerOptions={managers.map((m) => ({
@@ -26,6 +27,6 @@ export default async function NewJobPage() {
           department_name: m.department_name,
         }))}
       />
-    </div>
+    </PageContainer>
   );
 }

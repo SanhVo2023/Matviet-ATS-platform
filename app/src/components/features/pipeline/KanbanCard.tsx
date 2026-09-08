@@ -146,7 +146,7 @@ export function KanbanCard({ candidate, overlay }: Props) {
                 onChange={(e) => {
                   if (e.target.value) onMobileStage(e.target.value as Stage);
                 }}
-                className="mt-2 h-9 w-full rounded border border-slate-200 bg-white px-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-ring md:hidden"
+                className="mt-2 h-9 w-full rounded border border-slate-200 bg-white px-2 text-xs text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
               >
                 <option value="">Chuyển sang…</option>
                 {mobileTargets.map((s) => (

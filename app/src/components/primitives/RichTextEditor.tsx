@@ -58,7 +58,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class: cn(
-          "prose prose-sm max-w-none min-h-[120px] focus:outline-none",
+          "prose prose-sm max-w-none min-h-[120px] focus-visible:outline-none",
           "prose-headings:text-slate-900 prose-p:text-slate-700 prose-strong:text-slate-900",
           "prose-li:my-0 prose-ul:my-2 prose-ol:my-2",
           "[&_p.is-editor-empty:first-child]:before:text-slate-400",

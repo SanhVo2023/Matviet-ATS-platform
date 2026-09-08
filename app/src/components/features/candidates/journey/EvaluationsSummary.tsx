@@ -1,13 +1,13 @@
-import { cn } from "@/lib/utils";
+import { StatusPill, type PillTone } from "@/components/primitives/StatusPill";
 import { t } from "@/lib/i18n";
 import { formatVND, formatDate } from "@/lib/vi-format";
 import type { CandidateEvaluationRow } from "@/server/interviews/repository";
 
-const REC_CHIP: Record<string, string> = {
-  strong_yes: "bg-emerald-100 text-emerald-800",
-  yes: "bg-emerald-50 text-emerald-700",
-  maybe: "bg-amber-50 text-amber-700",
-  no: "bg-rose-50 text-rose-700",
+const REC_TONE: Record<string, PillTone> = {
+  strong_yes: "success",
+  yes: "success",
+  maybe: "warning",
+  no: "error",
 };
 
 /** "n/total đề xuất tuyển" — positive = strong_yes | yes. */
@@ -43,14 +43,13 @@ export function EvaluationsSummary({
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         Đánh giá phỏng vấn
         {total > 0 ? (
-          <span
-            className={cn(
-              "ml-2 rounded-full px-2 py-0.5 font-semibold normal-case tracking-normal",
-              positive === total ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700",
-            )}
+          <StatusPill
+            tone={positive === total ? "success" : "warning"}
+            size="sm"
+            className="ml-2 normal-case tracking-normal"
           >
             {positive}/{total} đề xuất tuyển
-          </span>
+          </StatusPill>
         ) : null}
       </p>
       <ul className="divide-y divide-slate-100 rounded-md border border-slate-200 bg-white">
@@ -61,14 +60,9 @@ export function EvaluationsSummary({
                 {names[e.evaluator_user_id] ?? "—"}
               </span>
               {e.recommendation ? (
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-2xs font-semibold",
-                    REC_CHIP[e.recommendation],
-                  )}
-                >
+                <StatusPill tone={REC_TONE[e.recommendation]} size="sm">
                   {t.recommendation[e.recommendation]}
-                </span>
+                </StatusPill>
               ) : null}
               <span className="ml-auto text-xs text-slate-400">
                 PV {formatDate(e.scheduled_at)}

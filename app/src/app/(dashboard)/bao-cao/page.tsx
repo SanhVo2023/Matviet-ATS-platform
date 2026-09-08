@@ -14,6 +14,7 @@ import { StageConversionChart } from "@/components/features/reports/StageConvers
 import { HiresPerMonthChart } from "@/components/features/reports/HiresPerMonthChart";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { Stagger, StaggerItem } from "@/components/motion";
 import { t } from "@/lib/i18n";
 import { formatDate } from "@/lib/vi-format";
@@ -50,7 +51,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   const hasData = payload.total_candidates > 0;
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-4 p-6 lg:p-8">
+    <PageContainer size="wide" className="space-y-4">
       <PageHeader
         icon={BarChart3}
         title={t.nav.reports}
@@ -118,7 +119,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
           </StaggerItem>
         </Stagger>
       )}
-    </div>
+    </PageContainer>
   );
 }
 

@@ -32,6 +32,7 @@ import {
 } from "@/components/features/candidates/CandidateReferenceRail";
 import { ChangeCvButton } from "@/components/features/candidates/ChangeCvButton";
 import { ComposeEmailButton } from "@/components/features/emails/ComposeEmailButton";
+import { PageContainer } from "@/components/primitives/PageContainer";
 
 export const dynamic = "force-dynamic";
 
@@ -159,7 +160,7 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
   }));
 
   return (
-    <div className="mx-auto max-w-[1400px] p-6 lg:p-8">
+    <PageContainer size="wide">
       {/* Back to the candidates table (every detail page gets a way back) */}
       <Link
         href="/ung-vien"
@@ -224,6 +225,6 @@ export default async function CandidateDetailPage({ params }: { params: Promise<
           />
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

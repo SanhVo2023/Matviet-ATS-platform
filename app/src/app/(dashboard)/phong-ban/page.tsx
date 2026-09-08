@@ -7,6 +7,7 @@ import {
   listHeadOptions,
 } from "@/server/org/repository";
 import { OrgClient } from "@/components/features/org/OrgClient";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -23,13 +24,13 @@ export default async function OrgPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-6xl p-6 lg:p-8">
+    <PageContainer size="default">
       <OrgClient
         departments={departments}
         positions={positions}
         departmentOptions={departmentOptions.map((d) => ({ id: d.id, name: d.name }))}
         heads={heads}
       />
-    </div>
+    </PageContainer>
   );
 }

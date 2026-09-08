@@ -7,13 +7,22 @@ import { CalendarClock, Plus, Check, X } from "lucide-react";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { SlideOver } from "@/components/primitives/SlideOver";
+import { StatusPill } from "@/components/primitives/StatusPill";
+import {
+  TableFrame,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { SimpleSelect } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
 import { DateInput } from "@/components/primitives/DateInput";
-import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { formatDate } from "@/lib/vi-format";
 import { LEAVE_TYPES } from "@/db/schema";
@@ -26,14 +35,8 @@ import {
 } from "@/app/(dashboard)/nghi-phep/actions";
 import type { LeaveListItem, LeaveBalance } from "@/server/leave/repository";
 import type { LeaveRequestInput } from "@/server/leave/service";
-import type { Database } from "@/types/db";
 
-const STATUS_CLASS: Record<Database["public"]["Enums"]["leave_status"], string> = {
-  pending: "bg-warning-bg text-warning-fg",
-  approved: "bg-success-bg text-success-fg",
-  rejected: "bg-error-bg text-error-fg",
-  cancelled: "bg-slate-100 text-slate-600",
-};
+import { LEAVE_STATUS_TONE } from "./tones";
 
 type Option = { id: string; name: string };
 
@@ -110,83 +113,78 @@ export function LeaveClient({
         {filtered.length === 0 ? (
           <EmptyState illustration="calendar" title={t.leave.empty} />
         ) : (
-          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <tr className="border-b border-slate-200">
-                    <th className="px-4 py-2.5">{t.leave.employee}</th>
-                    <th className="px-4 py-2.5">{t.leave.type}</th>
-                    <th className="px-4 py-2.5">
-                      {t.leave.from} → {t.leave.to}
-                    </th>
-                    <th className="px-4 py-2.5 text-right">{t.leave.days}</th>
-                    <th className="px-4 py-2.5">{t.leave.status}</th>
-                    <th className="px-4 py-2.5" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((l) => (
-                    <tr key={l.id} className="border-b border-slate-100 last:border-0">
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-brand-900">{l.employee_name}</div>
-                        <div className="text-xs text-slate-400">{l.department_name ?? "—"}</div>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{t.leaveType[l.type]}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {formatDate(l.start_date)} → {formatDate(l.end_date)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-slate-700">{l.days}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                            STATUS_CLASS[l.status],
-                          )}
-                        >
-                          {t.leaveStatus[l.status]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          {l.status === "pending" ? (
-                            <>
-                              <Button
-                                size="sm"
-                                disabled={busy === l.id}
-                                onClick={() => decide(l.id, "approved")}
-                              >
-                                <Check className="mr-1 h-4 w-4" aria-hidden />
-                                {t.leave.approve}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={busy === l.id}
-                                onClick={() => setRejecting(l)}
-                              >
-                                <X className="mr-1 h-4 w-4" aria-hidden />
-                                {t.leave.reject}
-                              </Button>
-                            </>
-                          ) : l.status === "approved" ? (
+          <TableFrame>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.leave.employee}</TableHead>
+                  <TableHead>{t.leave.type}</TableHead>
+                  <TableHead>
+                    {t.leave.from} → {t.leave.to}
+                  </TableHead>
+                  <TableHead className="text-right">{t.leave.days}</TableHead>
+                  <TableHead>{t.leave.status}</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell>
+                      <div className="font-medium text-brand-900">{l.employee_name}</div>
+                      <div className="text-xs text-slate-400">{l.department_name ?? "—"}</div>
+                    </TableCell>
+                    <TableCell className="text-slate-600">{t.leaveType[l.type]}</TableCell>
+                    <TableCell className="text-slate-600">
+                      {formatDate(l.start_date)} → {formatDate(l.end_date)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-slate-700">
+                      {l.days}
+                    </TableCell>
+                    <TableCell>
+                      <StatusPill tone={LEAVE_STATUS_TONE[l.status]}>
+                        {t.leaveStatus[l.status]}
+                      </StatusPill>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        {l.status === "pending" ? (
+                          <>
                             <Button
                               size="sm"
-                              variant="ghost"
                               disabled={busy === l.id}
-                              onClick={() => cancel(l.id)}
+                              onClick={() => decide(l.id, "approved")}
                             >
-                              {t.leave.cancel}
+                              <Check className="mr-1 h-4 w-4" aria-hidden />
+                              {t.leave.approve}
                             </Button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy === l.id}
+                              onClick={() => setRejecting(l)}
+                            >
+                              <X className="mr-1 h-4 w-4" aria-hidden />
+                              {t.leave.reject}
+                            </Button>
+                          </>
+                        ) : l.status === "approved" ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy === l.id}
+                            onClick={() => cancel(l.id)}
+                          >
+                            {t.leave.cancel}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableFrame>
         )}
       </div>
 

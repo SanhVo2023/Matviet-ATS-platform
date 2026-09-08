@@ -41,6 +41,7 @@ import {
 import { getHrmSnapshot, type HrmSnapshot } from "@/server/dashboard/hrm";
 import { StageBadge, JobStatusBadge } from "@/components/primitives/StatusBadge";
 import { CountUp } from "@/components/primitives/CountUp";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
 import { t, tf } from "@/lib/i18n";
@@ -263,7 +264,7 @@ function HrDashboard({
   ];
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 p-4 lg:p-6">
+    <PageContainer size="default" className="space-y-5">
       {/* Compact header: greeting left, live counters right — the three huge
           stat cards folded into pills (2026-07-16 compact redesign). */}
       <FadeIn>
@@ -361,7 +362,7 @@ function HrDashboard({
           interviews={<TodaySchedulePanel interviews={data.todayInterviews} />}
         />
       </FadeIn>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -469,7 +470,7 @@ function ManagerInbox({
   proposals: FeedProposal[];
 }) {
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6 lg:p-8">
+    <PageContainer size="detail" className="space-y-6">
       <FadeIn>
         <header>
           <h1 className="text-2xl font-extrabold tracking-tight text-brand-900">
@@ -552,13 +553,13 @@ function ManagerInbox({
           </CardContent>
         )}
       </Card>
-    </div>
+    </PageContainer>
   );
 }
 
 function ExecApprovalQueue({ name, digests }: { name: string; digests: PendingApprovalDigest[] }) {
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6 lg:p-8">
+    <PageContainer size="narrow" className="space-y-6">
       <FadeIn>
         <header>
           <h1 className="text-2xl font-extrabold tracking-tight text-brand-900">
@@ -587,7 +588,7 @@ function ExecApprovalQueue({ name, digests }: { name: string; digests: PendingAp
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { getEmployeeBySourceCandidate } from "@/server/employees/repository";
 import { EmptyState } from "@/components/primitives/EmptyState";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { Button } from "@/components/ui/button";
 import { ConvertCandidateButton } from "@/components/features/employees/ConvertCandidateButton";
 import { t } from "@/lib/i18n";
@@ -29,7 +30,7 @@ export default async function FromCandidatePage({
   if (employee) redirect(`/nhan-vien/${employee.id}`);
 
   return (
-    <div className="mx-auto max-w-3xl p-6 lg:p-8">
+    <PageContainer size="narrow">
       <EmptyState
         illustration="people"
         title="Chưa có hồ sơ nhân viên cho ứng viên này"
@@ -43,6 +44,6 @@ export default async function FromCandidatePage({
           </div>
         }
       />
-    </div>
+    </PageContainer>
   );
 }
