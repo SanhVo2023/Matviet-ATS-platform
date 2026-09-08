@@ -10,6 +10,7 @@ import {
   cancelLeave,
   type LeaveRequestInput,
 } from "@/server/leave/service";
+import { leaveBalanceForEmployee, type LeaveBalance } from "@/server/leave/repository";
 
 export type ActionResult<T = unknown> = { ok: true; data?: T } | { ok: false; error: string };
 
@@ -75,5 +76,17 @@ export async function cancelLeaveAction(id: string): Promise<ActionResult> {
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Lỗi hủy" };
+  }
+}
+
+/** Balance preview for the leave form — read-only, so any staff role may ask. */
+export async function getLeaveBalanceAction(
+  employeeId: string,
+): Promise<ActionResult<LeaveBalance>> {
+  await requireRole(["admin", "hr", "hiring_manager"]);
+  try {
+    return { ok: true, data: await leaveBalanceForEmployee(employeeId) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Lỗi tra cứu" };
   }
 }

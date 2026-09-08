@@ -20,8 +20,9 @@ import {
   createLeaveAction,
   decideLeaveAction,
   cancelLeaveAction,
+  getLeaveBalanceAction,
 } from "@/app/(dashboard)/nghi-phep/actions";
-import type { LeaveListItem } from "@/server/leave/repository";
+import type { LeaveListItem, LeaveBalance } from "@/server/leave/repository";
 import type { LeaveRequestInput } from "@/server/leave/service";
 import type { Database } from "@/types/db";
 
@@ -48,15 +49,16 @@ export function LeaveClient({
   const [status, setStatus] = React.useState("all");
   const [formOpen, setFormOpen] = React.useState(false);
   const [busy, setBusy] = React.useState<string | null>(null);
+  const [rejecting, setRejecting] = React.useState<LeaveListItem | null>(null);
 
   const filtered = React.useMemo(
     () => (status === "all" ? leaves : leaves.filter((l) => l.status === status)),
     [leaves, status],
   );
 
-  async function decide(id: string, decision: "approved" | "rejected") {
+  async function decide(id: string, decision: "approved" | "rejected", note?: string) {
     setBusy(id);
-    const res = await decideLeaveAction(id, decision);
+    const res = await decideLeaveAction(id, decision, note);
     setBusy(null);
     if (res.ok) {
       toast.success(decision === "approved" ? t.success.approved : t.success.rejected);
@@ -107,7 +109,7 @@ export function LeaveClient({
 
       <div className="mt-4">
         {filtered.length === 0 ? (
-          <EmptyState icon={CalendarClock} title={t.leave.empty} />
+          <EmptyState illustration="calendar" title={t.leave.empty} />
         ) : (
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <div className="overflow-x-auto">
@@ -162,7 +164,7 @@ export function LeaveClient({
                                 size="sm"
                                 variant="outline"
                                 disabled={busy === l.id}
-                                onClick={() => decide(l.id, "rejected")}
+                                onClick={() => setRejecting(l)}
                               >
                                 <X className="mr-1 h-4 w-4" aria-hidden />
                                 {t.leave.reject}
@@ -195,6 +197,17 @@ export function LeaveClient({
         employeeOptions={employeeOptions}
         onDone={() => router.refresh()}
       />
+      <RejectLeaveDialog
+        leave={rejecting}
+        onOpenChange={(open) => {
+          if (!open) setRejecting(null);
+        }}
+        onConfirm={async (note) => {
+          const target = rejecting;
+          setRejecting(null);
+          if (target) await decide(target.id, "rejected", note);
+        }}
+      />
     </>
   );
 }
@@ -216,6 +229,21 @@ function LeaveForm({
   const [end, setEnd] = React.useState("");
   const [reason, setReason] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const [balance, setBalance] = React.useState<LeaveBalance | null>(null);
+
+  React.useEffect(() => {
+    if (!employeeId) {
+      setBalance(null);
+      return;
+    }
+    let alive = true;
+    getLeaveBalanceAction(employeeId).then((res) => {
+      if (alive && res.ok && res.data) setBalance(res.data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [employeeId]);
 
   React.useEffect(() => {
     if (open) {
@@ -275,6 +303,16 @@ function LeaveForm({
                 </option>
               ))}
             </select>
+            {balance ? (
+              <p
+                className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600"
+                aria-live="polite"
+              >
+                {t.leave.balanceLine}:{" "}
+                <span className="font-semibold text-brand-900">{balance.remaining}</span>/
+                {balance.entitlement} {t.leave.dayUnit} · {t.leave.balanceUsed} {balance.used}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="lv_type">{t.leave.type}</Label>
@@ -316,6 +354,9 @@ function LeaveForm({
           {days > 0 ? (
             <p className="text-sm text-slate-500">
               {t.leave.days}: <span className="font-medium text-brand-900">{days}</span>
+              {type === "annual" && balance && days > balance.remaining ? (
+                <span className="mt-1 block text-warning-fg">{t.leave.balanceOver}</span>
+              ) : null}
             </p>
           ) : null}
           <div className="space-y-1.5">
@@ -339,6 +380,78 @@ function LeaveForm({
           </Button>
           <Button type="submit" disabled={saving}>
             {saving ? "Đang lưu…" : t.action.save}
+          </Button>
+        </SlideOver.Footer>
+      </form>
+    </SlideOver>
+  );
+}
+
+/**
+ * Reject with a note — a leave rejection lands on a person, so the reason is
+ * written down (optional, but always asked for). Two taps, never one.
+ */
+function RejectLeaveDialog({
+  leave,
+  onOpenChange,
+  onConfirm,
+}: {
+  leave: LeaveListItem | null;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: (note: string) => Promise<void>;
+}) {
+  const [note, setNote] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const open = leave !== null;
+
+  React.useEffect(() => {
+    if (open) setNote("");
+  }, [open]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    await onConfirm(note.trim());
+    setSaving(false);
+  }
+
+  return (
+    <SlideOver open={open} onOpenChange={onOpenChange} title={t.leave.rejectTitle} width="md">
+      <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+        <SlideOver.Body className="space-y-4">
+          {leave ? (
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+              <div className="font-medium text-brand-900">{leave.employee_name}</div>
+              <div className="text-slate-600">
+                {t.leaveType[leave.type]} · {formatDate(leave.start_date)} →{" "}
+                {formatDate(leave.end_date)} · {leave.days} {t.leave.dayUnit}
+              </div>
+            </div>
+          ) : null}
+          <div className="space-y-1.5">
+            <Label htmlFor="lv_reject_note">{t.leave.decisionNote}</Label>
+            <Textarea
+              id="lv_reject_note"
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              autoFocus
+            />
+            <p className="text-xs text-slate-500">{t.leave.rejectHint}</p>
+          </div>
+        </SlideOver.Body>
+        <SlideOver.Footer>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            {t.action.cancel}
+          </Button>
+          <Button type="submit" variant="destructive" disabled={saving}>
+            <X className="mr-1 h-4 w-4" aria-hidden />
+            {saving ? "Đang lưu…" : t.leave.reject}
           </Button>
         </SlideOver.Footer>
       </form>

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Building2, Plus, Pencil, Trash2, Briefcase } from "lucide-react";
+import { Building2, Plus, Pencil, Trash2, Briefcase, CornerDownRight } from "lucide-react";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { EmptyState } from "@/components/primitives/EmptyState";
 import { SlideOver } from "@/components/primitives/SlideOver";
@@ -33,6 +33,31 @@ interface Props {
   heads: Option[];
 }
 
+/** Tree walk: parents first, children indented under them (orphans fall back to root). */
+function orderTree(list: DepartmentWithMeta[]): { d: DepartmentWithMeta; depth: number }[] {
+  const byParent = new Map<string | null, DepartmentWithMeta[]>();
+  for (const d of list) {
+    const key = d.parent_id ?? null;
+    byParent.set(key, [...(byParent.get(key) ?? []), d]);
+  }
+  const ids = new Set(list.map((d) => d.id));
+  const out: { d: DepartmentWithMeta; depth: number }[] = [];
+  const walk = (parent: string | null, depth: number) => {
+    for (const d of byParent.get(parent) ?? []) {
+      out.push({ d, depth });
+      walk(d.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  for (const d of list) {
+    if (d.parent_id && !ids.has(d.parent_id)) {
+      out.push({ d, depth: 0 });
+      walk(d.id, 1);
+    }
+  }
+  return out;
+}
+
 export function OrgClient({ departments, positions, departmentOptions, heads }: Props) {
   const router = useRouter();
   const [deptForm, setDeptForm] = React.useState<{
@@ -45,6 +70,7 @@ export function OrgClient({ departments, positions, departmentOptions, heads }: 
   });
   const [confirmKey, setConfirmKey] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const ordered = React.useMemo(() => orderTree(departments), [departments]);
 
   async function onDeleteDept(id: string) {
     setBusy(true);
@@ -85,7 +111,7 @@ export function OrgClient({ departments, positions, departmentOptions, heads }: 
           </Button>
         </div>
         {departments.length === 0 ? (
-          <EmptyState icon={Building2} title={t.department.empty} />
+          <EmptyState illustration="building" title={t.department.empty} />
         ) : (
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <div className="overflow-x-auto">
@@ -101,10 +127,21 @@ export function OrgClient({ departments, positions, departmentOptions, heads }: 
                   </tr>
                 </thead>
                 <tbody>
-                  {departments.map((d) => (
+                  {ordered.map(({ d, depth }) => (
                     <tr key={d.id} className="border-b border-slate-100 last:border-0">
                       <td className="px-4 py-3 font-medium text-brand-900">
-                        {d.name}
+                        <span
+                          className="inline-flex items-center"
+                          style={{ paddingLeft: depth * 20 }}
+                        >
+                          {depth > 0 ? (
+                            <CornerDownRight
+                              className="mr-1.5 h-3.5 w-3.5 text-slate-300"
+                              aria-hidden
+                            />
+                          ) : null}
+                          {d.name}
+                        </span>
                         {d.code ? (
                           <span className="ml-2 text-xs text-slate-400">{d.code}</span>
                         ) : null}

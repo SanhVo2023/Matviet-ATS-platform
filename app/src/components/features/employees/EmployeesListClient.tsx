@@ -156,7 +156,7 @@ export function EmployeesListClient({ employees, departments, positions, manager
           onRowClick={(row) => router.push(`/nhan-vien/${row.id}`)}
           emptyState={
             <EmptyState
-              icon={IdCard}
+              illustration="people"
               title={t.employee.empty}
               action={
                 <Button onClick={() => setFormOpen(true)}>

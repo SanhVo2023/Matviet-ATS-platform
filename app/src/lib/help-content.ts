@@ -27,6 +27,15 @@ export const HELP_BY_ROLE: Record<UserRole, HelpSection[]> = {
         "Khi từ chối, hãy chọn lý do để báo cáo phản ánh đúng (sàng lọc, không duyệt, ứng viên từ chối…).",
       ],
     },
+    {
+      title: "Nhân sự & nghỉ phép",
+      steps: [
+        "Xác nhận tuyển → hồ sơ nhân viên được tạo tự động từ ứng viên (cùng một hồ sơ cá nhân). Mở từ nấc 'Nhận việc' hoặc trong Nhân viên.",
+        "Trợ lý AI nhắc hết thử việc, hết hạn hợp đồng và bộ hồ sơ nhận việc trong 'Hôm nay' — duyệt đề xuất thay vì tự dò lịch.",
+        "Nghỉ phép: tạo đơn thay nhân viên; hệ thống tính số dư phép và báo trùng lịch trong phòng. Duyệt hoặc từ chối (kèm ghi chú) một chạm.",
+        "Thông báo & Tài liệu: ghim thông báo quan trọng, tải quy chế/biểu mẫu để toàn công ty xem.",
+      ],
+    },
   ],
   admin: [
     {
@@ -45,6 +54,13 @@ export const HELP_BY_ROLE: Record<UserRole, HelpSection[]> = {
         "Phỏng vấn → tab 'Chờ đánh giá': nhập đánh giá cho các buổi đã phỏng vấn.",
         "Phê duyệt: duyệt hoặc từ chối bước 'Trưởng phòng đề xuất' ngay trên điện thoại.",
         "Bạn chỉ thấy ứng viên thuộc các vị trí được phân công.",
+      ],
+    },
+    {
+      title: "Nhân sự phòng bạn",
+      steps: [
+        "Nghỉ phép: xem và duyệt đơn nghỉ của nhân viên trong phòng — có cảnh báo nếu trùng lịch với đồng nghiệp.",
+        "Đề xuất về nhân viên trong phòng (hết thử việc, gia hạn hợp đồng) hiện trong 'Hôm nay' trên trang chủ — chỉ cần một chạm.",
       ],
     },
   ],

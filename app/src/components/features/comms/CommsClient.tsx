@@ -75,7 +75,7 @@ export function CommsClient({
           ) : null}
         </div>
         {announcements.length === 0 ? (
-          <EmptyState icon={Megaphone} title={t.comms.noAnnouncements} />
+          <EmptyState illustration="inbox" title={t.comms.noAnnouncements} />
         ) : (
           <div className="space-y-3">
             {announcements.map((a) => (
@@ -160,7 +160,7 @@ export function CommsClient({
           ) : null}
         </div>
         {documents.length === 0 ? (
-          <EmptyState icon={FileText} title={t.comms.noDocuments} />
+          <EmptyState illustration="documents" title={t.comms.noDocuments} />
         ) : (
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
             <ul className="divide-y divide-slate-100">

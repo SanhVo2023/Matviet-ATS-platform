@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { IdCard } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { getEmployeeBySourceCandidate } from "@/server/employees/repository";
 import { EmptyState } from "@/components/primitives/EmptyState";
@@ -32,7 +31,7 @@ export default async function FromCandidatePage({
   return (
     <div className="mx-auto max-w-3xl p-6 lg:p-8">
       <EmptyState
-        icon={IdCard}
+        illustration="people"
         title="Chưa có hồ sơ nhân viên cho ứng viên này"
         description="Hồ sơ nhân viên được tạo tự động khi xác nhận tuyển. Nếu ứng viên đã được tuyển trước đó, bấm để tạo ngay — cùng một hồ sơ cá nhân, không cần nhập lại."
         action={

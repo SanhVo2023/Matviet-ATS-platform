@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SideNav, SideNavHeading, SideNavItem, SideNavSection } from "@astryxdesign/core/SideNav";
+import { MatVietGlyph } from "@/components/brand/MatVietGlyph";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { AccountMenu } from "@/components/layout/AccountMenu";
 import { t } from "@/lib/i18n";
@@ -76,14 +77,7 @@ export function Sidebar({ role, fullName, email }: SidebarProps) {
           <SideNavHeading
             heading={t.app.name}
             headingHref="/"
-            icon={
-              <span
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-xs font-extrabold tracking-tight text-accent-400"
-                aria-hidden
-              >
-                MV
-              </span>
-            }
+            icon={<MatVietGlyph className="h-8 w-8" />}
           />
         }
         collapsible={{ isCollapsed: collapsed, onCollapsedChange: setCollapsed, hasButton: false }}
