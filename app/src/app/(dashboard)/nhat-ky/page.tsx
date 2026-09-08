@@ -5,7 +5,17 @@ import { requireRole } from "@/lib/auth";
 import { listAuditLog } from "@/server/audit/repository";
 import { lookupProfileNames } from "@/server/candidates/repository";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { EmptyState } from "@/components/primitives/EmptyState";
+import {
+  TableFrame,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { formatDateTime } from "@/lib/vi-format";
 import { t } from "@/lib/i18n";
 
@@ -35,7 +45,7 @@ export default async function AuditLogPage() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-6 lg:p-8">
+    <PageContainer size="wide" className="space-y-4">
       <PageHeader
         icon={ScrollText}
         title={t.nav.audit}
@@ -45,17 +55,17 @@ export default async function AuditLogPage() {
       {rows.length === 0 ? (
         <EmptyState icon={ScrollText} title="Chưa có hoạt động nào được ghi nhận" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-2.5 font-semibold">Thời gian</th>
-                <th className="px-4 py-2.5 font-semibold">Hành động</th>
-                <th className="px-4 py-2.5 font-semibold">Người thực hiện</th>
-                <th className="px-4 py-2.5 font-semibold">Đối tượng</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+        <TableFrame>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Thời gian</TableHead>
+                <TableHead>Hành động</TableHead>
+                <TableHead>Người thực hiện</TableHead>
+                <TableHead>Đối tượng</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((r) => {
                 const via = (r.meta as { via?: string } | null)?.via;
                 const actor =
@@ -65,13 +75,13 @@ export default async function AuditLogPage() {
                       ? (actorNames[r.actor_user_id] ?? "—")
                       : "Hệ thống";
                 return (
-                  <tr key={r.id} className="text-slate-700">
-                    <td className="whitespace-nowrap px-4 py-2.5 text-xs text-slate-500">
+                  <TableRow key={r.id} className="text-slate-700">
+                    <TableCell className="whitespace-nowrap text-xs text-slate-500">
                       {formatDateTime(r.at)}
-                    </td>
-                    <td className="px-4 py-2.5">{actionLabel(r.action)}</td>
-                    <td className="px-4 py-2.5">{actor}</td>
-                    <td className="px-4 py-2.5">
+                    </TableCell>
+                    <TableCell>{actionLabel(r.action)}</TableCell>
+                    <TableCell>{actor}</TableCell>
+                    <TableCell>
                       {r.entity === "candidates" && r.entity_id ? (
                         <Link
                           href={`/ung-vien/${r.entity_id}`}
@@ -82,14 +92,14 @@ export default async function AuditLogPage() {
                       ) : (
                         <span className="text-slate-400">{r.entity}</span>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableFrame>
       )}
-    </div>
+    </PageContainer>
   );
 }

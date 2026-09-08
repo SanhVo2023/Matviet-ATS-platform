@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -156,38 +157,26 @@ export function UserRowActions({ user, departments, isSelf }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="eu-role">Vai trò</Label>
-              <select
+              <SimpleSelect
                 id="eu-role"
                 value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
+                onValueChange={(v) => setRole(v as UserRole)}
+                options={ROLES.map((r) => ({ value: r, label: t.userRole[r] }))}
                 disabled={isSelf}
-                className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-60"
-              >
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {t.userRole[r]}
-                  </option>
-                ))}
-              </select>
+              />
               {isSelf && (
                 <p className="text-xs text-slate-500">Không thể tự đổi vai trò của chính mình.</p>
               )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="eu-dept">Phòng ban</Label>
-              <select
+              <SimpleSelect
                 id="eu-dept"
                 value={deptId}
-                onChange={(e) => setDeptId(e.target.value)}
-                className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-              >
-                <option value="">— Không —</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+                onValueChange={setDeptId}
+                options={departments.map((d) => ({ value: d.id, label: d.name }))}
+                emptyLabel="— Không —"
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="eu-phone">Số điện thoại</Label>

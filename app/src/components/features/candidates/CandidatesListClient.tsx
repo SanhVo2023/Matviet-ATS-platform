@@ -4,10 +4,12 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQueryState, parseAsString, parseAsStringEnum } from "nuqs";
 import { toast } from "sonner";
-import { Plus, Search, Users, RefreshCw, Loader2 } from "lucide-react";
+import { Plus, Search, Users, RefreshCw, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/segmented";
+import { SimpleSelect, type SelectOption } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { PageHeader } from "@/components/primitives/PageHeader";
 import { CandidatesTable } from "./CandidatesTable";
 import { CandidateUploadDialog } from "./CandidateUploadDialog";
@@ -44,6 +46,21 @@ const AI_FILTER_LABEL: Record<(typeof AI_FILTERS)[number], string> = {
   success: "Đã chấm",
   failed: "Chấm lỗi",
 };
+
+const SOURCE_OPTIONS: SelectOption[] = [
+  { value: "all", label: "Mọi nguồn" },
+  { value: "manual_upload", label: t.source.manual_upload },
+  { value: "email_inbox", label: t.source.email_inbox },
+  { value: "csv_import", label: t.source.csv_import },
+  { value: "topcv_api", label: t.source.topcv_api },
+  { value: "referral", label: t.source.referral },
+  { value: "careers_page", label: t.source.careers_page },
+];
+
+const AI_OPTIONS: SelectOption[] = AI_FILTERS.map((f) => ({
+  value: f,
+  label: f === "all" ? "Mọi trạng thái AI" : AI_FILTER_LABEL[f],
+}));
 
 export function CandidatesListClient({ initialCandidates, jobs }: Props) {
   const router = useRouter();
@@ -118,6 +135,22 @@ export function CandidatesListClient({ initialCandidates, jobs }: Props) {
     "rejected",
   ];
 
+  // Chips show the working stages; the dropdown holds only the long tail so
+  // the two controls never fight over the same value (UX audit).
+  const tailStageOptions: SelectOption[] = ALL_STAGES.filter(
+    (st) => !(TOP_STAGE_CHIPS as readonly string[]).includes(st),
+  ).map((st) => ({ value: st, label: t.stage[st] }));
+  const tailStageValue = tailStageOptions.some((o) => o.value === stage) ? stage : "";
+  const hasFilters =
+    stage !== "all" || source !== "all" || jobId !== "" || search !== "" || ai !== "all";
+  const clearFilters = () => {
+    void setStage(null);
+    void setSource(null);
+    void setJobId(null);
+    void setSearch(null);
+    void setAi(null);
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -153,61 +186,48 @@ export function CandidatesListClient({ initialCandidates, jobs }: Props) {
 
         <span className="mx-1 hidden h-5 w-px bg-slate-200 md:inline" />
 
-        <select
-          value={stage}
-          onChange={(e) => setStage(e.target.value as (typeof STAGE_FILTERS)[number])}
-          aria-label="Mọi giai đoạn"
-          className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="all">Mọi giai đoạn</option>
-          {ALL_STAGES.map((s) => (
-            <option key={s} value={s}>
-              {t.stage[s]}
-            </option>
-          ))}
-        </select>
+        <SimpleSelect
+          value={tailStageValue}
+          onValueChange={(v) => setStage(v as (typeof STAGE_FILTERS)[number])}
+          aria-label="Giai đoạn khác"
+          placeholder="Giai đoạn khác…"
+          className="w-auto min-w-[10rem]"
+          options={tailStageOptions}
+        />
 
-        <select
+        <Combobox
           value={jobId}
-          onChange={(e) => setJobId(e.target.value || null)}
+          onValueChange={(v) => setJobId(v || null)}
           aria-label="Vị trí"
-          className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">Mọi vị trí</option>
-          {jobs.map((j) => (
-            <option key={j.id} value={j.id}>
-              {j.title}
-            </option>
-          ))}
-        </select>
+          className="w-auto min-w-[10rem]"
+          placeholder="Mọi vị trí"
+          searchPlaceholder="Tìm vị trí…"
+          clearable
+          options={jobs.map((j) => ({ value: j.id, label: j.title }))}
+        />
 
-        <select
+        <SimpleSelect
           value={source}
-          onChange={(e) => setSource(e.target.value as (typeof SOURCE_FILTERS)[number])}
+          onValueChange={(v) => setSource(v as (typeof SOURCE_FILTERS)[number])}
           aria-label="Nguồn"
-          className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="all">Mọi nguồn</option>
-          <option value="manual_upload">{t.source.manual_upload}</option>
-          <option value="email_inbox">{t.source.email_inbox}</option>
-          <option value="csv_import">{t.source.csv_import}</option>
-          <option value="topcv_api">{t.source.topcv_api}</option>
-          <option value="referral">{t.source.referral}</option>
-          <option value="careers_page">{t.source.careers_page}</option>
-        </select>
+          className="w-auto min-w-[9rem]"
+          options={SOURCE_OPTIONS}
+        />
 
-        <select
+        <SimpleSelect
           value={ai}
-          onChange={(e) => setAi(e.target.value as (typeof AI_FILTERS)[number])}
+          onValueChange={(v) => setAi(v as (typeof AI_FILTERS)[number])}
           aria-label="Trạng thái chấm AI"
-          className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          {AI_FILTERS.map((f) => (
-            <option key={f} value={f}>
-              {f === "all" ? "Mọi trạng thái AI" : AI_FILTER_LABEL[f]}
-            </option>
-          ))}
-        </select>
+          className="w-auto min-w-[10rem]"
+          options={AI_OPTIONS}
+        />
+
+        {hasFilters ? (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            <X className="h-4 w-4" aria-hidden />
+            Xóa bộ lọc
+          </Button>
+        ) : null}
 
         {failedCount > 0 ? (
           <Button variant="outline" onClick={runBulkRetry} disabled={retrying}>

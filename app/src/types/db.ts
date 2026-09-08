@@ -34,12 +34,15 @@ export interface ProfileRow {
 
 type TableMap = {
   ai_screenings: Model<typeof s.ai_screenings>;
+  announcements: Model<typeof s.announcements>;
   approvals: Model<typeof s.approvals>;
+  hr_documents: Model<typeof s.hr_documents>;
   assessment_invite_tokens: Model<typeof s.assessment_invite_tokens>;
   assessment_submissions: Model<typeof s.assessment_submissions>;
   assessments: Model<typeof s.assessments>;
   audit_log: Model<typeof s.audit_log>;
   candidates: Model<typeof s.candidates>;
+  contracts: Model<typeof s.contracts>;
   cv_files: Model<typeof s.cv_files>;
   departments: Model<typeof s.departments>;
   email_messages: Model<typeof s.email_messages>;
@@ -51,6 +54,9 @@ type TableMap = {
   interviews: Model<typeof s.interviews>;
   job_assignments: Model<typeof s.job_assignments>;
   jobs: Model<typeof s.jobs>;
+  leave_requests: Model<typeof s.leave_requests>;
+  offboarding_tasks: Model<typeof s.offboarding_tasks>;
+  onboarding_tasks: Model<typeof s.onboarding_tasks>;
   people: Model<typeof s.people>;
   positions: Model<typeof s.positions>;
   referrals: Model<typeof s.referrals>;
@@ -68,14 +74,19 @@ export type Database = {
       approval_status: (typeof s.APPROVAL_STATUSES)[number];
       approval_step_kind: (typeof s.APPROVAL_STEP_KINDS)[number];
       candidate_source: (typeof s.CANDIDATE_SOURCES)[number];
+      contract_type: (typeof s.CONTRACT_TYPES)[number];
+      contract_status: (typeof s.CONTRACT_STATUSES)[number];
       email_direction: (typeof s.EMAIL_DIRECTIONS)[number];
       email_status: (typeof s.EMAIL_STATUSES)[number];
       employee_status: (typeof s.EMPLOYEE_STATUSES)[number];
+      employment_type: (typeof s.EMPLOYMENT_TYPES)[number];
       flow_type: (typeof s.FLOW_TYPES)[number];
       interview_status: (typeof s.INTERVIEW_STATUSES)[number];
       interview_type: (typeof s.INTERVIEW_TYPES)[number];
       interviewer_role: (typeof s.INTERVIEWER_ROLES)[number];
       job_status: (typeof s.JOB_STATUSES)[number];
+      leave_type: (typeof s.LEAVE_TYPES)[number];
+      leave_status: (typeof s.LEAVE_STATUSES)[number];
       pipeline_stage: (typeof s.PIPELINE_STAGES)[number];
       recommendation: (typeof s.RECOMMENDATIONS)[number];
       role_family: (typeof s.ROLE_FAMILIES)[number];

@@ -13,6 +13,7 @@ import {
   archiveCandidate,
   updateCandidateContact,
 } from "@/server/candidates/service";
+import { ensureEmployeeForCandidate } from "@/server/employees/service";
 import { CV_MAX_BYTES, isAcceptedCvMime } from "@/lib/storage/paths";
 import { enqueueScoring, listFailedScoringCandidateIds } from "@/server/scoring/repository";
 import { triggerEdgeFunction } from "@/server/scoring/orchestration";
@@ -216,7 +217,20 @@ export async function changeStageAction(
   try {
     // transitionStage owns the guard, the reason requirement, history, and the
     // approval-chain cancel — no need to re-check allowedNextStages here.
-    await transitionStage(candidateId, nextStage, { reason, notes: note?.trim() || null });
+    const res = await transitionStage(candidateId, nextStage, {
+      reason,
+      notes: note?.trim() || null,
+    });
+    // ATS ↔ HRM seam (H0): a hired candidate becomes an employee on the same
+    // person_id. Idempotent + best-effort — never fail the hire on conversion error.
+    if (res.changed && nextStage === "hired") {
+      try {
+        await ensureEmployeeForCandidate(candidateId);
+        revalidatePath("/nhan-vien");
+      } catch {
+        // conversion is recoverable via the manual "Chuyển thành nhân viên" action
+      }
+    }
     revalidatePath("/ung-vien");
     revalidatePath(`/ung-vien/${candidateId}`);
     return { ok: true };

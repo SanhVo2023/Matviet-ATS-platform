@@ -1,0 +1,502 @@
+"use client";
+
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Building2, Plus, Pencil, Trash2, Briefcase, CornerDownRight } from "lucide-react";
+import { PageHeader } from "@/components/primitives/PageHeader";
+import { EmptyState } from "@/components/primitives/EmptyState";
+import { SlideOver } from "@/components/primitives/SlideOver";
+import {
+  TableFrame,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { SimpleSelect } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
+import { t } from "@/lib/i18n";
+import {
+  createDepartmentAction,
+  updateDepartmentAction,
+  deleteDepartmentAction,
+  createPositionAction,
+  updatePositionAction,
+  deletePositionAction,
+} from "@/app/(dashboard)/phong-ban/actions";
+import type { DepartmentWithMeta, PositionWithDept } from "@/server/org/repository";
+
+type Option = { id: string; name: string };
+
+interface Props {
+  departments: DepartmentWithMeta[];
+  positions: PositionWithDept[];
+  departmentOptions: Option[];
+  heads: Option[];
+}
+
+/** Tree walk: parents first, children indented under them (orphans fall back to root). */
+function orderTree(list: DepartmentWithMeta[]): { d: DepartmentWithMeta; depth: number }[] {
+  const byParent = new Map<string | null, DepartmentWithMeta[]>();
+  for (const d of list) {
+    const key = d.parent_id ?? null;
+    byParent.set(key, [...(byParent.get(key) ?? []), d]);
+  }
+  const ids = new Set(list.map((d) => d.id));
+  const out: { d: DepartmentWithMeta; depth: number }[] = [];
+  const walk = (parent: string | null, depth: number) => {
+    for (const d of byParent.get(parent) ?? []) {
+      out.push({ d, depth });
+      walk(d.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  for (const d of list) {
+    if (d.parent_id && !ids.has(d.parent_id)) {
+      out.push({ d, depth: 0 });
+      walk(d.id, 1);
+    }
+  }
+  return out;
+}
+
+export function OrgClient({ departments, positions, departmentOptions, heads }: Props) {
+  const router = useRouter();
+  const [deptForm, setDeptForm] = React.useState<{
+    open: boolean;
+    edit: DepartmentWithMeta | null;
+  }>({ open: false, edit: null });
+  const [posForm, setPosForm] = React.useState<{ open: boolean; edit: PositionWithDept | null }>({
+    open: false,
+    edit: null,
+  });
+  const [confirmKey, setConfirmKey] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const ordered = React.useMemo(() => orderTree(departments), [departments]);
+
+  async function onDeleteDept(id: string) {
+    setBusy(true);
+    const res = await deleteDepartmentAction(id);
+    setBusy(false);
+    setConfirmKey(null);
+    if (res.ok) {
+      toast.success(t.success.deleted);
+      router.refresh();
+    } else toast.error(res.error);
+  }
+
+  async function onDeletePos(id: string) {
+    setBusy(true);
+    const res = await deletePositionAction(id);
+    setBusy(false);
+    setConfirmKey(null);
+    if (res.ok) {
+      toast.success(t.success.deleted);
+      router.refresh();
+    } else toast.error(res.error);
+  }
+
+  return (
+    <>
+      <PageHeader icon={Building2} title={t.department.title} subtitle={t.department.subtitle} />
+
+      {/* Departments */}
+      <div className="mt-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-brand-900">
+            <Building2 className="h-4 w-4 text-accent-600" aria-hidden />
+            {t.nav.org}
+          </h2>
+          <Button size="sm" onClick={() => setDeptForm({ open: true, edit: null })}>
+            <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+            {t.department.add}
+          </Button>
+        </div>
+        {departments.length === 0 ? (
+          <EmptyState illustration="building" title={t.department.empty} />
+        ) : (
+          <TableFrame>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.department.name}</TableHead>
+                  <TableHead>{t.department.parent}</TableHead>
+                  <TableHead>{t.department.head}</TableHead>
+                  <TableHead className="text-right">{t.nav.employees}</TableHead>
+                  <TableHead className="text-right">{t.department.positions}</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ordered.map(({ d, depth }) => (
+                  <TableRow key={d.id}>
+                    <TableCell className="font-medium text-brand-900">
+                      <span
+                        className="inline-flex items-center"
+                        style={{ paddingLeft: depth * 20 }}
+                      >
+                        {depth > 0 ? (
+                          <CornerDownRight
+                            className="mr-1.5 h-3.5 w-3.5 text-slate-300"
+                            aria-hidden
+                          />
+                        ) : null}
+                        {d.name}
+                      </span>
+                      {d.code ? (
+                        <span className="ml-2 text-xs text-slate-400">{d.code}</span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="text-slate-600">{d.parent_name ?? "—"}</TableCell>
+                    <TableCell className="text-slate-600">{d.head_name ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums text-slate-700">
+                      {d.employee_count}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-slate-700">
+                      {d.position_count}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setDeptForm({ open: true, edit: d })}
+                          aria-label={t.action.edit}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden />
+                        </Button>
+                        {confirmKey === `dept:${d.id}` ? (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={busy}
+                            onClick={() => onDeleteDept(d.id)}
+                          >
+                            {t.action.confirm}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setConfirmKey(`dept:${d.id}`)}
+                            aria-label={t.action.delete}
+                          >
+                            <Trash2 className="h-4 w-4 text-error-fg" aria-hidden />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableFrame>
+        )}
+      </div>
+
+      {/* Positions */}
+      <div className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-brand-900">
+            <Briefcase className="h-4 w-4 text-accent-600" aria-hidden />
+            {t.department.positions}
+          </h2>
+          <Button size="sm" onClick={() => setPosForm({ open: true, edit: null })}>
+            <Plus className="mr-1.5 h-4 w-4" aria-hidden />
+            {t.department.addPosition}
+          </Button>
+        </div>
+        {positions.length === 0 ? (
+          <EmptyState icon={Briefcase} title={t.department.noPositions} />
+        ) : (
+          <TableFrame>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.department.positionTitle}</TableHead>
+                  <TableHead>{t.employee.fields.department}</TableHead>
+                  <TableHead className="text-right">{t.nav.employees}</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {positions.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium text-brand-900">{p.title}</TableCell>
+                    <TableCell className="text-slate-600">{p.department_name ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums text-slate-700">
+                      {p.employee_count}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setPosForm({ open: true, edit: p })}
+                          aria-label={t.action.edit}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden />
+                        </Button>
+                        {confirmKey === `pos:${p.id}` ? (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={busy}
+                            onClick={() => onDeletePos(p.id)}
+                          >
+                            {t.action.confirm}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setConfirmKey(`pos:${p.id}`)}
+                            aria-label={t.action.delete}
+                          >
+                            <Trash2 className="h-4 w-4 text-error-fg" aria-hidden />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableFrame>
+        )}
+      </div>
+
+      <DepartmentSlideOver
+        open={deptForm.open}
+        edit={deptForm.edit}
+        onOpenChange={(open) => setDeptForm((s) => ({ ...s, open }))}
+        departmentOptions={departmentOptions}
+        heads={heads}
+        onDone={() => router.refresh()}
+      />
+      <PositionSlideOver
+        open={posForm.open}
+        edit={posForm.edit}
+        onOpenChange={(open) => setPosForm((s) => ({ ...s, open }))}
+        departmentOptions={departmentOptions}
+        onDone={() => router.refresh()}
+      />
+    </>
+  );
+}
+
+function DepartmentSlideOver({
+  open,
+  edit,
+  onOpenChange,
+  departmentOptions,
+  heads,
+  onDone,
+}: {
+  open: boolean;
+  edit: DepartmentWithMeta | null;
+  onOpenChange: (open: boolean) => void;
+  departmentOptions: Option[];
+  heads: Option[];
+  onDone: () => void;
+}) {
+  const [name, setName] = React.useState("");
+  const [code, setCode] = React.useState("");
+  const [parentId, setParentId] = React.useState("");
+  const [headId, setHeadId] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setName(edit?.name ?? "");
+      setCode(edit?.code ?? "");
+      setParentId(edit?.parent_id ?? "");
+      setHeadId(edit?.head_user_id ?? "");
+    }
+  }, [open, edit]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error("Vui lòng nhập tên phòng ban.");
+      return;
+    }
+    setSaving(true);
+    const input = {
+      name,
+      code: code || null,
+      parent_id: parentId || null,
+      head_user_id: headId || null,
+    };
+    const res = edit
+      ? await updateDepartmentAction(edit.id, input)
+      : await createDepartmentAction(input);
+    setSaving(false);
+    if (res.ok) {
+      toast.success(t.success.saved);
+      onOpenChange(false);
+      onDone();
+    } else toast.error(res.error);
+  }
+
+  return (
+    <SlideOver
+      open={open}
+      onOpenChange={onOpenChange}
+      title={edit ? t.department.editTitle : t.department.addTitle}
+      width="md"
+    >
+      <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+        <SlideOver.Body className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="dept_name">
+              {t.department.name}
+              <span className="ml-0.5 text-error-fg">*</span>
+            </Label>
+            <Input id="dept_name" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dept_code">{t.department.code}</Label>
+            <Input id="dept_code" value={code} onChange={(e) => setCode(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dept_parent">{t.department.parent}</Label>
+            <SimpleSelect
+              id="dept_parent"
+              value={parentId}
+              onValueChange={setParentId}
+              emptyLabel={t.department.noParent}
+              options={departmentOptions
+                .filter((d) => d.id !== edit?.id)
+                .map((d) => ({ value: d.id, label: d.name }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dept_head">{t.department.head}</Label>
+            <Combobox
+              id="dept_head"
+              value={headId}
+              onValueChange={setHeadId}
+              placeholder={t.employee.noManager}
+              searchPlaceholder={t.action.search}
+              clearable
+              options={heads.map((h) => ({ value: h.id, label: h.name }))}
+            />
+          </div>
+        </SlideOver.Body>
+        <SlideOver.Footer>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            {t.action.cancel}
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Đang lưu…" : t.action.save}
+          </Button>
+        </SlideOver.Footer>
+      </form>
+    </SlideOver>
+  );
+}
+
+function PositionSlideOver({
+  open,
+  edit,
+  onOpenChange,
+  departmentOptions,
+  onDone,
+}: {
+  open: boolean;
+  edit: PositionWithDept | null;
+  onOpenChange: (open: boolean) => void;
+  departmentOptions: Option[];
+  onDone: () => void;
+}) {
+  const [title, setTitle] = React.useState("");
+  const [deptId, setDeptId] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setTitle(edit?.title ?? "");
+      setDeptId(edit?.department_id ?? "");
+    }
+  }, [open, edit]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) {
+      toast.error("Vui lòng nhập tên vị trí.");
+      return;
+    }
+    setSaving(true);
+    const input = { title, department_id: deptId || null };
+    const res = edit
+      ? await updatePositionAction(edit.id, input)
+      : await createPositionAction(input);
+    setSaving(false);
+    if (res.ok) {
+      toast.success(t.success.saved);
+      onOpenChange(false);
+      onDone();
+    } else toast.error(res.error);
+  }
+
+  return (
+    <SlideOver
+      open={open}
+      onOpenChange={onOpenChange}
+      title={edit ? t.department.editPosition : t.department.addPosition}
+      width="md"
+    >
+      <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+        <SlideOver.Body className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="pos_title">
+              {t.department.positionTitle}
+              <span className="ml-0.5 text-error-fg">*</span>
+            </Label>
+            <Input
+              id="pos_title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pos_dept">{t.employee.fields.department}</Label>
+            <SimpleSelect
+              id="pos_dept"
+              value={deptId}
+              onValueChange={setDeptId}
+              emptyLabel={t.employee.unassigned}
+              options={departmentOptions.map((d) => ({ value: d.id, label: d.name }))}
+            />
+          </div>
+        </SlideOver.Body>
+        <SlideOver.Footer>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            {t.action.cancel}
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Đang lưu…" : t.action.save}
+          </Button>
+        </SlideOver.Footer>
+      </form>
+    </SlideOver>
+  );
+}

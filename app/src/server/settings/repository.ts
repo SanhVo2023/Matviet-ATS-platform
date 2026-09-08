@@ -42,6 +42,8 @@ export async function setSetting(key: string, value: string): Promise<void> {
 export const SETTING_KEYS = {
   aiModel: "ai_model",
   aiEnabled: "ai_enabled", // "true" | "false"
+  /** YYYY-MM-DD (Asia/Ho_Chi_Minh) of the last completed daily sweep — the catch-up marker. */
+  agentLastDailySweep: "agent_last_daily_sweep",
 } as const;
 
 /** AI master switch — true unless an admin explicitly turned it off. */

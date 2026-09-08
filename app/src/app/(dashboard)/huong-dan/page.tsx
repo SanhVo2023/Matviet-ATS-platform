@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CircleHelp, BookOpen, ExternalLink } from "lucide-react";
 import { requireSession } from "@/lib/auth";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HELP_BY_ROLE } from "@/lib/help-content";
 import { t } from "@/lib/i18n";
@@ -18,7 +19,7 @@ export default async function HelpPage() {
   const sections = HELP_BY_ROLE[profile.role] ?? [];
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-6 lg:p-8">
+    <PageContainer size="narrow" className="space-y-4">
       <PageHeader
         icon={CircleHelp}
         title="Hướng dẫn sử dụng"
@@ -60,6 +61,6 @@ export default async function HelpPage() {
           </CardContent>
         </Card>
       ))}
-    </div>
+    </PageContainer>
   );
 }

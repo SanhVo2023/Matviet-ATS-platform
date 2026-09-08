@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SimpleSelect } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { composeEmailAction, draftEmailAction } from "@/app/(dashboard)/email/actions";
@@ -165,20 +167,17 @@ export function EmailComposerDialog({ open, onOpenChange, templates, defaults }:
           {/* Template picker */}
           <div className="space-y-1.5">
             <Label htmlFor="template">{t.emails.compose.template}</Label>
-            <select
+            <SimpleSelect
               id="template"
               value={templateCode}
-              onChange={(e) => setTemplateCode(e.target.value)}
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+              onValueChange={setTemplateCode}
               disabled={submitting}
-            >
-              <option value="">{t.emails.compose.templateNone}</option>
-              {templates.map((tpl) => (
-                <option key={tpl.code} value={tpl.code}>
-                  {tpl.name_vi} {tpl.requires_approval ? "(cần phê duyệt)" : ""}
-                </option>
-              ))}
-            </select>
+              emptyLabel={t.emails.compose.templateNone}
+              options={templates.map((tpl) => ({
+                value: tpl.code,
+                label: `${tpl.name_vi}${tpl.requires_approval ? " (cần phê duyệt)" : ""}`,
+              }))}
+            />
           </div>
 
           {/* Recipient + CC */}
@@ -354,11 +353,14 @@ export function EmailComposerDialog({ open, onOpenChange, templates, defaults }:
 
           {/* Approval toggle */}
           {selectedTemplate?.requires_approval && (
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="checkbox"
+            <label
+              htmlFor="force-immediate"
+              className="flex min-h-10 cursor-pointer items-start gap-2 text-sm"
+            >
+              <Checkbox
+                id="force-immediate"
                 checked={forceImmediate}
-                onChange={(e) => setForceImmediate(e.target.checked)}
+                onCheckedChange={(checked) => setForceImmediate(checked === true)}
                 disabled={submitting}
                 className="mt-0.5"
               />

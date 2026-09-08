@@ -71,3 +71,28 @@ export function assessmentSubmissionStoragePath(
 ): string {
   return `${submissionId}/answer-${slugifyFilename(originalName)}`;
 }
+
+/**
+ * HR document library key (HRM H3b) — the `documents/` prefix is what the
+ * /api/files route uses to grant all-staff read on company docs.
+ */
+export function documentStoragePath(documentId: string, originalName: string): string {
+  return `documents/${documentId}/${slugifyFilename(originalName)}`;
+}
+
+/** Accepted MIME types for the HR document library (PDF, Office, images). */
+export const DOC_ACCEPTED_MIMES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/msword",
+  "application/vnd.ms-excel",
+  "image/png",
+  "image/jpeg",
+] as const;
+
+export const DOC_MAX_BYTES = 10 * 1024 * 1024;
+
+export function isAcceptedDocMime(mime: string): boolean {
+  return (DOC_ACCEPTED_MIMES as readonly string[]).includes(mime);
+}

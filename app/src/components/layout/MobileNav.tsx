@@ -93,7 +93,7 @@ export function MobileNav({
             {groups.map(({ group, label, items: groupItems }) => (
               <div key={group} className="mb-4 last:mb-0">
                 {showHeaders && label && (
-                  <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <p className="px-3 pb-1 text-2xs font-semibold uppercase tracking-wider text-slate-400">
                     {label}
                   </p>
                 )}

@@ -8,8 +8,10 @@ import {
   type InterviewRow,
 } from "@/server/interviews/repository";
 import { getCandidate } from "@/server/candidates/repository";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { EmptyState } from "@/components/primitives/EmptyState";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { formatDateTime, formatRelative } from "@/lib/vi-format";
@@ -49,7 +51,7 @@ export default async function InterviewsPage({
     );
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-6 lg:p-8">
+    <PageContainer size="detail" className="space-y-4">
       <PageHeader
         icon={Calendar}
         title={t.nav.interviews}
@@ -70,21 +72,26 @@ export default async function InterviewsPage({
       </div>
 
       {list.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
-            <Calendar className="h-8 w-8 text-slate-300" aria-hidden />
-            <p className="text-sm font-medium text-slate-700">
-              {tab === "cho-danh-gia"
-                ? "Không có buổi phỏng vấn nào chờ đánh giá."
-                : t.empty.interviewsUpcoming}
-            </p>
-            <p className="text-xs text-slate-500">
-              {tab === "cho-danh-gia"
-                ? "Mọi buổi phỏng vấn đã hoàn thành đều đã có đánh giá."
-                : "Đặt lịch từ trang chi tiết ứng viên (tab Phỏng vấn)."}
-            </p>
-          </CardContent>
-        </Card>
+        tab === "cho-danh-gia" ? (
+          <EmptyState
+            illustration="check"
+            title="Không có buổi phỏng vấn nào chờ đánh giá"
+            description="Mọi buổi phỏng vấn đã hoàn thành đều đã có đánh giá."
+          />
+        ) : (
+          <EmptyState
+            illustration="calendar"
+            title={t.empty.interviewsUpcoming}
+            description="Đặt lịch ngay trên thang ứng viên — nấc 'Đánh giá' có nút đặt lịch, kèm câu hỏi phỏng vấn do AI soạn sẵn."
+            action={
+              profile.role !== "hiring_manager" ? (
+                <Button asChild>
+                  <Link href="/ung-vien?stage=evaluating">Mở ứng viên đang đánh giá</Link>
+                </Button>
+              ) : undefined
+            }
+          />
+        )
       ) : (
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
           {list.map((iv: InterviewRow) => {
@@ -101,7 +108,7 @@ export default async function InterviewsPage({
                     <p className="text-sm font-bold tabular-nums text-brand-900">
                       {formatDateTime(iv.scheduled_at)}
                     </p>
-                    <p className="mt-0.5 flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
+                    <p className="mt-0.5 flex items-center gap-1 text-2xs uppercase tracking-wide text-slate-500">
                       <TypeIcon className="h-3 w-3 shrink-0" aria-hidden />
                       {iv.duration_min} phút
                     </p>
@@ -123,7 +130,7 @@ export default async function InterviewsPage({
                       <p className="mt-0.5 text-xs text-slate-500">{t.interviewType[iv.type]}</p>
                     )}
                   </div>
-                  <span className="shrink-0 text-[10px] uppercase tracking-wide text-slate-400">
+                  <span className="shrink-0 text-2xs uppercase tracking-wide text-slate-400">
                     {formatRelative(iv.scheduled_at)}
                   </span>
                 </Link>
@@ -132,6 +139,6 @@ export default async function InterviewsPage({
           })}
         </ul>
       )}
-    </div>
+    </PageContainer>
   );
 }

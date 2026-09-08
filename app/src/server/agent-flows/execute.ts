@@ -1,6 +1,9 @@
 import "server-only";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { audit_log } from "@/db/schema";
+import { audit_log, approvals } from "@/db/schema";
+import { t } from "@/lib/i18n";
+import { VALID_STAGES_BY_KIND } from "./events";
 import { scheduleInterview } from "@/server/interviews/service";
 import { startApproval } from "@/server/approvals/engine";
 import { composeFromTemplate, composeAdHoc } from "@/server/email/service";
@@ -50,6 +53,16 @@ export async function executeProposal(
     return { ok: false, error: "Đề xuất này đã được xử lý" };
   }
 
+  // Preflight (audit P1): the world may have moved since the card was made —
+  // a candidate rejected in another tab, a stage changed by hand. Never run a
+  // stale card's action; fail it with a plain reason and let the reconcile
+  // re-propose if the situation still calls for it.
+  const stale = preflightError(proposal);
+  if (stale) {
+    await markProposalOutcome(id, actor.id, { status: "failed", error: stale });
+    return { ok: false, error: stale };
+  }
+
   let result: ExecuteResult;
   try {
     result = await executeByKind(proposal, actor, options);
@@ -66,6 +79,24 @@ export async function executeProposal(
   );
   await audit(actor, proposal, result);
   return result;
+}
+
+/** Candidate-bound kinds must still fit the candidate's CURRENT stage. */
+function preflightError(p: ProposalRow): string | null {
+  if (!p.candidate_id || !p.candidate_stage) return null;
+  const stage = String(p.candidate_stage);
+  const valid = VALID_STAGES_BY_KIND[p.kind];
+  if (valid === "any-movement-voids") {
+    const payloadStage = (p.payload as { stage?: string }).stage;
+    return payloadStage && payloadStage !== stage
+      ? "Ứng viên đã chuyển giai đoạn — đề xuất không còn hiệu lực"
+      : null;
+  }
+  if (valid.length > 0 && !valid.includes(stage)) {
+    const label = (t.stage as Record<string, string>)[stage] ?? stage;
+    return `Ứng viên đang ở "${label}" — đề xuất này không còn hiệu lực`;
+  }
+  return null;
 }
 
 async function executeByKind(
@@ -103,6 +134,65 @@ async function executeByKind(
     case "job_from_intent": {
       const { executeJobFromIntent } = await import("./job-from-intent");
       return executeJobFromIntent(p, actor);
+    }
+    case "onboarding_packet":
+    case "probation_review":
+    case "contract_renewal":
+    case "leave_request": {
+      const { executeEmployeeProposal } = await import("@/server/employee-agent/execute");
+      return executeEmployeeProposal(p, actor);
+    }
+    case "confirm_hire": {
+      if (!p.candidate_id) return { ok: false, error: "Thiếu ứng viên" };
+      const { transitionStage } = await import("@/server/candidates/service");
+      const moved = await transitionStage(p.candidate_id, "hired", {
+        actorUserId: actor.id,
+        notes: "Xác nhận tuyển từ đề xuất của trợ lý",
+      });
+      // ATS ↔ HRM seam: same conversion the manual hire runs; best-effort.
+      let employeeId: string | null = null;
+      try {
+        const { ensureEmployeeForCandidate } = await import("@/server/employees/service");
+        employeeId = (await ensureEmployeeForCandidate(p.candidate_id)).id;
+      } catch {
+        // recoverable via the manual "Chuyển thành nhân viên" action
+      }
+      return {
+        ok: true,
+        executedRef: employeeId ? { employee_id: employeeId } : {},
+        message: moved.changed
+          ? "Đã xác nhận tuyển và tạo hồ sơ nhân viên"
+          : "Ứng viên đã ở trạng thái Đã tuyển",
+      };
+    }
+    case "retry_scoring": {
+      if (!p.candidate_id) return { ok: false, error: "Thiếu ứng viên" };
+      const { aiAvailability } = await import("@/server/ai/availability");
+      const avail = await aiAvailability();
+      if (!avail.ok) return { ok: false, error: avail.message };
+      const { enqueueScoring } = await import("@/server/scoring/repository");
+      const { triggerScoring } = await import("@/server/scoring/orchestration");
+      const q = await enqueueScoring(p.candidate_id, actor.id);
+      triggerScoring(p.candidate_id);
+      return {
+        ok: true,
+        executedRef: { queue_id: q.queue_id },
+        message: "Đã xếp hàng chấm lại — kết quả trong 1–2 phút",
+      };
+    }
+    case "orphan_approval": {
+      if (!p.candidate_id) return { ok: false, error: "Thiếu ứng viên" };
+      const db = await getDb();
+      const cancelled = await db
+        .update(approvals)
+        .set({ status: "cancelled" })
+        .where(and(eq(approvals.candidate_id, p.candidate_id), eq(approvals.status, "pending")))
+        .returning({ id: approvals.id });
+      return {
+        ok: true,
+        executedRef: { cancelled: String(cancelled.length) },
+        message: `Đã hủy ${cancelled.length} bước duyệt treo`,
+      };
     }
     default:
       return { ok: false, error: `Loại đề xuất chưa hỗ trợ: ${p.kind}` };

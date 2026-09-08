@@ -1,7 +1,27 @@
 import "server-only";
-import { and, desc, eq, getTableColumns, inArray, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import { getDb } from "@/db";
-import { agent_proposals, candidates, jobs, type ProposalKind } from "@/db/schema";
+import {
+  agent_proposals,
+  candidates,
+  jobs,
+  employees,
+  people,
+  job_assignments,
+  type ProposalKind,
+} from "@/db/schema";
 
 /**
  * agent_proposals data access (ADR 0020). All writes funnel through here so
@@ -13,6 +33,8 @@ export interface NewProposal {
   /** null for job_from_intent — the job doesn't exist until approval. */
   jobId: string | null;
   candidateId?: string | null;
+  /** HRM H1 — set for employee-lifecycle proposals (onboarding/probation/contract). */
+  employeeId?: string | null;
   kind: ProposalKind;
   summary: string;
   reasoning?: string | null;
@@ -48,6 +70,7 @@ export async function createProposal(p: NewProposal): Promise<{ id: string } | n
     .values({
       job_id: p.jobId,
       candidate_id: p.candidateId ?? null,
+      employee_id: p.employeeId ?? null,
       kind: p.kind,
       summary: p.summary.slice(0, 300),
       reasoning: p.reasoning?.slice(0, 2000) ?? null,
@@ -55,7 +78,13 @@ export async function createProposal(p: NewProposal): Promise<{ id: string } | n
       dedupe_key: p.dedupeKey,
     })
     .returning({ id: agent_proposals.id })
-    .then((r) => r[0] ?? null);
+    .then((r) => r[0] ?? null)
+    .catch((err: unknown) => {
+      // Lost the race to a concurrent twin (uq_proposals_open_dedupe) — same
+      // outcome as the pre-check: nothing to add.
+      if (String(err).includes("UNIQUE")) return null;
+      throw err;
+    });
 
   if (row) {
     // Bell: a new card is waiting on the Hôm nay feed. Error-swallowing by
@@ -76,6 +105,8 @@ export type ProposalRow = typeof agent_proposals.$inferSelect & {
   candidate_stage: string | null;
   candidate_archived: boolean | null;
   job_title: string | null;
+  employee_name: string | null;
+  employee_department_id: string | null;
 };
 
 function proposalSelect(db: Awaited<ReturnType<typeof getDb>>) {
@@ -86,15 +117,41 @@ function proposalSelect(db: Awaited<ReturnType<typeof getDb>>) {
       candidate_stage: candidates.current_stage,
       candidate_archived: candidates.is_archived,
       job_title: jobs.title,
+      employee_name: people.full_name,
+      employee_department_id: employees.department_id,
     })
     .from(agent_proposals)
     .leftJoin(candidates, eq(agent_proposals.candidate_id, candidates.id))
-    .leftJoin(jobs, eq(agent_proposals.job_id, jobs.id));
+    .leftJoin(jobs, eq(agent_proposals.job_id, jobs.id))
+    .leftJoin(employees, eq(agent_proposals.employee_id, employees.id))
+    .leftJoin(people, eq(employees.person_id, people.id));
 }
 
 /**
- * Open proposals for the feed, newest first. Cards whose candidate or job
- * was archived are hidden (belt — archive/close also supersedes them).
+ * Feed order: decisions people are waiting on (leave, hire confirmation,
+ * approvals, offers, contracts) before housekeeping; stale nudges last so a
+ * backstop run can never bury the cards that matter. Newest first within a
+ * band.
+ */
+const FEED_ORDER = sql`case ${agent_proposals.kind}
+  when 'leave_request' then 0
+  when 'confirm_hire' then 0
+  when 'start_approval' then 1
+  when 'compose_offer' then 1
+  when 'interview_invite' then 1
+  when 'probation_review' then 1
+  when 'contract_renewal' then 1
+  when 'onboarding_packet' then 2
+  when 'job_from_intent' then 2
+  when 'orphan_approval' then 3
+  when 'retry_scoring' then 3
+  when 'nudge_stale' then 4
+  else 2 end`;
+
+/**
+ * Open proposals for the feed, priority band then newest. Cards whose
+ * candidate or job was archived are hidden (belt — archive/close also
+ * supersedes them).
  */
 export async function listOpenProposals(limit = 30): Promise<ProposalRow[]> {
   const db = await getDb();
@@ -106,8 +163,53 @@ export async function listOpenProposals(limit = 30): Promise<ProposalRow[]> {
         or(isNull(agent_proposals.job_id), eq(jobs.is_archived, false)),
       ),
     )
-    .orderBy(desc(agent_proposals.created_at))
+    .orderBy(FEED_ORDER, desc(agent_proposals.created_at))
     .limit(limit) as Promise<ProposalRow[]>;
+}
+
+/**
+ * A hiring manager's slice of the feed (UX audit 2026-09-08 — managers never
+ * saw the feed, so the leave cards addressed to them were invisible): cards
+ * for jobs they're assigned to + employee cards (leave, probation, contract)
+ * in their department.
+ */
+export async function listOpenProposalsForManager(
+  userId: string,
+  departmentId: string | null,
+  limit = 30,
+): Promise<ProposalRow[]> {
+  const db = await getDb();
+  const assigned = await db
+    .select({ job_id: job_assignments.job_id })
+    .from(job_assignments)
+    .where(eq(job_assignments.manager_user_id, userId));
+  const jobIds = assigned.map((a) => a.job_id);
+
+  const scope = [];
+  if (jobIds.length > 0) {
+    scope.push(and(inArray(agent_proposals.job_id, jobIds), eq(candidates.is_archived, false)));
+  }
+  if (departmentId) {
+    scope.push(
+      and(isNotNull(agent_proposals.employee_id), eq(employees.department_id, departmentId)),
+    );
+  }
+  if (scope.length === 0) return [];
+
+  return proposalSelect(db)
+    .where(and(eq(agent_proposals.status, "proposed"), or(...scope)))
+    .orderBy(FEED_ORDER, desc(agent_proposals.created_at))
+    .limit(limit) as Promise<ProposalRow[]>;
+}
+
+/** Server-side scope check for a manager's approve/dismiss — never trust the UI. */
+export async function isProposalInManagerScope(
+  proposalId: string,
+  userId: string,
+  departmentId: string | null,
+): Promise<boolean> {
+  const rows = await listOpenProposalsForManager(userId, departmentId, 500);
+  return rows.some((p) => p.id === proposalId);
 }
 
 export async function getProposal(id: string): Promise<ProposalRow | null> {
@@ -192,6 +294,19 @@ export async function supersedeOpenProposalsForJob(jobId: string): Promise<void>
     .where(and(eq(agent_proposals.job_id, jobId), eq(agent_proposals.status, "proposed")));
 }
 
+/**
+ * Supersede an open proposal by its dedupe_key — used when the proposed act is
+ * decided OUTSIDE the feed (e.g. a leave request approved/denied on its page),
+ * so the stale card leaves the "Hôm nay" feed.
+ */
+export async function supersedeProposalByDedupeKey(dedupeKey: string): Promise<void> {
+  const db = await getDb();
+  await db
+    .update(agent_proposals)
+    .set({ status: "superseded", decided_at: new Date().toISOString() })
+    .where(and(eq(agent_proposals.dedupe_key, dedupeKey), eq(agent_proposals.status, "proposed")));
+}
+
 /** Mark specific open proposals superseded (only touches `proposed` rows). */
 export async function supersedeProposals(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
@@ -234,4 +349,118 @@ export async function countOpenProposals(): Promise<number> {
     .where(eq(agent_proposals.status, "proposed"))
     .then((r) => r[0] ?? null);
   return row?.n ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// Run log / health (agentic audit P1) — what the assistant proposed, what
+// humans did with it, and what broke. Read by the admin system page.
+// ---------------------------------------------------------------------------
+
+export interface ProposalKindStat {
+  kind: string;
+  proposed: number;
+  executed: number;
+  failed: number;
+  dismissed: number;
+  superseded: number;
+}
+
+export interface ProposalStats {
+  window_days: number;
+  total: number;
+  open: number;
+  executed: number;
+  dismissed: number;
+  failed: number;
+  superseded: number;
+  /** executed / (executed + dismissed) — how often a card was worth showing. */
+  acceptance_rate: number | null;
+  oldest_open_at: string | null;
+  by_kind: ProposalKindStat[];
+  recent_failures: Array<{
+    id: string;
+    kind: string;
+    summary: string;
+    error: string | null;
+    decided_at: string | null;
+  }>;
+}
+
+export async function proposalStats(windowDays = 30): Promise<ProposalStats> {
+  const db = await getDb();
+  const since = new Date(Date.now() - windowDays * 86_400_000).toISOString();
+
+  const grouped = await db
+    .select({
+      kind: agent_proposals.kind,
+      status: agent_proposals.status,
+      n: sql<number>`count(*)`,
+    })
+    .from(agent_proposals)
+    .where(gte(agent_proposals.created_at, since))
+    .groupBy(agent_proposals.kind, agent_proposals.status);
+
+  const byKind = new Map<string, ProposalKindStat>();
+  const totals = { total: 0, open: 0, executed: 0, dismissed: 0, failed: 0, superseded: 0 };
+  for (const g of grouped) {
+    const n = Number(g.n);
+    const k =
+      byKind.get(g.kind) ??
+      ({
+        kind: g.kind,
+        proposed: 0,
+        executed: 0,
+        failed: 0,
+        dismissed: 0,
+        superseded: 0,
+      } as ProposalKindStat);
+    k.proposed += n;
+    totals.total += n;
+    if (g.status === "proposed" || g.status === "approved") totals.open += n;
+    else if (g.status === "executed") {
+      k.executed += n;
+      totals.executed += n;
+    } else if (g.status === "failed") {
+      k.failed += n;
+      totals.failed += n;
+    } else if (g.status === "dismissed") {
+      k.dismissed += n;
+      totals.dismissed += n;
+    } else if (g.status === "superseded") {
+      k.superseded += n;
+      totals.superseded += n;
+    }
+    byKind.set(g.kind, k);
+  }
+
+  const oldestOpen = await db
+    .select({ created_at: agent_proposals.created_at })
+    .from(agent_proposals)
+    .where(eq(agent_proposals.status, "proposed"))
+    .orderBy(asc(agent_proposals.created_at))
+    .limit(1)
+    .then((r) => r[0]?.created_at ?? null);
+
+  const recentFailures = await db
+    .select({
+      id: agent_proposals.id,
+      kind: agent_proposals.kind,
+      summary: agent_proposals.summary,
+      error: agent_proposals.error,
+      decided_at: agent_proposals.decided_at,
+    })
+    .from(agent_proposals)
+    .where(eq(agent_proposals.status, "failed"))
+    .orderBy(desc(agent_proposals.decided_at))
+    .limit(5);
+
+  const decided = totals.executed + totals.dismissed;
+  return {
+    window_days: windowDays,
+    ...totals,
+    acceptance_rate: decided > 0 ? totals.executed / decided : null,
+    oldest_open_at: oldestOpen,
+    by_kind: [...byKind.values()].sort((a, b) => b.proposed - a.proposed),
+    recent_failures: recentFailures,
+  };
 }

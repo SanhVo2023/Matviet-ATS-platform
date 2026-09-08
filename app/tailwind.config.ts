@@ -47,6 +47,10 @@ const config: Config = {
         sans: ["var(--font-be-vietnam-pro)", "system-ui", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "monospace"],
       },
+      fontSize: {
+        // 11px — the smallest legible utility size; replaces ad-hoc text-[10px]/[11px]
+        "2xs": ["0.6875rem", { lineHeight: "1rem" }],
+      },
       colors: {
         // shadcn/ui CSS variable bridge (consumed by ui/* components)
         border: "hsl(var(--border))",

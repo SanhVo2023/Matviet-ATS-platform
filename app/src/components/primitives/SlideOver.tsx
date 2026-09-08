@@ -70,7 +70,7 @@ export function SlideOver({
               ) : null}
             </div>
             <DialogPrimitive.Close
-              className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Đóng"
             >
               <X className="h-4 w-4" aria-hidden />

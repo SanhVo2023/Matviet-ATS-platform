@@ -1,6 +1,15 @@
 "use client";
 
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { StatusPill } from "@/components/primitives/StatusPill";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { t } from "@/lib/i18n";
 import type { SourceEffectivenessRow } from "@/server/reports/types";
 
@@ -24,42 +33,44 @@ export function SourceEffectivenessTable({ rows }: { rows: SourceEffectivenessRo
           Chưa có dữ liệu
         </div>
       ) : (
-        <table className="w-full text-xs">
-          <thead className="bg-slate-50 text-slate-600">
-            <tr>
-              <th className="px-2 py-1.5 text-left font-medium">Nguồn</th>
-              <th className="px-2 py-1.5 text-right font-medium">CV</th>
-              <th className="px-2 py-1.5 text-right font-medium">Tuyển</th>
-              <th className="px-2 py-1.5 text-right font-medium">Tỷ lệ</th>
-              <th className="px-2 py-1.5 text-right font-medium">TG TB</th>
-              <th className="px-2 py-1.5 text-right font-medium">Điểm AI</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
+        <Table className="text-xs">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="h-auto px-2 py-1.5">Nguồn</TableHead>
+              <TableHead className="h-auto px-2 py-1.5 text-right">CV</TableHead>
+              <TableHead className="h-auto px-2 py-1.5 text-right">Tuyển</TableHead>
+              <TableHead className="h-auto px-2 py-1.5 text-right">Tỷ lệ</TableHead>
+              <TableHead className="h-auto px-2 py-1.5 text-right">TG TB</TableHead>
+              <TableHead className="h-auto px-2 py-1.5 text-right">Điểm AI</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((r) => (
-              <tr key={r.source}>
-                <td className="px-2 py-2 font-medium text-slate-900">
+              <TableRow key={r.source}>
+                <TableCell className="px-2 py-2 font-medium text-slate-900">
                   {SOURCE_LABEL[r.source] ?? r.source}
-                </td>
-                <td className="px-2 py-2 text-right tabular-nums text-slate-700">
+                </TableCell>
+                <TableCell className="px-2 py-2 text-right tabular-nums text-slate-700">
                   {r.candidates_in}
-                </td>
-                <td className="px-2 py-2 text-right tabular-nums text-slate-700">{r.hires_out}</td>
-                <td className="px-2 py-2 text-right tabular-nums">
+                </TableCell>
+                <TableCell className="px-2 py-2 text-right tabular-nums text-slate-700">
+                  {r.hires_out}
+                </TableCell>
+                <TableCell className="px-2 py-2 text-right tabular-nums">
                   <HireRatePill rate={r.hire_rate} />
-                </td>
-                <td className="px-2 py-2 text-right tabular-nums text-slate-700">
+                </TableCell>
+                <TableCell className="px-2 py-2 text-right tabular-nums text-slate-700">
                   {r.avg_days_to_hire != null
                     ? `${r.avg_days_to_hire.toLocaleString("vi-VN", { maximumFractionDigits: 1 })} ngày`
                     : "—"}
-                </td>
-                <td className="px-2 py-2 text-right tabular-nums text-slate-700">
+                </TableCell>
+                <TableCell className="px-2 py-2 text-right tabular-nums text-slate-700">
                   {r.avg_ai_score != null ? r.avg_ai_score.toFixed(1) : "—"}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </div>
   );
@@ -67,18 +78,10 @@ export function SourceEffectivenessTable({ rows }: { rows: SourceEffectivenessRo
 
 function HireRatePill({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100);
-  const colorClass =
-    pct >= 30
-      ? "bg-success-bg text-success-fg"
-      : pct >= 15
-        ? "bg-warning-bg text-warning-fg"
-        : pct === 0
-          ? "bg-slate-100 text-slate-500"
-          : "bg-danger-bg text-danger-fg";
-  const Arrow = pct >= 15 ? ArrowUpRight : ArrowDownRight;
+  const tone = pct >= 30 ? "success" : pct >= 15 ? "warning" : pct === 0 ? "neutral" : "error";
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${colorClass}`}>
-      <Arrow className="h-3 w-3" aria-hidden /> {pct}%
-    </span>
+    <StatusPill tone={tone} size="sm" icon={pct >= 15 ? ArrowUpRight : ArrowDownRight}>
+      {pct}%
+    </StatusPill>
   );
 }

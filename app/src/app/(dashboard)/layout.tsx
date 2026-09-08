@@ -39,7 +39,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     >
       {/* pb-16 clears the fixed bottom tab bar on mobile (< md, aligned with
           the sidebar's md breakpoint — renovation R2) */}
-      <div className="pb-16 md:pb-0">{children}</div>
+      <div className="pb-28 md:pb-0">{children}</div>
       <div className="contents print:hidden">
         <BottomTabs
           role={profile.role}

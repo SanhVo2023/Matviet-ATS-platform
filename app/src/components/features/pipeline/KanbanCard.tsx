@@ -109,7 +109,7 @@ export function KanbanCard({ candidate, overlay }: Props) {
                 </Link>
               )}
               {candidate.ai_score != null ? (
-                <span className="inline-flex shrink-0 items-center rounded-full bg-brand-900 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-accent-400">
+                <span className="inline-flex shrink-0 items-center rounded-full bg-brand-900 px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-accent-400">
                   {Math.round(candidate.ai_score)}
                 </span>
               ) : null}
@@ -123,7 +123,7 @@ export function KanbanCard({ candidate, overlay }: Props) {
               />
               <span
                 className={cn(
-                  "min-w-0 flex-1 truncate text-[11px] font-medium",
+                  "min-w-0 flex-1 truncate text-2xs font-medium",
                   READINESS_TEXT[readiness.tone],
                 )}
               >
@@ -133,7 +133,7 @@ export function KanbanCard({ candidate, overlay }: Props) {
                   ? ` · ${readiness.daysWaiting} ngày`
                   : ""}
               </span>
-              <span className="shrink-0 text-[10px] text-slate-500">
+              <span className="shrink-0 text-2xs text-slate-500">
                 {formatRelative(candidate.updated_at)}
               </span>
             </div>
@@ -146,7 +146,7 @@ export function KanbanCard({ candidate, overlay }: Props) {
                 onChange={(e) => {
                   if (e.target.value) onMobileStage(e.target.value as Stage);
                 }}
-                className="mt-2 h-9 w-full rounded border border-slate-200 bg-white px-2 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-ring md:hidden"
+                className="mt-2 h-9 w-full rounded border border-slate-200 bg-white px-2 text-xs text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
               >
                 <option value="">Chuyển sang…</option>
                 {mobileTargets.map((s) => (

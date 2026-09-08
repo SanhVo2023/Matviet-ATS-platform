@@ -174,7 +174,7 @@ export function InterviewReviewForm({ interviewId, candidateId, existing }: Prop
             onChange={(e) => setSalary(e.target.value)}
             placeholder="VD: 12000000"
           />
-          <p className="text-[10px] text-slate-400">Đơn vị: đồng. Để trống nếu chưa quyết.</p>
+          <p className="text-2xs text-slate-400">Đơn vị: đồng. Để trống nếu chưa quyết.</p>
         </div>
         <div className="space-y-2">
           <Label>{t.interview.review.recommendation}</Label>

@@ -1,3 +1,5 @@
+import { PageContainer } from "@/components/primitives/PageContainer";
+
 /**
  * Route-group loading skeleton — shown during server-render of any dashboard
  * page. Mirrors the common page anatomy (header + card grid) so the swap to
@@ -5,7 +7,7 @@
  */
 export default function DashboardLoading() {
   return (
-    <div className="mx-auto max-w-7xl animate-pulse space-y-8 p-6 lg:p-8" aria-busy="true">
+    <PageContainer size="default" className="animate-pulse space-y-8" aria-busy="true">
       <div className="space-y-2">
         <div className="h-8 w-56 rounded-md bg-slate-200" />
         <div className="h-4 w-80 rounded-md bg-slate-100" />
@@ -23,6 +25,6 @@ export default function DashboardLoading() {
         <div className="h-72 rounded-lg border border-slate-200 bg-white lg:col-span-5" />
       </div>
       <span className="sr-only">Đang tải…</span>
-    </div>
+    </PageContainer>
   );
 }

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CheckCircle2, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -228,15 +229,16 @@ export function ApplyForm({ jobId, jobTitle }: Props) {
         ) : null}
       </div>
 
-      <label className="flex items-start gap-2 text-xs text-slate-600">
-        <input
-          type="checkbox"
+      <label htmlFor="apply-consent" className="flex items-start gap-2 text-xs text-slate-600">
+        <Checkbox
+          id="apply-consent"
           checked={consent}
-          onChange={(e) => {
+          onCheckedChange={(checked) => {
             touch("consent");
-            setConsent(e.target.checked);
+            setConsent(checked === true);
           }}
-          className="mt-0.5 h-5 w-5 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+          className="mt-0.5"
+          aria-invalid={!!show("consent")}
         />
         <span>
           Tôi đồng ý cho Mắt Việt thu thập và xử lý thông tin cá nhân trong hồ sơ này cho mục đích

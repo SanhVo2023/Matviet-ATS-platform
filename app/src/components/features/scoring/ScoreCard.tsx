@@ -195,7 +195,7 @@ function HighlightItem({
         <span className="font-medium text-slate-800">{t.criterion[code]}</span>
         <span
           className={cn(
-            "rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+            "rounded-full px-1.5 py-0.5 text-2xs font-semibold tabular-nums",
             scoreChipClass(score),
           )}
         >
@@ -238,7 +238,7 @@ function CriterionRow({
         <span className="text-xs text-slate-400">{Math.round(weight * 100)}%</span>
         <span
           className={cn(
-            "w-10 rounded-full px-1.5 py-0.5 text-center text-[11px] font-semibold tabular-nums",
+            "w-10 rounded-full px-1.5 py-0.5 text-center text-2xs font-semibold tabular-nums",
             scoreChipClass(score),
           )}
         >
@@ -256,7 +256,7 @@ function CriterionRow({
         <div className="space-y-2 bg-slate-50/60 px-3 py-2 text-xs">
           {result.reasoning ? (
             <div>
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-slate-500">
                 {t.score.reasoning}
               </p>
               <p className="text-slate-700" lang="vi">
@@ -265,7 +265,7 @@ function CriterionRow({
             </div>
           ) : null}
           <div>
-            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-slate-500">
               Bằng chứng
             </p>
             {result.evidence_quotes.length > 0 ? (

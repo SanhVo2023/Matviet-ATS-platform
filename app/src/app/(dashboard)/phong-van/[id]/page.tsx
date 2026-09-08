@@ -14,6 +14,7 @@ import { getJob } from "@/server/jobs/repository";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/primitives/PageHeader";
+import { PageContainer } from "@/components/primitives/PageContainer";
 import { InterviewReviewForm } from "@/components/features/interviews/InterviewReviewForm";
 import { AiQuestionsCard } from "@/components/features/interviews/AiQuestionsCard";
 import { t } from "@/lib/i18n";
@@ -61,7 +62,7 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
     attendees.some((a) => a.user_id === profile.id);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6 lg:p-8">
+    <PageContainer size="detail" className="space-y-6">
       <PageHeader
         back="/phong-van"
         backLabel={t.nav.interviews}
@@ -143,7 +144,7 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
                 </Avatar>
                 <span className="font-medium text-slate-700">{name}</span>
                 {myEval ? (
-                  <span className="rounded bg-success-bg px-1 text-[10px] font-medium text-success-fg">
+                  <span className="rounded bg-success-bg px-1 text-2xs font-medium text-success-fg">
                     Đã đánh giá
                   </span>
                 ) : null}
@@ -234,7 +235,7 @@ export default async function InterviewDetailPage({ params }: { params: Promise<
           </CardContent>
         </Card>
       )}
-    </div>
+    </PageContainer>
   );
 }
 

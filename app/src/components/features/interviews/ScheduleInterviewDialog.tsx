@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DateInput } from "@/components/primitives/DateInput";
 import { cn } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { INTERVIEW_TYPES } from "@/lib/validation/interview";
@@ -97,13 +99,7 @@ export function ScheduleInterviewDialog({
               <Label htmlFor="iv-date" className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-slate-400" aria-hidden /> Ngày
               </Label>
-              <Input
-                id="iv-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-              />
+              <DateInput id="iv-date" value={date} onChange={setDate} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="iv-time" className="flex items-center gap-1.5">
@@ -148,7 +144,7 @@ export function ScheduleInterviewDialog({
                   )}
                 >
                   <p className="font-medium">{t.interviewType[tp]}</p>
-                  <p className="mt-0.5 text-[10px] text-slate-500">{TYPE_HINT[tp]}</p>
+                  <p className="mt-0.5 text-2xs text-slate-500">{TYPE_HINT[tp]}</p>
                 </button>
               ))}
             </div>
@@ -189,16 +185,16 @@ export function ScheduleInterviewDialog({
                 interviewers.map((u) => (
                   <label
                     key={u.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-slate-50"
+                    htmlFor={`attendee-${u.id}`}
+                    className="flex min-h-10 cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-slate-50"
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
+                      id={`attendee-${u.id}`}
                       checked={attendeeIds.includes(u.id)}
-                      onChange={() => toggleAttendee(u.id)}
-                      className="h-4 w-4"
+                      onCheckedChange={() => toggleAttendee(u.id)}
                     />
                     <span className="flex-1 text-sm text-slate-700">{u.full_name ?? u.id}</span>
-                    <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                    <span className="text-2xs uppercase tracking-wide text-slate-500">
                       {t.userRole[u.role as keyof typeof t.userRole] ?? u.role}
                     </span>
                   </label>
