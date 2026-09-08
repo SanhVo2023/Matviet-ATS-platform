@@ -64,6 +64,13 @@
       "when": 1788766690077,
       "tag": "0008_flashy_garia",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1788838572630,
+      "tag": "0009_woozy_ultron",
+      "breakpoints": true
     }
   ]
 }

@@ -148,29 +148,29 @@ export const MODULES: AppModule[] = [
   {
     key: "employees",
     href: "/nhan-vien",
-    label: "Nhân viên",
+    label: t.nav.employees,
     icon: IdCard,
     roles: ["admin", "hr"],
     group: "hris",
-    enabled: false,
+    enabled: true, // HRM H0
   },
   {
     key: "org",
     href: "/phong-ban",
-    label: "Phòng ban",
+    label: t.nav.org,
     icon: Building2,
     roles: ["admin", "hr"],
     group: "hris",
-    enabled: false,
+    enabled: true, // HRM H0
   },
   {
     key: "leave",
     href: "/nghi-phep",
-    label: "Nghỉ phép",
+    label: t.nav.leave,
     icon: CalendarClock,
     roles: ["admin", "hr", "hiring_manager"],
     group: "hris",
-    enabled: false,
+    enabled: false, // HRM H2
   },
 
   // ----- System -----

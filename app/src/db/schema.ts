@@ -67,7 +67,11 @@ export const EMAIL_STATUSES = [
   "failed",
   "received",
 ] as const;
-export const EMPLOYEE_STATUSES = ["active", "on_leave", "terminated"] as const;
+// Employee lifecycle status (HRM H0). `probation` = đang thử việc; `active` =
+// chính thức; `on_leave` = tạm nghỉ (thai sản/không lương dài); `terminated` = đã nghỉ việc.
+export const EMPLOYEE_STATUSES = ["probation", "active", "on_leave", "terminated"] as const;
+// Hình thức làm việc (HRM H0).
+export const EMPLOYMENT_TYPES = ["full_time", "part_time", "seasonal"] as const;
 
 const uuid = () => crypto.randomUUID();
 const nowIso = () => new Date().toISOString();
@@ -185,6 +189,11 @@ export const people = sqliteTable(
     dob: text("dob"),
     gender: text("gender"),
     national_id: text("national_id"),
+    // HRM H0 — Vietnamese identity/compliance numbers (person-level, survive
+    // candidate→employee→alumnus). Nullable; the ATS never writes these.
+    bhxh_no: text("bhxh_no"), // mã số BHXH
+    tax_no: text("tax_no"), // mã số thuế TNCN
+    permanent_address: text("permanent_address"), // địa chỉ thường trú
     created_at: text("created_at").notNull().$defaultFn(nowIso),
     updated_at: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),
   },
@@ -220,11 +229,33 @@ export const employees = sqliteTable(
     department_id: text("department_id").references(() => departments.id),
     position_id: text("position_id").references(() => positions.id),
     hired_at: text("hired_at"),
-    status: text("status", { enum: EMPLOYEE_STATUSES }).notNull().default("active"),
+    status: text("status", { enum: EMPLOYEE_STATUSES }).notNull().default("probation"),
+    // HRM H0 — employment context. `manager_id` is a self-ref (plain text, no FK
+    // constraint — mirrors departments.parent_id) to avoid circular typing.
+    manager_id: text("manager_id"),
+    store_location: text("store_location"), // cửa hàng / nơi làm việc
+    employment_type: text("employment_type", { enum: EMPLOYMENT_TYPES })
+      .notNull()
+      .default("full_time"),
+    start_date: text("start_date"), // ngày bắt đầu làm việc (vs hired_at = ngày ra quyết định)
+    work_email: text("work_email"),
+    bank_account: text("bank_account"),
+    bank_name: text("bank_name"),
+    emergency_contact_name: text("emergency_contact_name"),
+    emergency_contact_phone: text("emergency_contact_phone"),
+    // Link back to the candidate this employee was converted from (ADR 0012
+    // lineage; nullable for employees added directly, not via hiring).
+    source_candidate_id: text("source_candidate_id"),
+    notes: text("notes"),
     created_at: text("created_at").notNull().$defaultFn(nowIso),
     updated_at: text("updated_at").notNull().$defaultFn(nowIso).$onUpdateFn(nowIso),
   },
-  (t) => [index("idx_employees_person").on(t.person_id)],
+  (t) => [
+    index("idx_employees_person").on(t.person_id),
+    index("idx_employees_department").on(t.department_id),
+    index("idx_employees_manager").on(t.manager_id),
+    index("idx_employees_status").on(t.status),
+  ],
 );
 
 // ---------------------------------------------------------------------------

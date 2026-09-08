@@ -32,6 +32,9 @@ export const t = {
     tests: "Bài test",
     reports: "Báo cáo",
     referrals: "Giới thiệu nội bộ",
+    employees: "Nhân viên",
+    org: "Phòng ban",
+    leave: "Nghỉ phép",
     settings: "Cài đặt",
     audit: "Nhật ký hệ thống",
   },
@@ -284,6 +287,99 @@ export const t = {
     notes: "Ghi chú",
   },
 
+  // ----- HRM (H0) — employees, org -----
+
+  // Matches enum employee_status
+  employeeStatus: {
+    probation: "Thử việc",
+    active: "Chính thức",
+    on_leave: "Tạm nghỉ",
+    terminated: "Đã nghỉ việc",
+  },
+
+  // Matches enum employment_type
+  employmentType: {
+    full_time: "Toàn thời gian",
+    part_time: "Bán thời gian",
+    seasonal: "Thời vụ",
+  },
+
+  gender: {
+    male: "Nam",
+    female: "Nữ",
+    other: "Khác",
+  },
+
+  employee: {
+    title: "Nhân viên",
+    subtitle: "Hồ sơ nhân sự — từ ứng viên đến ngày nghỉ việc",
+    add: "Thêm nhân viên",
+    addTitle: "Thêm nhân viên mới",
+    editTitle: "Chỉnh sửa hồ sơ",
+    empty: "Chưa có nhân viên nào. Hồ sơ xuất hiện khi bạn tuyển ứng viên hoặc thêm thủ công.",
+    searchPlaceholder: "Tìm theo tên, mã, email…",
+    allDepartments: "Tất cả phòng ban",
+    allStatuses: "Mọi trạng thái",
+    fields: {
+      code: "Mã nhân viên",
+      fullName: "Họ và tên",
+      email: "Email cá nhân",
+      workEmail: "Email công việc",
+      phone: "Số điện thoại",
+      dob: "Ngày sinh",
+      gender: "Giới tính",
+      nationalId: "CCCD / CMND",
+      bhxhNo: "Mã số BHXH",
+      taxNo: "Mã số thuế TNCN",
+      permanentAddress: "Địa chỉ thường trú",
+      department: "Phòng ban",
+      position: "Vị trí",
+      manager: "Quản lý trực tiếp",
+      store: "Cửa hàng / Nơi làm việc",
+      employmentType: "Hình thức làm việc",
+      status: "Trạng thái",
+      hiredAt: "Ngày ra quyết định",
+      startDate: "Ngày bắt đầu làm việc",
+      bankAccount: "Số tài khoản",
+      bankName: "Ngân hàng",
+      emergencyContactName: "Người liên hệ khẩn cấp",
+      emergencyContactPhone: "SĐT khẩn cấp",
+      notes: "Ghi chú",
+    },
+    sections: {
+      employment: "Thông tin công việc",
+      personal: "Thông tin cá nhân",
+      compliance: "BHXH & Thuế",
+      bank: "Tài khoản & Liên hệ khẩn cấp",
+    },
+    fromCandidate: "Chuyển từ ứng viên",
+    convertCta: "Chuyển thành nhân viên",
+    converted: "Đã tạo hồ sơ nhân viên.",
+    createdFromHire: "Hồ sơ nhân viên được tạo tự động khi tuyển.",
+    alreadyEmployee: "Ứng viên này đã có hồ sơ nhân viên.",
+    noManager: "— Không có —",
+    unassigned: "Chưa phân công",
+  },
+
+  department: {
+    title: "Phòng ban & Tổ chức",
+    subtitle: "Cơ cấu tổ chức và danh mục vị trí",
+    add: "Thêm phòng ban",
+    addTitle: "Thêm phòng ban",
+    editTitle: "Sửa phòng ban",
+    addPosition: "Thêm vị trí",
+    empty: "Chưa có phòng ban nào. Hãy tạo phòng ban đầu tiên.",
+    name: "Tên phòng ban",
+    code: "Mã",
+    parent: "Trực thuộc",
+    head: "Trưởng phòng",
+    noParent: "— Cấp cao nhất —",
+    positions: "Vị trí",
+    positionTitle: "Tên vị trí",
+    noPositions: "Chưa có vị trí",
+    deleteBlocked: "Không thể xóa: vẫn còn nhân viên hoặc phòng ban con.",
+  },
+
   interview: {
     candidate: "Ứng viên",
     scheduledAt: "Thời gian",
@@ -510,6 +606,8 @@ export const t = {
     jobs: "{{count}} vị trí",
     interviews: "{{count}} phỏng vấn",
     results: "{{count}} kết quả",
+    employees: "{{count}} nhân viên",
+    positions: "{{count}} vị trí",
   },
 
   auth: {
@@ -546,6 +644,8 @@ export const tf = {
   candidates: (count: number) => interpolate(t.count.candidates, { count }),
   jobs: (count: number) => interpolate(t.count.jobs, { count }),
   results: (count: number) => interpolate(t.count.results, { count }),
+  employees: (count: number) => interpolate(t.count.employees, { count }),
+  positions: (count: number) => interpolate(t.count.positions, { count }),
   greeting: (name: string) => interpolate(t.managerInbox.greeting, { name }),
   signedIn: (name: string) => interpolate(t.success.signedIn, { name }),
 };

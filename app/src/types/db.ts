@@ -71,6 +71,7 @@ export type Database = {
       email_direction: (typeof s.EMAIL_DIRECTIONS)[number];
       email_status: (typeof s.EMAIL_STATUSES)[number];
       employee_status: (typeof s.EMPLOYEE_STATUSES)[number];
+      employment_type: (typeof s.EMPLOYMENT_TYPES)[number];
       flow_type: (typeof s.FLOW_TYPES)[number];
       interview_status: (typeof s.INTERVIEW_STATUSES)[number];
       interview_type: (typeof s.INTERVIEW_TYPES)[number];
